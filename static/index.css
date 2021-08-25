@@ -1,0 +1,31 @@
+#title-header {
+    text-align: center;
+    margin: 1em auto;
+    width: 100%;
+    position: absolute;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    user-select: none;
+    pointer-events: none;
+    color: rgba(100, 0, 200, 0.5);
+}
+
+#footer {
+    position: absolute;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 3px;
+    border-top-right-radius: 5px;
+    min-height: 2em;
+    font-family: sans-serif;
+    min-width: 20em;
+}
+
+.credits-title {
+    text-align: center;
+    font-weight: bold;
+}
+
+body {
+    overflow: hidden;
+    margin: 0;
+}
