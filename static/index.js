@@ -22,7 +22,7 @@ function getTitle() {
         case 'frankfurt.mewore.moe':
             return 'Reisen';
         case 'tewi.reisen':
-            return 'Tewi (actually just a carrot because I don\'t have a model for her :c)';
+            return "Tewi (actually just a carrot because I don't have a model for her :c)";
         default:
             return undefined;
     }

@@ -1,10 +1,6 @@
 import * as THREE from './three/three.module.js';
-import {
-    OrbitControls
-} from './three/jsm/controls/OrbitControls.js';
-import {
-    GLTFLoader
-} from './three/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from './three/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from './three/jsm/loaders/GLTFLoader.js';
 
 let container;
 let camera, globalScene, renderer;
@@ -21,7 +17,6 @@ init();
 animate(0);
 
 function init() {
-
     container = document.createElement('div');
     document.body.appendChild(container);
 
@@ -69,7 +64,7 @@ function init() {
     groundTexture.encoding = THREE.sRGBEncoding;
 
     const groundMaterial = new THREE.MeshLambertMaterial({
-        map: groundTexture
+        map: groundTexture,
     });
 
     let groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMaterial);
@@ -87,20 +82,22 @@ function init() {
     // model
 
     if (isReisen()) {
-        new GLTFLoader().setPath('./assets/reisen/').load('scene.gltf', function(gltf) {
+        new GLTFLoader().setPath('./assets/reisen/').load('scene.gltf', function (gltf) {
             const reisen = gltf.scene;
-            const reisenSize = 100
+            const reisenSize = 100;
             reisen.scale.set(reisenSize, reisenSize, reisenSize);
             reisen.position.set(dummyBox.position.x, dummyBox.position.y, dummyBox.position.z);
             reisen.castShadow = true;
             scene.add(reisen);
             scene.remove(dummyBox);
             character = reisen;
-            addCredit(`<a target="_blank" href="https://sketchfab.com/3d-models/reisen-inaba-touhou-voxel-model-da4c65185177427eb56450c802c7dd9c">Reisen model</a>` +
-                ` by <a target="_blank" href="https://sketchfab.com/Staycalm182">Staycalm182</a> (<a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)`);
+            addCredit(
+                `<a target="_blank" href="https://sketchfab.com/3d-models/reisen-inaba-touhou-voxel-model-da4c65185177427eb56450c802c7dd9c">Reisen model</a>` +
+                    ` by <a target="_blank" href="https://sketchfab.com/Staycalm182">Staycalm182</a> (<a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)`
+            );
         });
     } else {
-        new GLTFLoader().setPath('./assets/carrot/').load('scene.gltf', function(gltf) {
+        new GLTFLoader().setPath('./assets/carrot/').load('scene.gltf', function (gltf) {
             const carrotSize = 50;
             const carrot = gltf.scene;
             carrot.scale.set(carrotSize, carrotSize, carrotSize);
@@ -109,15 +106,17 @@ function init() {
             scene.add(carrot);
             scene.remove(dummyBox);
             character = carrot;
-            addCredit(`<a href="https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d" target="_blank">Carrot model</a>` +
-                ` by <a href="https://sketchfab.com/thepianomonster" target="_blank">thepianomonster</a>`);
+            addCredit(
+                `<a href="https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d" target="_blank">Carrot model</a>` +
+                    ` by <a href="https://sketchfab.com/thepianomonster" target="_blank">thepianomonster</a>`
+            );
         });
     }
 
     // renderer
 
     renderer = new THREE.WebGLRenderer({
-        antialias: true
+        antialias: true,
     });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -149,7 +148,7 @@ function onWindowResize() {
 function addCredit(html) {
     const newElement = document.createElement('div');
     newElement.innerHTML = html;
-    document.getElementById('footer').appendChild(newElement)
+    document.getElementById('footer').appendChild(newElement);
 }
 
 function animate(now) {
