@@ -3,7 +3,7 @@
     margin: 1em auto;
     width: 100%;
     position: absolute;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     user-select: none;
     pointer-events: none;
     color: rgba(100, 0, 200, 0.5);
@@ -18,11 +18,17 @@
     min-height: 2em;
     font-family: sans-serif;
     min-width: 20em;
+    user-select: none;
+    pointer-events: none;
 }
 
 .credits-title {
     text-align: center;
     font-weight: bold;
+}
+
+#footer a {
+    pointer-events: initial;
 }
 
 body {
