@@ -4,6 +4,7 @@ import { GLTFLoader } from './three/jsm/loaders/GLTFLoader.js';
 
 let container;
 let camera, globalScene, renderer;
+let globalControls;
 
 let character = undefined;
 
@@ -25,7 +26,7 @@ function init() {
 
     // camera
 
-    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 1, 10000);
+    camera = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 10000);
     camera.position.set(100, 50, 200);
 
     // lights
@@ -59,10 +60,10 @@ function init() {
 
     const groundTexture = new THREE.TextureLoader().load('./assets/ground.png');
     groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-    groundTexture.repeat.set(25, 25);
+    groundTexture.repeat.set(50, 50);
     groundTexture.anisotropy = 16;
     groundTexture.encoding = THREE.sRGBEncoding;
-    groundTexture.magFilter = THREE.NearestMipmapNearestFilter;
+    groundTexture.magFilter = THREE.NearestFilter;
 
     const groundMaterial = new THREE.MeshLambertMaterial({
         map: groundTexture,
@@ -127,9 +128,12 @@ function init() {
 
     // controls
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.maxPolarAngle = Math.PI * 0.5;
-    controls.minDistance = 100;
+    controls.maxPolarAngle = Math.PI * 0.6;
+    controls.minDistance = 50;
     controls.maxDistance = 1000;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.1;
+    globalControls = controls;
 
     window.addEventListener('resize', onWindowResize);
 }
@@ -164,6 +168,7 @@ function animate(now) {
 }
 
 function simulate(now) {
+    globalControls.update();
     if (character) {
         character.rotation.y = now * 0.001;
     }
