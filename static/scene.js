@@ -1,12 +1,20 @@
 import * as THREE from './three/three.module.js';
 import { OrbitControls } from './three/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from './three/jsm/loaders/GLTFLoader.js';
+import { EffectComposer } from './three/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from './three/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from './three/jsm/postprocessing/ShaderPass.js';
+import { GUI } from './three/jsm/libs/dat.gui.module.js';
 
 let container;
-let camera, globalScene, renderer;
+let camera, globalScene, renderer, globalComposer;
 let globalControls;
 
 let character = undefined;
+
+const params = {
+    fisheye: false,
+};
 
 addCredit(`<a target="_blank" href="https://threejs.org/">Three.js</a>`);
 
@@ -60,7 +68,7 @@ function init() {
 
     const groundTexture = new THREE.TextureLoader().load('./assets/ground.png');
     groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-    groundTexture.repeat.set(50, 50);
+    groundTexture.repeat.set(500, 500);
     groundTexture.anisotropy = 16;
     groundTexture.encoding = THREE.sRGBEncoding;
     groundTexture.magFilter = THREE.NearestFilter;
@@ -69,7 +77,7 @@ function init() {
         map: groundTexture,
     });
 
-    let groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMaterial);
+    let groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200000, 200000), groundMaterial);
     groundMesh.position.y = -50;
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
@@ -126,6 +134,30 @@ function init() {
 
     renderer.shadowMap.enabled = true;
 
+    // Create effect composer
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    // Add distortion effect to effect composer
+    const effect = new ShaderPass(getFisheyeShaderDefinition());
+    composer.addPass(effect);
+    effect.renderToScreen = true;
+    globalComposer = composer;
+
+    // Setup distortion effect
+    const horizontalFOV = 150;
+    const fisheyeStrength = 1.0;
+    const cylindricalRatio = 0.3;
+    const fisheyeHeight = Math.tan(THREE.Math.degToRad(horizontalFOV) / 2) / camera.aspect;
+
+    camera.fov = (Math.atan(fisheyeHeight) * 2 * 180) / 3.1415926535;
+    camera.updateProjectionMatrix();
+
+    effect.uniforms['strength'].value = fisheyeStrength;
+    effect.uniforms['height'].value = fisheyeHeight;
+    effect.uniforms['aspectRatio'].value = camera.aspect;
+    effect.uniforms['cylindricalRatio'].value = cylindricalRatio;
+
     // controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.maxPolarAngle = Math.PI * 0.6;
@@ -136,6 +168,9 @@ function init() {
     globalControls = controls;
 
     window.addEventListener('resize', onWindowResize);
+
+    const gui = new GUI();
+    gui.add(params, 'fisheye').name('Enable fisheye effect');
 }
 
 function makeAllCastShadow(scene) {
@@ -180,4 +215,59 @@ function isReisen() {
 
 function render() {
     renderer.render(globalScene, camera);
+    if (params.fisheye) {
+        globalComposer.render();
+    }
+}
+
+// Made by Giliam de Carpentier: https://www.decarpentier.nl/lens-distortion
+// Actually useful for much more than just funny fumo faces
+function getFisheyeShaderDefinition() {
+    return {
+        uniforms: {
+            tDiffuse: { type: 't', value: null },
+            strength: { type: 'f', value: 0 },
+            height: { type: 'f', value: 1 },
+            aspectRatio: { type: 'f', value: 1 },
+            cylindricalRatio: { type: 'f', value: 1 },
+        },
+
+        vertexShader: [
+            'uniform float strength;', // s: 0 = perspective, 1 = stereographic
+            'uniform float height;', // h: tan(verticalFOVInRadians / 2)
+            'uniform float aspectRatio;', // a: screenWidth / screenHeight
+            'uniform float cylindricalRatio;', // c: cylindrical distortion ratio. 1 = spherical
+
+            'varying vec3 vUV;', // output to interpolate over screen
+            'varying vec2 vUVDot;', // output to interpolate over screen
+
+            'void main() {',
+            'gl_Position = projectionMatrix * (modelViewMatrix * vec4(position, 1.0));',
+
+            'float scaledHeight = strength * height;',
+            'float cylAspectRatio = aspectRatio * cylindricalRatio;',
+            'float aspectDiagSq = aspectRatio * aspectRatio + 1.0;',
+            'float diagSq = scaledHeight * scaledHeight * aspectDiagSq;',
+            'vec2 signedUV = (2.0 * uv + vec2(-1.0, -1.0));',
+
+            'float z = 0.5 * sqrt(diagSq + 1.0) + 0.5;',
+            'float ny = (z - 1.0) / (cylAspectRatio * cylAspectRatio + 1.0);',
+
+            'vUVDot = sqrt(ny) * vec2(cylAspectRatio, 1.0) * signedUV;',
+            'vUV = vec3(0.5, 0.5, 1.0) * z + vec3(-0.5, -0.5, 0.0);',
+            'vUV.xy += uv;',
+            '}',
+        ].join('\n'),
+
+        fragmentShader: [
+            'uniform sampler2D tDiffuse;', // sampler of rendered scene?s render target
+            'varying vec3 vUV;', // interpolated vertex output data
+            'varying vec2 vUVDot;', // interpolated vertex output data
+
+            'void main() {',
+            'vec3 uv = dot(vUVDot, vUVDot) * vec3(-0.5, -0.5, -1.0) + vUV;',
+            'gl_FragColor = texture2DProj(tDiffuse, uv);',
+            '}',
+        ].join('\n'),
+    };
 }
