@@ -7,10 +7,6 @@ let camera, globalScene, renderer;
 
 let character = undefined;
 
-const carrotCount = 10;
-const carrotDistance = 200;
-const carrots = new Array(carrotCount);
-
 addCredit(`<a target="_blank" href="https://threejs.org/">Three.js</a>`);
 
 init();
@@ -29,8 +25,8 @@ function init() {
 
     // camera
 
-    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 10000);
-    camera.position.set(1000, 50, 1500);
+    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set(100, 50, 200);
 
     // lights
 
@@ -61,18 +57,19 @@ function init() {
 
     // ground
 
-    const groundTexture = new THREE.TextureLoader().load('./assets/grasslight-big.jpg');
+    const groundTexture = new THREE.TextureLoader().load('./assets/ground.png');
     groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
     groundTexture.repeat.set(25, 25);
     groundTexture.anisotropy = 16;
     groundTexture.encoding = THREE.sRGBEncoding;
+    groundTexture.magFilter = THREE.NearestMipmapNearestFilter;
 
     const groundMaterial = new THREE.MeshLambertMaterial({
         map: groundTexture,
     });
 
     let groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMaterial);
-    groundMesh.position.y = 0;
+    groundMesh.position.y = -50;
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
@@ -80,7 +77,7 @@ function init() {
     const dummyBox = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100), groundMaterial);
     dummyBox.receiveShadow = true;
     dummyBox.castShadow = true;
-    dummyBox.position.set(10, 0, 50);
+    dummyBox.position.set(10, -50, 50);
     scene.add(dummyBox);
     character = dummyBox;
 
@@ -131,8 +128,8 @@ function init() {
     // controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.maxPolarAngle = Math.PI * 0.5;
-    controls.minDistance = 1000;
-    controls.maxDistance = 5000;
+    controls.minDistance = 100;
+    controls.maxDistance = 1000;
 
     window.addEventListener('resize', onWindowResize);
 }
