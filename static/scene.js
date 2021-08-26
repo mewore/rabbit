@@ -75,6 +75,7 @@ function init() {
 
     const dummyBox = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100), groundMaterial);
     dummyBox.receiveShadow = true;
+    dummyBox.castShadow = true;
     dummyBox.position.set(10, 0, 50);
     scene.add(dummyBox);
     character = dummyBox;

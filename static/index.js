@@ -9,6 +9,10 @@ document.addEventListener('readystatechange', (event) => {
     }
     document.title = title;
     document.getElementById('title-header').innerText = title;
+    document.getElementById('2hu').innerHTML =
+        title === 'Reisen'
+            ? `<a target="_blank" href="https://en.touhouwiki.net/wiki/Reisen_Udongein_Inaba">Reisen</a>`
+            : `<a target="_blank" href="https://en.touhouwiki.net/wiki/Tewi_Inaba">Tewi</a>`;
 });
 
 function getTitle() {
