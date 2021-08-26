@@ -55,6 +55,10 @@ function init() {
 
     scene.add(light);
 
+    const lowerLight = new THREE.PointLight(0xdfebff, 2);
+    lowerLight.position.set(50, 10, 100);
+    scene.add(lowerLight);
+
     // ground
 
     const groundTexture = new THREE.TextureLoader().load('./assets/grasslight-big.jpg');
@@ -68,7 +72,7 @@ function init() {
     });
 
     let groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMaterial);
-    groundMesh.position.y = -100;
+    groundMesh.position.y = 0;
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
@@ -85,17 +89,13 @@ function init() {
     if (isReisen()) {
         new GLTFLoader().setPath('./assets/reisen/').load('scene.gltf', function (gltf) {
             const reisen = gltf.scene;
-            const reisenSize = 100;
+            const reisenSize = 10;
             reisen.scale.set(reisenSize, reisenSize, reisenSize);
             reisen.position.set(dummyBox.position.x, dummyBox.position.y, dummyBox.position.z);
-            reisen.castShadow = true;
+            makeAllCastShadow(reisen);
             scene.add(reisen);
             scene.remove(dummyBox);
             character = reisen;
-            addCredit(
-                `<a target="_blank" href="https://sketchfab.com/3d-models/reisen-inaba-touhou-voxel-model-da4c65185177427eb56450c802c7dd9c">Reisen model</a>` +
-                    ` by <a target="_blank" href="https://sketchfab.com/Staycalm182">Staycalm182</a> (<a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)`
-            );
         });
     } else {
         new GLTFLoader().setPath('./assets/carrot/').load('scene.gltf', function (gltf) {
@@ -103,7 +103,7 @@ function init() {
             const carrot = gltf.scene;
             carrot.scale.set(carrotSize, carrotSize, carrotSize);
 
-            carrot.castShadow = true;
+            makeAllCastShadow(carrot);
             scene.add(carrot);
             scene.remove(dummyBox);
             character = carrot;
@@ -135,6 +135,14 @@ function init() {
     controls.maxDistance = 5000;
 
     window.addEventListener('resize', onWindowResize);
+}
+
+function makeAllCastShadow(scene) {
+    scene.traverse((node) => {
+        if (node.isMesh && ['Outline', 'Iris', 'Gloss'].indexOf(node.material.name) === -1) {
+            node.castShadow = true;
+        }
+    });
 }
 
 function onWindowResize() {
