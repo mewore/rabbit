@@ -12,6 +12,8 @@ let globalControls;
 
 let character = undefined;
 
+let clock, mixer;
+
 const params = {
     fisheye: false,
 };
@@ -24,6 +26,8 @@ animate(0);
 function init() {
     container = document.createElement('div');
     document.body.appendChild(container);
+
+    clock = new THREE.Clock();
 
     // scene
 
@@ -101,6 +105,9 @@ function init() {
             makeAllCastShadow(reisen);
             scene.add(reisen);
             scene.remove(dummyBox);
+
+            mixer = new THREE.AnimationMixer(reisen);
+            mixer.clipAction(gltf.animations[0]).play();
             character = reisen;
         });
     } else {
@@ -199,6 +206,9 @@ function addCredit(html) {
 function animate(now) {
     requestAnimationFrame(animate);
     simulate(now);
+    if (mixer) {
+        mixer.update(clock.getDelta());
+    }
     render();
 }
 
