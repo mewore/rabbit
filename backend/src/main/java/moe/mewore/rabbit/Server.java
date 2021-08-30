@@ -18,7 +18,7 @@ public class Server {
 
     public void initialize() {
         sparkService.port(settings.getPort());
-        sparkService.staticFiles.externalLocation("static");
+        sparkService.staticFiles.externalLocation(settings.getExternalStaticLocation());
         sparkService.staticFiles.location("static");
         sparkService.init();
     }

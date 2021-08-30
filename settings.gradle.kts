@@ -8,4 +8,4 @@
  */
 
 rootProject.name = "rabbit"
-include("backend")
+include("backend", "frontend")

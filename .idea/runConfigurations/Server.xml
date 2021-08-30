@@ -1,5 +1,8 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Server" type="Application" factoryName="Application" nameIsGenerated="true">
+    <envs>
+      <env name="rabbit.static.external" value="frontend/dist" />
+    </envs>
     <option name="MAIN_CLASS_NAME" value="moe.mewore.rabbit.Server" />
     <module name="rabbit.backend.main" />
     <extension name="coverage">

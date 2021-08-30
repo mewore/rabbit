@@ -22,6 +22,7 @@ class ServerIT {
         final ServerSettings settings = mock(ServerSettings.class);
         final int port = 63200 + new SecureRandom().nextInt(100);
         when(settings.getPort()).thenReturn(port);
+        when(settings.getExternalStaticLocation()).thenReturn("some/static/file/location");
 
         final Service sparkService = ignite();
         final Server server = new Server(settings, sparkService);

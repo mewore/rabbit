@@ -16,7 +16,11 @@ class ServerSettings {
 
     private static final int DEFAULT_PORT = 8100;
 
+    private static final String DEFAULT_EXTERNAL_STATIC_LOCATION = "static";
+
     private final int port;
+
+    private final String externalStaticLocation;
 
     ServerSettings(final String[] arguments, final Map<String, String> environmentVariables) {
         final Map<String, String> allProperties = new HashMap<>(environmentVariables);
@@ -30,6 +34,7 @@ class ServerSettings {
         }
 
         port = determinePort(allProperties);
+        externalStaticLocation = allProperties.getOrDefault("rabbit.static.external", DEFAULT_EXTERNAL_STATIC_LOCATION);
     }
 
     private static int determinePort(final Map<String, String> properties) {

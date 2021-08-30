@@ -29,4 +29,15 @@ class ServerSettingsTest {
     void testGetPort_invalid() {
         assertEquals(8100, new ServerSettings(new String[]{"--rabbit.port=asd"}, Collections.emptyMap()).getPort());
     }
+
+    @Test
+    void testGetExternalStaticLocation() {
+        assertEquals("other/external", new ServerSettings(new String[]{"--rabbit.static.external=other/external"},
+            Collections.emptyMap()).getExternalStaticLocation());
+    }
+
+    @Test
+    void testGetExternalStaticLocation_unset() {
+        assertEquals("static", new ServerSettings(new String[]{}, Collections.emptyMap()).getExternalStaticLocation());
+    }
 }
