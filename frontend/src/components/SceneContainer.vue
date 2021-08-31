@@ -3,40 +3,19 @@
 </template>
 
 <script lang="ts">
-import { Options, Vue } from "vue-class-component";
-import { GameScene } from "../game/game-scene";
-import { GameRuntime } from "../game/game-runtime";
+import { Options, Vue } from 'vue-class-component';
+import { GameScene } from '../game/game-scene';
 
 @Options({})
 export default class SceneContainer extends Vue {
-    private game?: GameRuntime;
-
+    private scene?: GameScene;
     mounted(): void {
-        this.game = new GameScene(
-            this.$refs.sceneWrapper as HTMLElement
-        ).runtime;
+        this.scene = new GameScene(this.$refs.sceneWrapper as HTMLElement);
     }
-
     beforeUnmount(): void {
-        this.game?.stopRunning();
+        this.scene?.runtime.stopRunning();
     }
 }
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
-h3 {
-    margin: 40px 0 0;
-}
-ul {
-    list-style-type: none;
-    padding: 0;
-}
-li {
-    display: inline-block;
-    margin: 0 10px;
-}
-a {
-    color: #42b983;
-}
-</style>
+<style scoped lang="scss"></style>

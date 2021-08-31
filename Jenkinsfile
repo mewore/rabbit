@@ -48,6 +48,14 @@ pipeline {
                 ])
             }
         }
+        stage('Frontend') {
+            steps {
+                script {
+                    sh './gradlew frontend:frontendLint frontend:frontendBuildProd frontend:frontendTest' +
+                        ' --no-daemon'
+                }
+            }
+        }
         stage('Jar') {
             steps {
                 script {

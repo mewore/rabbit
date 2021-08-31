@@ -1,8 +1,8 @@
 import { AnimationMixer, Clock } from 'three';
-import { makeAllCastShadow } from './three-util';
 import { addCredit, isReisen } from '../temp-util';
-import { OrbitControls } from '@three-ts/orbit-controls';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { OrbitControls } from '@three-ts/orbit-controls';
+import { makeAllCastShadow } from './three-util';
 
 export class GameRuntime {
     private character: THREE.Object3D;
@@ -48,9 +48,11 @@ export class GameRuntime {
                 scene.add(carrot);
                 scene.remove(dummyBox);
                 this.character = carrot;
+                const carrotUrl = 'https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d';
+                const authorUrl = 'https://sketchfab.com/thepianomonster';
                 addCredit(
-                    `<a href="https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d" target="_blank">Carrot model</a>` +
-                        ` by <a href="https://sketchfab.com/thepianomonster" target="_blank">thepianomonster</a>`
+                    `<a href="${carrotUrl}" target="_blank">Carrot model</a> ` +
+                        `by <a href="${authorUrl}" target="_blank">thepianomonster</a>`
                 );
             });
         }

@@ -59,10 +59,13 @@ tasks.create<com.github.gradle.node.npm.task.NpmTask>("frontendBuildWatch") {
 val frontendTest = tasks.create<com.github.gradle.node.npm.task.NpmTask>("frontendTest") {
     setDependsOn(listOf(tasks.npmInstall))
     inputs.dir("src")
+    inputs.dir("tests")
     inputs.files(commonRootSourceFiles)
-    outputs.dir("coverage")
-    args.set(listOf("run", "test:unit"))
-    description = "Tests the frontend."
+    // TODO: Enable unit test coverage (https://github.com/vuejs/vue-test-utils/issues/165)
+//    outputs.dir("coverage")
+    outputs.upToDateWhen { true }
+    args.set(listOf("run", "test"))
+    description = "Runs the frontend unit tests."
 }
 
 tasks.jar {

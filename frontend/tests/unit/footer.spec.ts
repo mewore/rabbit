@@ -1,10 +1,10 @@
-import App from '@/App.vue';
+import Footer from '@/components/Footer.vue';
 import { expect } from 'chai';
 import { shallowMount } from '@vue/test-utils';
 
-describe('App.vue', () => {
-    it('renders props.msg when passed', () => {
-        const wrapper = shallowMount(App);
+describe('Footer.vue', () => {
+    it('should be rendered properly', () => {
+        const wrapper = shallowMount(Footer);
         expect(wrapper.text()).to.include('Reisen');
         expect(wrapper.text()).to.include('ZUN');
 

@@ -1,26 +1,26 @@
 import {
-    Scene,
-    PerspectiveCamera,
-    Color,
     AmbientLight,
+    BoxGeometry,
+    Color,
     DirectionalLight,
+    Fog,
+    Mesh,
+    MeshLambertMaterial,
+    NearestFilter,
+    PerspectiveCamera,
+    PlaneGeometry,
     PointLight,
     RepeatWrapping,
+    Scene,
     TextureLoader,
-    sRGBEncoding,
-    NearestFilter,
-    MeshLambertMaterial,
-    Mesh,
-    PlaneGeometry,
-    BoxGeometry,
     WebGLRenderer,
-    Fog,
+    sRGBEncoding,
 } from 'three';
+import { GameRuntime } from './game-runtime';
 import { OrbitControls } from '@three-ts/orbit-controls';
 import { addCredit } from '../temp-util';
-import { GameRuntime } from './game-runtime';
 
-addCredit(`<a target="_blank" href="https://threejs.org/">Three.js</a>`);
+addCredit('<a target="_blank" href="https://threejs.org/">Three.js</a>');
 
 export class GameScene {
     readonly runtime: GameRuntime;
