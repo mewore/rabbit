@@ -1,25 +1,26 @@
 package moe.mewore.rabbit;
 
-import lombok.RequiredArgsConstructor;
-import spark.Service;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-import static spark.Service.ignite;
+import io.javalin.Javalin;
+import io.javalin.http.staticfiles.Location;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class Server {
 
-    private final ServerSettings settings;
-
-    private final Service sparkService;
-
     public static void main(final String[] args) {
-        new Server(new ServerSettings(args, System.getenv()), ignite()).initialize();
+        start(new ServerSettings(args, System.getenv()));
     }
 
-    public void initialize() {
-        sparkService.port(settings.getPort());
-        sparkService.staticFiles.externalLocation(settings.getExternalStaticLocation());
-        sparkService.staticFiles.location("static");
-        sparkService.init();
+    static Javalin start(final ServerSettings settings) {
+        final Javalin javalin = Javalin.create(config -> {
+            config.addStaticFiles("static");
+            final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
+            if (externalStaticLocation != null) {
+                config.addStaticFiles(settings.getExternalStaticLocation(), Location.EXTERNAL);
+            }
+        });
+        return javalin.start(settings.getPort());
     }
 }

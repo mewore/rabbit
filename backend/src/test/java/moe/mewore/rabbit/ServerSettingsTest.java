@@ -6,6 +6,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ServerSettingsTest {
 
@@ -38,6 +39,6 @@ class ServerSettingsTest {
 
     @Test
     void testGetExternalStaticLocation_unset() {
-        assertEquals("static", new ServerSettings(new String[]{}, Collections.emptyMap()).getExternalStaticLocation());
+        assertNull(new ServerSettings(new String[]{}, Collections.emptyMap()).getExternalStaticLocation());
     }
 }
