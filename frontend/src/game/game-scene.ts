@@ -91,9 +91,10 @@ export class GameScene {
         renderer.shadowMap.enabled = true;
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.maxPolarAngle = Math.PI * 0.6;
+        controls.maxPolarAngle = Math.PI * 0.4;
         controls.minDistance = 50;
         controls.maxDistance = 1000;
+        controls.enablePan = false;
         controls.enableDamping = true;
         controls.dampingFactor = 0.1;
 

@@ -12,16 +12,19 @@ export class GameRuntime {
 
     private readonly clock = new Clock();
     private animationMixer?: THREE.AnimationMixer;
+    private animationClock?: Clock;
+    private stepDuration?: number;
 
     constructor(
         private readonly camera: THREE.PerspectiveCamera,
         private readonly scene: THREE.Scene,
         private readonly renderer: THREE.WebGLRenderer,
-        private readonly controls: OrbitControls,
+        private readonly cameraControls: OrbitControls,
 
         dummyBox: THREE.Object3D
     ) {
         this.character = dummyBox;
+        this.cameraControls.target = this.character.position;
         if (isReisen()) {
             new GLTFLoader().setPath('/assets/reisen/').load('scene.gltf', (gltf) => {
                 const reisen = gltf.scene;
@@ -35,8 +38,11 @@ export class GameRuntime {
                 const mixer = new AnimationMixer(reisen);
                 mixer.clipAction(gltf.animations[0]).play();
                 this.animationMixer = mixer;
+                this.animationClock = new Clock(true);
+                this.stepDuration = gltf.animations[0].duration / 2.0;
 
                 this.character = reisen;
+                this.cameraControls.target = this.character.position;
             });
         } else {
             new GLTFLoader().setPath('/assets/carrot/').load('scene.gltf', (gltf) => {
@@ -48,6 +54,7 @@ export class GameRuntime {
                 scene.add(carrot);
                 scene.remove(dummyBox);
                 this.character = carrot;
+                this.cameraControls.target = this.character.position;
                 const carrotUrl = 'https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d';
                 const authorUrl = 'https://sketchfab.com/thepianomonster';
                 addCredit(
@@ -57,7 +64,7 @@ export class GameRuntime {
             });
         }
         window.addEventListener('resize', this.onWindowResize.bind(this));
-        this.animate(0);
+        this.animate();
     }
 
     stopRunning(): void {
@@ -76,20 +83,31 @@ export class GameRuntime {
         this.render();
     }
 
-    private animate(now: number) {
+    private animate() {
         if (!this.run) {
             return;
         }
         this.requestedAnimationFrame = requestAnimationFrame(this.animate.bind(this));
         const delta = this.clock.getDelta();
 
-        this.controls.update();
-        this.character.rotation.y = now * 0.001;
+        this.character.rotation.y += 1 * delta;
+
+        const movementSpeed =
+            this.stepDuration == null || this.animationClock == null
+                ? 1.0
+                : 1.0 - this.square((this.animationClock.getElapsedTime() / this.stepDuration) % 1);
+
+        this.character.translateZ(movementSpeed * 100.0 * delta);
 
         if (this.animationMixer) {
             this.animationMixer.update(delta);
         }
+        this.cameraControls.update();
         this.render();
+    }
+
+    private square(num: number): number {
+        return num * num;
     }
 
     private render() {
