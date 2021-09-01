@@ -11,6 +11,7 @@ pipeline {
         LOG_FILE="rabbit-${env.BUILD_NUMBER}.log"
         DOWNLOADED_JAR_NAME = "${RABBIT_BUILD_JOBNAME}-${RABBIT_BUILD_NUMBER}-${JAR_NAME}"
         LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=8010\" > '${LOG_FILE}' &"
+        PROTOCOL = "http"
         PORT = 8100
     }
 
@@ -44,7 +45,7 @@ pipeline {
                         }
                     }
                     sleep 5
-                    curlStatus = sh returnStatus: true, script: "curl --insecure http://localhost:${PORT}"
+                    curlStatus = sh returnStatus: true, script: "curl --insecure ${PROTOCOL}://localhost:${PORT}"
                     if (curlStatus == 0) {
                         error "The app is still running or something else has taken up port :${PORT}! Kill it manually."
                     }
@@ -71,7 +72,7 @@ pipeline {
                     } else {
                         error "The app does not have an output file '${LOG_FILE}'!"
                     }
-                    sh "curl --insecure https://localhost:${PORT} | grep 'ZUN'"
+                    sh "curl --insecure ${PROTOCOL}://localhost:${PORT} | grep 'ZUN'"
                 }
             }
         }
