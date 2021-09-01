@@ -8,11 +8,14 @@ pipeline {
     }
 
     environment {
-        LOG_FILE="rabbit-${env.BUILD_NUMBER}.log"
-        DOWNLOADED_JAR_NAME = "${RABBIT_BUILD_JOBNAME}-${RABBIT_BUILD_NUMBER}-${JAR_NAME}"
-        PROTOCOL = "http"
-        PORT = 8100
-        LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${PORT}\" > '${LOG_FILE}' &"
+        DOWNLOADED_JAR_NAME = "${SOURCE_BUILD_JOBNAME}-${SOURCE_BUILD_NUMBER}-${JAR_NAME}"
+        LOG_FILE_PREFIX = "rabbit"
+        LOG_FILE = "${LOG_FILE_PREFIX}-${env.BUILD_NUMBER}.log"
+        APP_PROTOCOL = "http"
+        APP_PORT = 8100
+        LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${APP_PORT}\" > '${LOG_FILE}' &"
+        LAUNCH_COMMAND_IDENTIFYING_STRING = "--rabbit.port="
+        EXPECTED_RESPONSE = "<title>rabbit-frontend</title>"
     }
 
     stages {
@@ -25,7 +28,11 @@ pipeline {
             steps {
                 script {
                     sh 'pwd'
-                    copyArtifacts(projectName: "${RABBIT_BUILD_JOBNAME}", selector: specific("${RABBIT_BUILD_NUMBER}"), filter: "build/libs/${JAR_NAME}")
+                    copyArtifacts([
+                        projectName: "${SOURCE_BUILD_JOBNAME}",
+                        selector: specific("${SOURCE_BUILD_NUMBER}"),
+                        filter: "build/libs/${JAR_NAME}",
+                    ])
                     sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
                     sh 'rm -rf "build"'
                 }
@@ -34,7 +41,8 @@ pipeline {
         stage('Stop') {
             steps {
                 script {
-                    processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' -o pid=,command= | grep '--rabbit.port=' | awk '{print \$1;}'"
+                    processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' " +
+                        "-o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
                     processOutput.split('\n').each { pid ->
                         if (pid.length() > 0) {
                             echo "Killing: ${pid}"
@@ -45,11 +53,11 @@ pipeline {
                         }
                     }
                     sleep 5
-                    curlStatus = sh returnStatus: true, script: "curl --insecure ${PROTOCOL}://localhost:${PORT}"
+                    curlStatus = sh returnStatus: true, script: "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT}"
                     if (curlStatus == 0) {
-                        error "The app is still running or something else has taken up port :${PORT}! Kill it manually."
+                        error "The app is still running or something else has taken up port :${APP_PORT}! Kill it manually."
                     }
-                    sh "mkdir -p 'old-logs' && mv rabbit-*.log ./old-logs || echo 'No logs to move.'"
+                    sh "mkdir -p 'old-logs' && mv ${LOG_FILE_PREFIX}-*.log ./old-logs || echo 'No logs to move.'"
                 }
             }
         }
@@ -72,7 +80,7 @@ pipeline {
                     } else {
                         error "The app does not have an output file '${LOG_FILE}'!"
                     }
-                    sh "curl --insecure ${PROTOCOL}://localhost:${PORT} | grep '<title>rabbit-frontend</title>'"
+                    sh "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'"
                 }
             }
         }
