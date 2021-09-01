@@ -72,7 +72,7 @@ pipeline {
                     } else {
                         error "The app does not have an output file '${LOG_FILE}'!"
                     }
-                    sh "curl --insecure ${PROTOCOL}://localhost:${PORT} | grep 'ZUN'"
+                    sh "curl --insecure ${PROTOCOL}://localhost:${PORT} | grep '<title>rabbit-frontend</title>'"
                 }
             }
         }
