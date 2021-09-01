@@ -81,19 +81,18 @@ export class GameRuntime {
             return;
         }
         this.requestedAnimationFrame = requestAnimationFrame(this.animate.bind(this));
-        this.simulate(now);
+        const delta = this.clock.getDelta();
+
+        this.controls.update();
+        this.character.rotation.y = now * 0.001;
+
         if (this.animationMixer) {
-            this.animationMixer.update(this.clock.getDelta());
+            this.animationMixer.update(delta);
         }
         this.render();
     }
 
     private render() {
         this.renderer.render(this.scene, this.camera);
-    }
-
-    private simulate(now: number) {
-        this.controls.update();
-        this.character.rotation.y = now * 0.001;
     }
 }
