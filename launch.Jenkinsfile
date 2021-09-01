@@ -10,9 +10,9 @@ pipeline {
     environment {
         LOG_FILE="rabbit-${env.BUILD_NUMBER}.log"
         DOWNLOADED_JAR_NAME = "${RABBIT_BUILD_JOBNAME}-${RABBIT_BUILD_NUMBER}-${JAR_NAME}"
-        LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=8010\" > '${LOG_FILE}' &"
         PROTOCOL = "http"
         PORT = 8100
+        LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${PORT}\" > '${LOG_FILE}' &"
     }
 
     stages {
