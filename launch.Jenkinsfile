@@ -14,7 +14,7 @@ pipeline {
         APP_PROTOCOL = "http"
         APP_PORT = 8100
         LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${APP_PORT}\" > '${LOG_FILE}' &"
-        LAUNCH_COMMAND_IDENTIFYING_STRING = "--rabbit.port="
+        LAUNCH_COMMAND_IDENTIFYING_STRING = "rabbit.port="
         EXPECTED_RESPONSE = "<title>rabbit-frontend</title>"
     }
 
@@ -41,8 +41,7 @@ pipeline {
         stage('Stop') {
             steps {
                 script {
-                    processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' " +
-                        "-o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
+                    processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' -o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
                     processOutput.split('\n').each { pid ->
                         if (pid.length() > 0) {
                             echo "Killing: ${pid}"
