@@ -13,7 +13,7 @@ export default class SceneContainer extends Vue {
         this.scene = new GameScene(this.$refs.sceneWrapper as HTMLElement);
     }
     beforeUnmount(): void {
-        this.scene?.runtime.stopRunning();
+        this.scene?.stopRunning();
     }
 }
 </script>

@@ -1,11 +1,22 @@
 <template>
     <div id="footer">
-        <div class="credits-title">Credits</div>
+        <div class="footer-title">Credits</div>
+        <div>
+            <a target="_blank" href="https://threejs.org/">Three.js</a> by
+            <a target="_blank" href="https://github.com/mrdoob">Mr.doob</a>
+        </div>
         <div>
             <span ref="touhouCredit">Touhou</span> by
             <a target="_blank" href="https://en.touhouwiki.net/wiki/ZUN">ZUN</a>
         </div>
-        <div></div>
+        <div>
+            <a target="_blank" href="https://fumo.website/">Fumo</a> design by
+            <a target="_blank" href="https://royalcat.xyz/">ROYALCAT</a>
+            (also known as
+            <a target="_blank" href="http://blog.angeltype.under.jp/"
+                >ANGELTYPE</a
+            >)
+        </div>
     </div>
 </template>
 
@@ -43,13 +54,14 @@ export default class Footer extends Vue {
     min-width: 20em;
     user-select: none;
     pointer-events: none;
+    .footer-title {
+        text-align: center;
+        font-weight: bold;
+    }
 }
+</style>
 
-.credits-title {
-    text-align: center;
-    font-weight: bold;
-}
-
+<style lang="scss">
 #footer a {
     pointer-events: initial;
 }

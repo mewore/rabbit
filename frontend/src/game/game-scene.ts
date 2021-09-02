@@ -1,103 +1,87 @@
-import {
-    AmbientLight,
-    BoxGeometry,
-    Color,
-    DirectionalLight,
-    Fog,
-    Mesh,
-    MeshLambertMaterial,
-    NearestFilter,
-    PerspectiveCamera,
-    PlaneGeometry,
-    PointLight,
-    RepeatWrapping,
-    Scene,
-    TextureLoader,
-    WebGLRenderer,
-    sRGBEncoding,
-} from 'three';
-import { GameRuntime } from './game-runtime';
+import { Clock, Color, Fog, MOUSE, PerspectiveCamera, Scene, WebGLRenderer, sRGBEncoding } from 'three';
+import { makeDefaultLights, makeGround } from './three-util';
+import { Character } from './character';
 import { OrbitControls } from '@three-ts/orbit-controls';
 import { addCredit } from '../temp-util';
 
 addCredit('<a target="_blank" href="https://threejs.org/">Three.js</a>');
 
 export class GameScene {
-    readonly runtime: GameRuntime;
+    private readonly scene: THREE.Scene = new Scene();
+    private readonly camera: THREE.PerspectiveCamera;
+    private readonly character: Character = new Character();
+    private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
+    private readonly cameraControls: OrbitControls;
+
+    private run = true;
+    private requestedAnimationFrame?: number;
+
+    private readonly clock = new Clock();
 
     constructor(wrapperElement: HTMLElement) {
-        const scene = new Scene();
-        scene.background = new Color(0xcce0ff);
-        scene.fog = new Fog(0xcce0ff, 500, 10000);
+        this.scene.background = new Color(0xcce0ff);
+        this.scene.fog = new Fog(0xcce0ff, 500, 10000);
 
-        const camera = new PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 10000);
-        camera.position.set(100, 50, 200);
+        this.camera = new PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 10000);
+        this.camera.position.set(100, 50, 200);
 
-        scene.add(new AmbientLight(0x666666));
+        this.scene.add(...makeDefaultLights());
+        this.scene.add(makeGround());
+        this.scene.add(this.character);
 
-        const light = new DirectionalLight(0xdfebff, 1);
-        light.position.set(50, 200, 100);
-        light.position.multiplyScalar(1.3);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        wrapperElement.appendChild(this.renderer.domElement);
+        this.renderer.outputEncoding = sRGBEncoding;
+        this.renderer.shadowMap.enabled = true;
 
-        light.castShadow = true;
+        this.cameraControls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.cameraControls.maxPolarAngle = Math.PI * 0.4;
+        this.cameraControls.minDistance = 50;
+        this.cameraControls.maxDistance = 1000;
+        this.cameraControls.enablePan = false;
+        this.cameraControls.enableDamping = true;
+        this.cameraControls.dampingFactor = 0.1;
+        this.cameraControls.mouseButtons = {
+            ZOOM: MOUSE.MIDDLE,
+            ORBIT: MOUSE.RIGHT,
+            PAN: MOUSE.LEFT,
+        };
 
-        light.shadow.mapSize.width = 1024;
-        light.shadow.mapSize.height = 1024;
+        this.cameraControls.target = this.character.position;
+        window.addEventListener('resize', this.onWindowResize.bind(this));
+        this.animate();
+    }
 
-        const lightShadowPadding = 300;
-        light.shadow.camera.left = -lightShadowPadding;
-        light.shadow.camera.right = lightShadowPadding;
-        light.shadow.camera.top = lightShadowPadding;
-        light.shadow.camera.bottom = -lightShadowPadding;
+    stopRunning(): void {
+        this.run = false;
+        if (typeof this.requestedAnimationFrame === 'number') {
+            cancelAnimationFrame(this.requestedAnimationFrame);
+        }
+    }
 
-        light.shadow.camera.far = 1000;
+    private onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
 
-        scene.add(light);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-        const lowerLight = new PointLight(0xdfebff, 2);
-        lowerLight.position.set(50, 10, 100);
-        scene.add(lowerLight);
+        this.render();
+    }
 
-        const groundTexture = new TextureLoader().load('./assets/ground.png');
-        groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
-        groundTexture.repeat.set(500, 500);
-        groundTexture.anisotropy = 16;
-        groundTexture.encoding = sRGBEncoding;
-        groundTexture.magFilter = NearestFilter;
+    private animate() {
+        if (!this.run) {
+            return;
+        }
+        this.requestedAnimationFrame = requestAnimationFrame(this.animate.bind(this));
+        const delta = this.clock.getDelta();
 
-        const groundMaterial = new MeshLambertMaterial({
-            map: groundTexture,
-        });
+        this.character.update(delta);
+        this.cameraControls.update();
+        this.render();
+    }
 
-        const groundMesh = new Mesh(new PlaneGeometry(200000, 200000), groundMaterial);
-        groundMesh.position.y = -50;
-        groundMesh.rotation.x = -Math.PI / 2;
-        groundMesh.receiveShadow = true;
-        scene.add(groundMesh);
-
-        const dummyBox = new Mesh(new BoxGeometry(100, 100, 100), groundMaterial);
-        dummyBox.receiveShadow = true;
-        dummyBox.castShadow = true;
-        dummyBox.position.set(10, -50, 50);
-        scene.add(dummyBox);
-
-        const renderer = new WebGLRenderer({
-            antialias: true,
-        });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        wrapperElement.appendChild(renderer.domElement);
-        renderer.outputEncoding = sRGBEncoding;
-        renderer.shadowMap.enabled = true;
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.maxPolarAngle = Math.PI * 0.4;
-        controls.minDistance = 50;
-        controls.maxDistance = 1000;
-        controls.enablePan = false;
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.1;
-
-        this.runtime = new GameRuntime(camera, scene, renderer, controls, dummyBox);
+    private render() {
+        this.renderer.render(this.scene, this.camera);
     }
 }
