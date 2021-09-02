@@ -1,7 +1,7 @@
 import { AnimationMixer, BoxGeometry, Clock, Mesh, MeshBasicMaterial, Object3D } from 'three';
 import { addCredit, isReisen } from '@/temp-util';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { makeAllCastShadow } from './three-util';
+import { makeAllCastAndReceiveShadow } from './three-util';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
@@ -12,6 +12,8 @@ interface AnimationInfo {
 export class Character extends Object3D {
     private readonly Y_OFFSET = 50.0;
     private animationInfo?: AnimationInfo;
+    private currentMesh?: Object3D;
+    private isRunning = false;
 
     constructor() {
         super();
@@ -28,24 +30,28 @@ export class Character extends Object3D {
         if (isReisen()) {
             new GLTFLoader()
                 .setPath('/assets/reisen/')
-                .loadAsync('scene.gltf')
+                .loadAsync('reisen.gltf')
                 .then((gltf) => {
                     const reisen = gltf.scene;
                     reisen.name = 'Reisen';
                     const reisenSize = 10;
                     reisen.scale.set(reisenSize, reisenSize, reisenSize);
                     reisen.position.set(this.position.x, this.position.y, this.position.z);
-                    makeAllCastShadow(reisen);
+                    makeAllCastAndReceiveShadow(reisen);
                     this.mesh = reisen;
 
                     const mixer = new AnimationMixer(reisen);
-                    const walkAnimation = gltf.animations[0];
-                    mixer.clipAction(walkAnimation).play();
+                    const runAnimation = gltf.animations.find((animation) => animation.name === 'Run');
+                    if (!runAnimation) {
+                        return;
+                    }
+                    mixer.clipAction(runAnimation).play();
                     this.animationInfo = {
                         clock: new Clock(),
                         mixer,
-                        stepDuration: walkAnimation.duration / 2.0,
+                        stepDuration: runAnimation.duration / 2.0,
                     };
+                    this.isRunning = true;
                 });
         } else {
             new GLTFLoader()
@@ -57,7 +63,7 @@ export class Character extends Object3D {
                     carrot.name = 'Carrot';
                     carrot.scale.set(carrotSize, carrotSize, carrotSize);
 
-                    makeAllCastShadow(carrot);
+                    makeAllCastAndReceiveShadow(carrot);
                     this.mesh = carrot;
                     const carrotUrl =
                         'https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d';
@@ -71,27 +77,23 @@ export class Character extends Object3D {
     }
 
     set mesh(newMesh: Object3D) {
-        this.clear();
+        if (this.currentMesh) {
+            this.currentMesh.removeFromParent();
+        }
         this.attach(newMesh);
+        this.currentMesh = newMesh;
         newMesh.translateY(-this.Y_OFFSET);
     }
 
-    update(delta: number): void {
-        this.rotation.y += 1 * delta;
+    update(_time: number, delta: number): void {
+        this.rotation.y += 0.5 * delta;
 
-        const movementSpeed =
-            this.animationInfo == null
-                ? 1.0
-                : 1.0 - this.square((this.animationInfo.clock.getElapsedTime() / this.animationInfo.stepDuration) % 1);
-
-        this.translateZ(movementSpeed * 100.0 * delta);
+        if (this.isRunning) {
+            this.translateZ(300.0 * delta);
+        }
 
         if (this.animationInfo) {
             this.animationInfo.mixer.update(delta);
         }
-    }
-
-    private square(num: number): number {
-        return num * num;
     }
 }

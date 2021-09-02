@@ -1,22 +1,26 @@
 import {
-    AmbientLight,
-    DirectionalLight,
-    Light,
+    BackSide,
+    Material,
     Mesh,
     MeshLambertMaterial,
     NearestFilter,
     Object3D,
     PlaneGeometry,
-    PointLight,
     RepeatWrapping,
     TextureLoader,
     sRGBEncoding,
 } from 'three';
 
-export function makeAllCastShadow(scene: THREE.Group): void {
+export function makeAllCastAndReceiveShadow(scene: THREE.Group): void {
+    window.console.log(scene);
     scene.traverse((node: THREE.Object3D) => {
         if (shouldNodeCastShadow(node)) {
             node.castShadow = true;
+        }
+        node.receiveShadow = true;
+        if (node instanceof Mesh && node.material instanceof Material) {
+            window.console.log(node);
+            node.material.shadowSide = BackSide;
         }
     });
 }
@@ -31,30 +35,6 @@ function isNodeMesh(node: THREE.Object3D): node is THREE.Mesh {
 
 function shouldMaterialCastShadow(material: THREE.Material): boolean {
     return ['Outline', 'Iris', 'Gloss'].indexOf(material.name) === -1;
-}
-
-export function makeDefaultLights(): Light[] {
-    const sun = new DirectionalLight(0xdfebff, 1);
-    sun.position.set(50, 200, 100);
-    sun.position.multiplyScalar(1.3);
-
-    sun.castShadow = true;
-
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
-
-    const lightShadowPadding = 300;
-    sun.shadow.camera.left = -lightShadowPadding;
-    sun.shadow.camera.right = lightShadowPadding;
-    sun.shadow.camera.top = lightShadowPadding;
-    sun.shadow.camera.bottom = -lightShadowPadding;
-
-    sun.shadow.camera.far = 1000;
-
-    const lowerLight = new PointLight(0xdfebff, 2);
-    lowerLight.position.set(50, 10, 100);
-
-    return [sun, lowerLight, new AmbientLight(0x666666)];
 }
 
 export function makeGround(): Object3D {
