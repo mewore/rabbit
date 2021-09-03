@@ -23,6 +23,8 @@ import { makeGround } from './three-util';
 addCredit('<a target="_blank" href="https://threejs.org/">Three.js</a>');
 
 export class GameScene {
+    private readonly MAX_DELTA = 1000.0;
+
     private readonly scene: THREE.Scene = new Scene();
     private readonly camera: THREE.PerspectiveCamera;
     private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
@@ -36,7 +38,7 @@ export class GameScene {
 
     constructor(wrapperElement: HTMLElement) {
         this.scene.background = new Color(0xcce0ff);
-        this.scene.fog = new Fog(0xcce0ff, 500, 2000);
+        this.scene.fog = new Fog(0xcce0ff, 500, 8000);
 
         this.camera = new PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 10000);
         this.camera.position.set(-100, 50, -200);
@@ -55,7 +57,7 @@ export class GameScene {
         this.renderer.shadowMap.enabled = true;
 
         const cameraControls = new OrbitControls(this.camera, this.renderer.domElement);
-        cameraControls.maxPolarAngle = Math.PI * 0.94;
+        cameraControls.maxPolarAngle = Math.PI * 0.4;
         cameraControls.minDistance = 50;
         cameraControls.maxDistance = 1000;
         cameraControls.enablePan = false;
@@ -68,12 +70,12 @@ export class GameScene {
         };
         cameraControls.target = character.position;
 
-        const bigBox = new Mesh(new BoxGeometry(200, 1000, 200), new MeshLambertMaterial({ color: 0x666666 }));
-        bigBox.name = 'ShadowDummyBox';
-        bigBox.receiveShadow = true;
-        bigBox.castShadow = true;
-        bigBox.position.set(100, 300.0, 150);
-        this.scene.add(bigBox);
+        const shadowDummyBox = new Mesh(new BoxGeometry(200, 1000, 200), new MeshLambertMaterial({ color: 0x666666 }));
+        shadowDummyBox.name = 'ShadowDummyBox';
+        shadowDummyBox.receiveShadow = true;
+        shadowDummyBox.castShadow = true;
+        shadowDummyBox.position.set(300, 500.0, -100);
+        this.scene.add(shadowDummyBox);
 
         const sun = new Sun(50);
         sun.target = character;
@@ -105,10 +107,9 @@ export class GameScene {
             return;
         }
         this.requestedAnimationFrame = requestAnimationFrame(this.animate.bind(this));
-        const delta = this.clock.getDelta();
-        const time = this.clock.getElapsedTime();
+        const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
         for (const updatable of this.toUpdate) {
-            updatable.update(time, delta);
+            updatable.update(delta);
         }
         this.render();
     }

@@ -1,19 +1,40 @@
-import { AnimationMixer, BoxGeometry, Clock, Mesh, MeshBasicMaterial, Object3D } from 'three';
+import {
+    AnimationAction,
+    AnimationMixer,
+    BoxGeometry,
+    Clock,
+    LoopOnce,
+    Mesh,
+    MeshBasicMaterial,
+    Object3D,
+} from 'three';
 import { addCredit, isReisen } from '@/temp-util';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { Updatable } from './updatable';
 import { makeAllCastAndReceiveShadow } from './three-util';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
-    clock: Clock;
-    readonly stepDuration: number;
+    readonly walkAction: AnimationAction;
+    readonly runAction: AnimationAction;
 }
 
-export class Character extends Object3D {
+enum CharacterState {
+    LOADING,
+    IDLE,
+    WALKING,
+    RUNNING,
+}
+
+export class Character extends Object3D implements Updatable {
     private readonly Y_OFFSET = 50.0;
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
-    private isRunning = false;
+
+    private state = CharacterState.LOADING;
+    private previousState = CharacterState.LOADING;
+    private transitionClock?: Clock;
+    private transitionDuration = 0.0;
 
     constructor() {
         super();
@@ -30,7 +51,7 @@ export class Character extends Object3D {
         if (isReisen()) {
             new GLTFLoader()
                 .setPath('/assets/reisen/')
-                .loadAsync('reisen.gltf')
+                .loadAsync('reisen.glb')
                 .then((gltf) => {
                     const reisen = gltf.scene;
                     reisen.name = 'Reisen';
@@ -41,17 +62,27 @@ export class Character extends Object3D {
                     this.mesh = reisen;
 
                     const mixer = new AnimationMixer(reisen);
+                    const walkAnimation = gltf.animations.find((animation) => animation.name === 'Walk');
                     const runAnimation = gltf.animations.find((animation) => animation.name === 'Run');
-                    if (!runAnimation) {
+                    if (!walkAnimation || !runAnimation) {
                         return;
                     }
-                    mixer.clipAction(runAnimation).play();
+                    const walkAction = mixer.clipAction(walkAnimation);
+                    const runAction = mixer.clipAction(runAnimation);
+                    walkAction.play();
                     this.animationInfo = {
-                        clock: new Clock(),
                         mixer,
-                        stepDuration: runAnimation.duration / 2.0,
+                        walkAction,
+                        runAction,
                     };
-                    this.isRunning = true;
+                    this.state = CharacterState.WALKING;
+                    setInterval(() => {
+                        if (this.state === CharacterState.WALKING) {
+                            this.transitionIntoState(CharacterState.RUNNING, 1.0);
+                        } else if (this.state === CharacterState.RUNNING) {
+                            this.transitionIntoState(CharacterState.WALKING, 1.0);
+                        }
+                    }, 7000);
                 });
         } else {
             new GLTFLoader()
@@ -72,6 +103,7 @@ export class Character extends Object3D {
                         `<a href="${carrotUrl}" target="_blank">Carrot model</a> ` +
                             `by <a href="${authorUrl}" target="_blank">thepianomonster</a>`
                     );
+                    this.state = CharacterState.IDLE;
                 });
         }
     }
@@ -85,15 +117,83 @@ export class Character extends Object3D {
         newMesh.translateY(-this.Y_OFFSET);
     }
 
-    update(_time: number, delta: number): void {
-        this.rotation.y += 0.5 * delta;
+    update(delta: number): void {
+        const movementSpeed = this.getMovementSpeed();
 
-        if (this.isRunning) {
-            this.translateZ(300.0 * delta);
+        if (movementSpeed > 0.0) {
+            this.rotation.y += (0.5 * movementSpeed * delta) / 300.0;
+            this.translateZ(movementSpeed * delta);
         }
 
         if (this.animationInfo) {
             this.animationInfo.mixer.update(delta);
+        }
+    }
+
+    private getMovementSpeed(): number {
+        const transitionRatio = this.getTransitionRatio();
+        return (
+            this.getSpeedForState(this.state) * transitionRatio +
+            this.getSpeedForState(this.previousState) * (1.0 - transitionRatio)
+        );
+    }
+
+    private getSpeedForState(state: CharacterState): number {
+        switch (state) {
+            case CharacterState.RUNNING:
+                return 300.0;
+            case CharacterState.WALKING:
+                return 50.0;
+            default:
+                return 0.0;
+        }
+    }
+
+    private getTransitionRatio(): number {
+        if (!this.transitionClock) {
+            return 1.0;
+        }
+        const ratio = this.transitionClock.getElapsedTime() / this.transitionDuration;
+        if (isNaN(ratio) || ratio > 1.0) {
+            this.transitionClock = undefined;
+            return 1.0;
+        }
+        return ratio;
+    }
+
+    /**
+     * @param newState The new state to transition into.
+     * @param duration The duration of the transition in SECONDS.
+     */
+    private transitionIntoState(newState: CharacterState, duration: number): void {
+        if (this.animationInfo && newState !== this.state) {
+            const oldAction = this.getActionForState(this.state);
+            const newAction = this.getActionForState(newState);
+            if (oldAction) {
+                oldAction.fadeOut(duration);
+            }
+            if (newAction) {
+                newAction.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(duration);
+                if (newAction.loop !== LoopOnce && oldAction) {
+                    newAction.startAt(oldAction.time);
+                }
+                newAction.play();
+            }
+        }
+        this.transitionClock = new Clock();
+        this.transitionDuration = duration;
+        this.previousState = this.state;
+        this.state = newState;
+    }
+
+    private getActionForState(state: CharacterState): AnimationAction | undefined {
+        switch (state) {
+            case CharacterState.RUNNING:
+                return this.animationInfo?.runAction;
+            case CharacterState.WALKING:
+                return this.animationInfo?.walkAction;
+            default:
+                return undefined;
         }
     }
 }

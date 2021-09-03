@@ -16,12 +16,11 @@ export function makeAllCastAndReceiveShadow(scene: THREE.Group): void {
     scene.traverse((node: THREE.Object3D) => {
         if (shouldNodeCastShadow(node)) {
             node.castShadow = true;
+            if (node instanceof Mesh && node.material instanceof Material) {
+                node.material.shadowSide = BackSide;
+            }
         }
         node.receiveShadow = true;
-        if (node instanceof Mesh && node.material instanceof Material) {
-            window.console.log(node);
-            node.material.shadowSide = BackSide;
-        }
     });
 }
 

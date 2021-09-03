@@ -14,7 +14,7 @@ export class Sun extends DirectionalLight {
         if (shadowSharpnessRatio != null) {
             this.castShadow = true;
 
-            const shadowResolution = 4096;
+            const shadowResolution = 8192;
             this.shadow.mapSize.width = this.shadow.mapSize.height = shadowResolution;
 
             const shadowSideMultiplier = 30;
@@ -22,7 +22,7 @@ export class Sun extends DirectionalLight {
             this.shadow.camera.left = this.shadow.camera.bottom = -shadowSideHalfLength;
             this.shadow.camera.right = this.shadow.camera.top = shadowSideHalfLength;
 
-            this.shadow.camera.far = 3000;
+            this.shadow.camera.far = 10000;
         }
     }
 
