@@ -1,18 +1,18 @@
 import {
     BackSide,
+    LinearMipMapLinearFilter,
     Material,
     Mesh,
-    MeshLambertMaterial,
-    NearestFilter,
+    MeshStandardMaterial,
+    MirroredRepeatWrapping,
     Object3D,
     PlaneGeometry,
-    RepeatWrapping,
     TextureLoader,
+    Vector2,
     sRGBEncoding,
 } from 'three';
 
 export function makeAllCastAndReceiveShadow(scene: THREE.Group): void {
-    window.console.log(scene);
     scene.traverse((node: THREE.Object3D) => {
         if (shouldNodeCastShadow(node)) {
             node.castShadow = true;
@@ -37,20 +37,50 @@ function shouldMaterialCastShadow(material: THREE.Material): boolean {
 }
 
 export function makeGround(): Object3D {
-    const groundMaterial = new MeshLambertMaterial();
+    const groundMaterial = new MeshStandardMaterial();
     groundMaterial.name = 'GroundMaterial';
 
-    new TextureLoader().loadAsync('./assets/ground.png').then((groundTexture) => {
-        groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
-        groundTexture.repeat.set(500, 500);
+    const targetMeshSize = new Vector2(200000, 200000);
+    const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
+
+    (async (): Promise<void> => {
+        const textureLoader = new TextureLoader();
+        const [groundTexture, groundRoughnessTexture, groundBumpMap] = await Promise.all([
+            textureLoader.loadAsync('./assets/ground.png'),
+            textureLoader.loadAsync('./assets/ground-roughness.png'),
+            textureLoader.loadAsync('./assets/ground-bumpmap.png'),
+        ]);
+        const textureScale = 0.125;
+        const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
+        groundTexture.wrapS = groundTexture.wrapT = MirroredRepeatWrapping;
+        groundTexture.repeat.copy(targetMeshSize).divide(textureSize).divideScalar(textureScale).floor();
         groundTexture.anisotropy = 16;
         groundTexture.encoding = sRGBEncoding;
-        groundTexture.magFilter = NearestFilter;
+        groundTexture.minFilter = LinearMipMapLinearFilter;
+
+        for (const otherTexture of [groundRoughnessTexture, groundBumpMap]) {
+            otherTexture.wrapS = otherTexture.wrapT = MirroredRepeatWrapping;
+            otherTexture.repeat.copy(groundTexture.repeat);
+            otherTexture.anisotropy = groundTexture.anisotropy = 16;
+            otherTexture.encoding = groundTexture.encoding = sRGBEncoding;
+            otherTexture.minFilter = groundTexture.minFilter;
+        }
+
         groundMaterial.map = groundTexture;
         groundMaterial.needsUpdate = true;
-    });
 
-    const groundMesh = new Mesh(new PlaneGeometry(200000, 200000), groundMaterial);
+        groundMaterial.metalness = 0.2;
+        groundMaterial.roughnessMap = groundRoughnessTexture;
+
+        groundMaterial.bumpMap = groundBumpMap;
+        groundMaterial.bumpScale = 1 / textureScale;
+
+        groundMesh.geometry = new PlaneGeometry(
+            groundTexture.repeat.x * textureSize.x * textureScale,
+            groundTexture.repeat.y * textureSize.y * textureScale
+        );
+    })();
+
     groundMesh.name = 'Ground';
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;

@@ -23,7 +23,7 @@ import { makeGround } from './three-util';
 addCredit('<a target="_blank" href="https://threejs.org/">Three.js</a>');
 
 export class GameScene {
-    private readonly MAX_DELTA = 1000.0;
+    private readonly MAX_DELTA = 0.5;
 
     private readonly scene: THREE.Scene = new Scene();
     private readonly camera: THREE.PerspectiveCamera;
@@ -40,7 +40,7 @@ export class GameScene {
         this.scene.background = new Color(0xcce0ff);
         this.scene.fog = new Fog(0xcce0ff, 500, 8000);
 
-        this.camera = new PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 10000);
+        this.camera = new PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 10000);
         this.camera.position.set(-100, 50, -200);
         this.camera.position.multiplyScalar(2);
 
@@ -76,6 +76,13 @@ export class GameScene {
         shadowDummyBox.castShadow = true;
         shadowDummyBox.position.set(300, 500.0, -100);
         this.scene.add(shadowDummyBox);
+
+        const centerDummyBox = new Mesh(new BoxGeometry(20, 10, 20), new MeshLambertMaterial({ color: 0x666666 }));
+        centerDummyBox.name = 'CenterDummyBox';
+        centerDummyBox.receiveShadow = true;
+        centerDummyBox.castShadow = true;
+        centerDummyBox.position.setY(5);
+        this.scene.add(centerDummyBox);
 
         const sun = new Sun(50);
         sun.target = character;
