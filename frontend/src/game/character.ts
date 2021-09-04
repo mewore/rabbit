@@ -2,21 +2,23 @@ import {
     AnimationAction,
     AnimationMixer,
     BoxGeometry,
-    Clock,
     LoopOnce,
     Mesh,
     MeshBasicMaterial,
     Object3D,
+    Vector2,
+    Vector3,
 } from 'three';
 import { addCredit, isReisen } from '@/temp-util';
+import { globalVector, makeAllCastAndReceiveShadow } from './three-util';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Updatable } from './updatable';
-import { makeAllCastAndReceiveShadow } from './three-util';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
     readonly walkAction: AnimationAction;
     readonly runAction: AnimationAction;
+    readonly idleAction: AnimationAction;
 }
 
 enum CharacterState {
@@ -26,15 +28,28 @@ enum CharacterState {
     RUNNING,
 }
 
+const WALK_START_TIME = 0.2;
+const RUN_START_TIME = 1.0;
+const RUN_STOP_TIME = 0.3;
+const WALK_STOP_TIME = 0.1;
+
+const MAX_SPEED = 400.0;
+const ACCELERATION = 1000.0;
+
+const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 50];
+
+const tmpVector3 = new Vector3();
+const tmpVector2 = new Vector2();
+
 export class Character extends Object3D implements Updatable {
     private readonly Y_OFFSET = 50.0;
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
     private state = CharacterState.LOADING;
-    private previousState = CharacterState.LOADING;
-    private transitionClock?: Clock;
-    private transitionDuration = 0.0;
+
+    private readonly targetMotion = new Vector3();
+    private readonly motion = new Vector3();
 
     constructor() {
         super();
@@ -60,29 +75,24 @@ export class Character extends Object3D implements Updatable {
                     reisen.position.set(this.position.x, this.position.y, this.position.z);
                     makeAllCastAndReceiveShadow(reisen);
                     this.mesh = reisen;
+                    reisen.updateMatrix();
+                    reisen.rotation.y = 0;
 
                     const mixer = new AnimationMixer(reisen);
+                    const idleAnimation = gltf.animations.find((animation) => animation.name === 'T-Pose');
                     const walkAnimation = gltf.animations.find((animation) => animation.name === 'Walk');
                     const runAnimation = gltf.animations.find((animation) => animation.name === 'Run');
-                    if (!walkAnimation || !runAnimation) {
+                    if (!idleAnimation || !walkAnimation || !runAnimation) {
                         return;
                     }
-                    const walkAction = mixer.clipAction(walkAnimation);
-                    const runAction = mixer.clipAction(runAnimation);
-                    walkAction.play();
                     this.animationInfo = {
                         mixer,
-                        walkAction,
-                        runAction,
+                        walkAction: mixer.clipAction(walkAnimation),
+                        runAction: mixer.clipAction(runAnimation),
+                        idleAction: mixer.clipAction(idleAnimation),
                     };
-                    this.state = CharacterState.WALKING;
-                    setInterval(() => {
-                        if (this.state === CharacterState.WALKING) {
-                            this.transitionIntoState(CharacterState.RUNNING, 1.0);
-                        } else if (this.state === CharacterState.RUNNING) {
-                            this.transitionIntoState(CharacterState.WALKING, 1.0);
-                        }
-                    }, 7000);
+                    this.animationInfo.idleAction.play();
+                    this.state = CharacterState.IDLE;
                 });
         } else {
             new GLTFLoader()
@@ -114,15 +124,36 @@ export class Character extends Object3D implements Updatable {
         }
         this.attach(newMesh);
         this.currentMesh = newMesh;
+        this.currentMesh.rotation.set(0, 0, 0);
         newMesh.translateY(-this.Y_OFFSET);
     }
 
     update(delta: number): void {
-        const movementSpeed = this.getMovementSpeed();
+        const maxFrameAcceleration = ACCELERATION * delta;
+        if (this.motion.distanceToSquared(this.targetMotion) < maxFrameAcceleration * maxFrameAcceleration) {
+            this.motion.copy(this.targetMotion);
+        } else {
+            this.motion.add(tmpVector3.subVectors(this.targetMotion, this.motion).setLength(maxFrameAcceleration));
+        }
 
-        if (movementSpeed > 0.0) {
-            this.rotation.y += (0.5 * movementSpeed * delta) / 300.0;
-            this.translateZ(movementSpeed * delta);
+        if (this.motion.lengthSq() > 0.0) {
+            this.rotation.y = tmpVector2.set(this.motion.x, this.motion.z).angle();
+            this.translateZ(this.motion.length() * delta);
+        }
+
+        const currentSpeedSquared = this.motion.lengthSq();
+        if (currentSpeedSquared < MOVEMENT_ANIMATION_THRESHOLDS[0] * MOVEMENT_ANIMATION_THRESHOLDS[0]) {
+            this.transitionIntoState(
+                CharacterState.IDLE,
+                this.state === CharacterState.WALKING ? WALK_STOP_TIME : RUN_STOP_TIME
+            );
+        } else if (currentSpeedSquared < MOVEMENT_ANIMATION_THRESHOLDS[1] * MOVEMENT_ANIMATION_THRESHOLDS[1]) {
+            this.transitionIntoState(
+                CharacterState.WALKING,
+                this.state === CharacterState.IDLE ? WALK_START_TIME : RUN_STOP_TIME
+            );
+        } else {
+            this.transitionIntoState(CharacterState.RUNNING, RUN_START_TIME);
         }
 
         if (this.animationInfo) {
@@ -130,35 +161,14 @@ export class Character extends Object3D implements Updatable {
         }
     }
 
-    private getMovementSpeed(): number {
-        const transitionRatio = this.getTransitionRatio();
-        return (
-            this.getSpeedForState(this.state) * transitionRatio +
-            this.getSpeedForState(this.previousState) * (1.0 - transitionRatio)
-        );
+    stopMoving(): void {
+        this.targetMotion.set(0, 0, 0);
     }
 
-    private getSpeedForState(state: CharacterState): number {
-        switch (state) {
-            case CharacterState.RUNNING:
-                return 300.0;
-            case CharacterState.WALKING:
-                return 50.0;
-            default:
-                return 0.0;
-        }
-    }
-
-    private getTransitionRatio(): number {
-        if (!this.transitionClock) {
-            return 1.0;
-        }
-        const ratio = this.transitionClock.getElapsedTime() / this.transitionDuration;
-        if (isNaN(ratio) || ratio > 1.0) {
-            this.transitionClock = undefined;
-            return 1.0;
-        }
-        return ratio;
+    move(viewpoint: Object3D, forward: number, right: number): void {
+        const direction = globalVector(viewpoint, this);
+        const angle = tmpVector2.set(direction.x, direction.z).angle() + tmpVector2.set(right, forward).angle();
+        this.targetMotion.set(Math.cos(-angle) * MAX_SPEED, 0, Math.sin(-angle) * MAX_SPEED);
     }
 
     /**
@@ -166,6 +176,9 @@ export class Character extends Object3D implements Updatable {
      * @param duration The duration of the transition in SECONDS.
      */
     private transitionIntoState(newState: CharacterState, duration: number): void {
+        if (this.state === newState) {
+            return;
+        }
         if (this.animationInfo && newState !== this.state) {
             const oldAction = this.getActionForState(this.state);
             const newAction = this.getActionForState(newState);
@@ -180,18 +193,17 @@ export class Character extends Object3D implements Updatable {
                 newAction.play();
             }
         }
-        this.transitionClock = new Clock();
-        this.transitionDuration = duration;
-        this.previousState = this.state;
         this.state = newState;
     }
 
     private getActionForState(state: CharacterState): AnimationAction | undefined {
         switch (state) {
-            case CharacterState.RUNNING:
-                return this.animationInfo?.runAction;
+            case CharacterState.IDLE:
+                return this.animationInfo?.idleAction;
             case CharacterState.WALKING:
                 return this.animationInfo?.walkAction;
+            case CharacterState.RUNNING:
+                return this.animationInfo?.runAction;
             default:
                 return undefined;
         }

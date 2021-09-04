@@ -1,16 +1,23 @@
 import {
     BackSide,
+    BoxGeometry,
     LinearMipMapLinearFilter,
     Material,
     Mesh,
+    MeshLambertMaterial,
     MeshStandardMaterial,
     MirroredRepeatWrapping,
     Object3D,
     PlaneGeometry,
     TextureLoader,
     Vector2,
+    Vector3,
     sRGBEncoding,
 } from 'three';
+
+const TAU = Math.PI * 2;
+const tmpVector3 = new Vector3();
+const otherTmpVector3 = new Vector3();
 
 export function makeAllCastAndReceiveShadow(scene: THREE.Group): void {
     scene.traverse((node: THREE.Object3D) => {
@@ -85,4 +92,42 @@ export function makeGround(): Object3D {
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     return groundMesh;
+}
+
+// TODO: Optimize
+export function wrapAngle(angle: number): number {
+    while (angle > TAU) {
+        angle -= TAU;
+    }
+    while (angle < 0) {
+        angle += TAU;
+    }
+    return angle;
+}
+
+export class AxisHelper extends Object3D {
+    constructor() {
+        super();
+        this.name = 'AxisHelper';
+
+        const xBox = new Mesh(new BoxGeometry(50, 10, 20), new MeshLambertMaterial({ color: 'red' }));
+        xBox.name = 'X-Box';
+        xBox.receiveShadow = true;
+        xBox.castShadow = true;
+        xBox.position.setX(50);
+        xBox.position.setY(5);
+        this.attach(xBox);
+
+        const zBox = new Mesh(new BoxGeometry(20, 10, 50), new MeshLambertMaterial({ color: 'blue' }));
+        zBox.name = 'Z-Box';
+        zBox.receiveShadow = true;
+        zBox.castShadow = true;
+        zBox.position.setZ(50);
+        zBox.position.setY(5);
+        this.attach(zBox);
+    }
+}
+
+export function globalVector(from: Object3D, to: Object3D): Vector3 {
+    return to.localToWorld(tmpVector3.set(0, 0, 0)).sub(from.localToWorld(otherTmpVector3.set(0, 0, 0)));
 }
