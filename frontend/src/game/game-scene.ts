@@ -19,16 +19,18 @@ import { Character } from './character';
 import { OrbitControls } from '@three-ts/orbit-controls';
 import { PlayerConnectEvent } from './entities/events/player-connect-event';
 import { PlayerDisconnectEvent } from './entities/events/player-disconnect-event';
+import { PlayerSetUpEvent } from './entities/events/player-set-up-event';
+import { PlayerSetUpMutation } from './entities/mutations/player-set-up-mutation';
 import { PlayerUpdateEvent } from './entities/events/player-update-event';
+import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Sun } from './sun';
 import { Updatable } from './updatable';
-import { addCredit } from '../temp-util';
-
-addCredit('<a target="_blank" href="https://threejs.org/">Three.js</a>');
+import { isReisen } from '../temp-util';
 
 enum EventType {
     CONNECT,
+    SET_UP,
     UPDATE,
     DISCONNECT,
 }
@@ -41,7 +43,7 @@ export class GameScene {
     private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
 
     private readonly toUpdate: Updatable[];
-    private readonly character = new Character('');
+    private readonly character = new Character('', isReisen());
 
     private readonly clock = new Clock();
 
@@ -102,7 +104,8 @@ export class GameScene {
         this.toUpdate = [this.character, cameraControls, new AutoFollow(sun, this.character)];
 
         this.webSocket.onopen = () => {
-            this.webSocket.send(this.character.getState().encodeToBinary());
+            this.webSocket.send(new PlayerSetUpMutation(isReisen()).encodeToBinary());
+            this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
         };
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             const reader = new SignedBinaryReader(message.data);
@@ -110,6 +113,8 @@ export class GameScene {
             switch (eventType) {
                 case EventType.CONNECT:
                     return this.onPlayerConnected(reader);
+                case EventType.SET_UP:
+                    return this.onPlayerSetUp(reader);
                 case EventType.UPDATE:
                     return this.onPlayerUpdate(reader);
                 case EventType.DISCONNECT:
@@ -124,13 +129,19 @@ export class GameScene {
 
     private onPlayerConnected(reader: SignedBinaryReader): void {
         const event = PlayerConnectEvent.decodeFromBinary(reader);
-        const character = this.getOrCreateCharacter(event.player.id, event.player.username);
+        const character = this.getOrCreateCharacter(event.player.id, event.player.username, event.player.isReisen);
         character.setState(event.player.state);
+    }
+
+    private onPlayerSetUp(reader: SignedBinaryReader): void {
+        const event = PlayerSetUpEvent.decodeFromBinary(reader);
+        const character = this.getOrCreateCharacter(event.playerId, 'Unknown', undefined);
+        character.setUpMesh(event.isReisen);
     }
 
     private onPlayerUpdate(reader: SignedBinaryReader): void {
         const event = PlayerUpdateEvent.decodeFromBinary(reader);
-        const character = this.getOrCreateCharacter(event.playerId, 'Unknown');
+        const character = this.getOrCreateCharacter(event.playerId, 'Unknown', undefined);
         character.setState(event.newState);
     }
 
@@ -150,12 +161,12 @@ export class GameScene {
         this.toUpdate.pop();
     }
 
-    private getOrCreateCharacter(playerId: number, username: string): Character {
+    private getOrCreateCharacter(playerId: number, username: string, isReisen: boolean | undefined): Character {
         const existingCharacter = this.characterById.get(playerId);
         if (existingCharacter) {
             return existingCharacter;
         }
-        const newCharacter = new Character(username);
+        const newCharacter = new Character(username, isReisen);
         this.scene.add(newCharacter);
         this.toUpdate.push(newCharacter);
         this.characterById.set(playerId, newCharacter);
@@ -174,7 +185,7 @@ export class GameScene {
         this.render();
 
         if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
-            this.webSocket.send(this.character.getState().encodeToBinary());
+            this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
         }
     }
 

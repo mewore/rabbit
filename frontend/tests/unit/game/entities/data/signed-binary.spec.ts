@@ -9,6 +9,42 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
         writer = new SignedBinaryWriter();
     });
 
+    describe('when encoding and decoding a boolean', () => {
+        describe('when the boolean is true', () => {
+            it('should retain its value', () => {
+                writer.writeBoolean(true);
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readBoolean()).to.be.true;
+            });
+        });
+        describe('when the boolean is false', () => {
+            it('should retain its value', () => {
+                writer.writeBoolean(false);
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readBoolean()).to.be.false;
+            });
+        });
+    });
+
+    describe('when decoding a nullable boolean', () => {
+        describe('when the boolean is true', () => {
+            it('should retain its value', () => {
+                writer.writeNullableBoolean(true);
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).to.be.true;
+            });
+        });
+        describe('when the boolean is false', () => {
+            it('should retain its value', () => {
+                writer.writeNullableBoolean(false);
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).to.be.false;
+            });
+        });
+        describe('when the boolean is undefined', () => {
+            it('should be undefined', () => {
+                writer.writeNullableBoolean(undefined);
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).to.be.undefined;
+            });
+        });
+    });
+
     describe('when encoding and decoding a byte', () => {
         it('should retain only the byte part and make it signed', () => {
             writer.writeByte((1 << 10) + 200);

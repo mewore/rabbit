@@ -14,6 +14,14 @@ type BinaryData = [number, NumberBinaryType] | Uint8Array;
 export class SignedBinaryWriter {
     private readonly data: BinaryData[] = [];
 
+    writeBoolean(value: boolean): void {
+        this.data.push([value ? 1 : 0, NumberBinaryType.BYTE]);
+    }
+
+    writeNullableBoolean(value: boolean | undefined): void {
+        this.data.push([value == null ? -1 : value ? 1 : 0, NumberBinaryType.BYTE]);
+    }
+
     writeByte(value: number): void {
         this.data.push([value, NumberBinaryType.BYTE]);
     }

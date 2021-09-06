@@ -1,9 +1,11 @@
 package moe.mewore.rabbit;
 
 import java.io.ByteArrayInputStream;
+import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,10 +26,13 @@ import io.javalin.websocket.WsContext;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.entities.BinaryEntity;
 import moe.mewore.rabbit.entities.Player;
-import moe.mewore.rabbit.entities.PlayerState;
 import moe.mewore.rabbit.entities.events.PlayerConnectEvent;
 import moe.mewore.rabbit.entities.events.PlayerDisconnectEvent;
+import moe.mewore.rabbit.entities.events.PlayerSetUpEvent;
 import moe.mewore.rabbit.entities.events.PlayerUpdateEvent;
+import moe.mewore.rabbit.entities.mutations.MutationType;
+import moe.mewore.rabbit.entities.mutations.PlayerSetUpMutation;
+import moe.mewore.rabbit.entities.mutations.PlayerUpdateMutation;
 
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
@@ -85,10 +90,24 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         if (player == null) {
             throw new IllegalArgumentException("There is no session with ID " + sender.getSessionId());
         }
-        final PlayerState newState = PlayerState.decodeFromBinary(
-            new DataInputStream(new ByteArrayInputStream(sender.data())));
-        player.setState(newState);
-        broadcast(sender, new PlayerUpdateEvent(player.getId(), newState));
+        final DataInput dataInput = new DataInputStream(new ByteArrayInputStream(sender.data()));
+        final byte mutationTypeIndex = dataInput.readByte();
+        final MutationType mutationType = Arrays.stream(MutationType.values())
+            .filter(type -> type.getIndex() == mutationTypeIndex)
+            .findAny()
+            .orElseThrow(
+                () -> new IllegalArgumentException("There is no mutation type with index " + mutationTypeIndex));
+        switch (mutationType) {
+            case SET_UP:
+                final PlayerSetUpMutation mutation = PlayerSetUpMutation.decodeFromBinary(dataInput);
+                player.setIsReisen(mutation.isReisen());
+                broadcast(sender, new PlayerSetUpEvent(player.getId(), mutation.isReisen()));
+                return;
+            case UPDATE:
+                final PlayerUpdateMutation updated = PlayerUpdateMutation.decodeFromBinary(dataInput);
+                player.setState(updated.getState());
+                broadcast(sender, new PlayerUpdateEvent(player.getId(), updated.getState()));
+        }
     }
 
     @Override

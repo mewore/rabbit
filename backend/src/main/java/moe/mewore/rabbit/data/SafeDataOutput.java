@@ -4,6 +4,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * A {@link DataOutput} which does not throw any {@link IOException}s.
@@ -21,6 +22,8 @@ public interface SafeDataOutput extends DataOutput {
 
     @Override
     void writeBoolean(boolean v);
+
+    void writeNullableBoolean(@Nullable Boolean v);
 
     @Override
     void writeByte(int v);

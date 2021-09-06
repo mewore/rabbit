@@ -7,8 +7,9 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public enum EventType {
     CONNECT(0),
-    UPDATE(1),
-    DISCONNECT(2);
+    SET_UP(1),
+    UPDATE(2),
+    DISCONNECT(3);
 
     private final int index;
 }

@@ -9,7 +9,6 @@ import {
     Vector2,
     Vector3,
 } from 'three';
-import { addCredit, isReisen } from '@/temp-util';
 import { globalVector, makeAllCastAndReceiveShadow } from './three-util';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PlayerState } from './entities/player-state';
@@ -56,7 +55,9 @@ export class Character extends Object3D implements Updatable {
     private readonly motion = new Vector3();
     private hasChangedSinceLastQuery = true;
 
-    constructor(readonly username: string) {
+    private hasBeenSetUp = false;
+
+    constructor(readonly username: string, isReisen: boolean | undefined) {
         super();
         this.name = 'Character:' + username;
         this.translateY(this.Y_OFFSET);
@@ -68,7 +69,17 @@ export class Character extends Object3D implements Updatable {
         dummyBox.position.set(10, 100.0, 50);
         this.mesh = dummyBox;
 
-        if (isReisen()) {
+        if (isReisen != null) {
+            this.setUpMesh(isReisen);
+        }
+    }
+
+    public setUpMesh(isReisen: boolean): void {
+        if (this.hasBeenSetUp) {
+            return;
+        }
+        this.hasBeenSetUp = true;
+        if (isReisen) {
             new GLTFLoader()
                 .setPath('/assets/reisen/')
                 .loadAsync('reisen.glb')
@@ -111,13 +122,7 @@ export class Character extends Object3D implements Updatable {
 
                     makeAllCastAndReceiveShadow(carrot);
                     this.mesh = carrot;
-                    const carrotUrl =
-                        'https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d';
-                    const authorUrl = 'https://sketchfab.com/thepianomonster';
-                    addCredit(
-                        `<a href="${carrotUrl}" target="_blank">Carrot model</a> ` +
-                            `by <a href="${authorUrl}" target="_blank">thepianomonster</a>`
-                    );
+                    this.animationInfo = undefined;
                     this.state = CharacterState.IDLE;
                 });
         }
@@ -129,7 +134,8 @@ export class Character extends Object3D implements Updatable {
         }
         this.attach(newMesh);
         this.currentMesh = newMesh;
-        this.currentMesh.rotation.set(0, 0, 0);
+        newMesh.rotation.set(0, 0, 0);
+        newMesh.position.set(0, 0, 0);
         newMesh.translateY(-this.Y_OFFSET);
     }
 

@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +31,11 @@ public class ByteArrayDataOutput implements SafeDataOutput {
     @Override
     public void writeBoolean(final boolean v) {
         outputStream.write(v ? 1 : 0);
+    }
+
+    @Override
+    public void writeNullableBoolean(final @Nullable Boolean v) {
+        outputStream.write(v == null ? -1 : (v ? 1 : 0));
     }
 
     @Override

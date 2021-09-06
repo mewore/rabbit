@@ -6,6 +6,15 @@ export class SignedBinaryReader {
         this.dataView = new DataView(data);
     }
 
+    readNullableBoolean(): boolean | undefined {
+        const byte = this.readByte();
+        return byte === 0 ? false : byte === 1 ? true : undefined;
+    }
+
+    readBoolean(): boolean {
+        return this.readByte() !== 0;
+    }
+
     readByte(): number {
         return this.dataView.getInt8(this.index++);
     }
