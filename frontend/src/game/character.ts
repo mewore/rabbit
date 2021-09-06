@@ -12,7 +12,9 @@ import {
 import { addCredit, isReisen } from '@/temp-util';
 import { globalVector, makeAllCastAndReceiveShadow } from './three-util';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { PlayerState } from './entities/player-state';
 import { Updatable } from './updatable';
+import { Vector3Entity } from './entities/vector3-entity';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
@@ -41,6 +43,8 @@ const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 50];
 const tmpVector3 = new Vector3();
 const tmpVector2 = new Vector2();
 
+const TARGET_MOTION_CHANGE_THRESHOLD = 0.05;
+
 export class Character extends Object3D implements Updatable {
     private readonly Y_OFFSET = 50.0;
     private animationInfo?: AnimationInfo;
@@ -50,10 +54,11 @@ export class Character extends Object3D implements Updatable {
 
     private readonly targetMotion = new Vector3();
     private readonly motion = new Vector3();
+    private hasChangedSinceLastQuery = true;
 
-    constructor() {
+    constructor(readonly username: string) {
         super();
-        this.name = 'Character';
+        this.name = 'Character:' + username;
         this.translateY(this.Y_OFFSET);
 
         const dummyBox = new Mesh(new BoxGeometry(100, 100, 100), new MeshBasicMaterial());
@@ -128,9 +133,17 @@ export class Character extends Object3D implements Updatable {
         newMesh.translateY(-this.Y_OFFSET);
     }
 
+    setState(newState: PlayerState): void {
+        this.position.set(newState.position.x, newState.position.y, newState.position.z);
+        this.motion.set(newState.motion.x, newState.motion.y, newState.motion.z);
+        this.targetMotion.set(newState.targetMotion.x, newState.targetMotion.y, newState.targetMotion.z);
+        this.hasChangedSinceLastQuery = true;
+    }
+
     update(delta: number): void {
         const maxFrameAcceleration = ACCELERATION * delta;
-        if (this.motion.distanceToSquared(this.targetMotion) < maxFrameAcceleration * maxFrameAcceleration) {
+        const motionToTargetMotionDistanceSquared = this.motion.distanceToSquared(this.targetMotion);
+        if (motionToTargetMotionDistanceSquared < maxFrameAcceleration * maxFrameAcceleration) {
             this.motion.copy(this.targetMotion);
         } else {
             this.motion.add(tmpVector3.subVectors(this.targetMotion, this.motion).setLength(maxFrameAcceleration));
@@ -161,14 +174,42 @@ export class Character extends Object3D implements Updatable {
         }
     }
 
+    getHoverTextPosition(): Vector3 {
+        return this.localToWorld(tmpVector3.set(0, 200, 0));
+    }
+
     stopMoving(): void {
-        this.targetMotion.set(0, 0, 0);
+        this.setTargetMotion(0, 0, 0);
     }
 
     move(viewpoint: Object3D, forward: number, right: number): void {
         const direction = globalVector(viewpoint, this);
         const angle = tmpVector2.set(direction.x, direction.z).angle() + tmpVector2.set(right, forward).angle();
-        this.targetMotion.set(Math.cos(-angle) * MAX_SPEED, 0, Math.sin(-angle) * MAX_SPEED);
+        this.setTargetMotion(Math.cos(-angle) * MAX_SPEED, 0, Math.sin(-angle) * MAX_SPEED);
+    }
+
+    private setTargetMotion(x: number, y: number, z: number): void {
+        if (
+            tmpVector3.set(x, y, z).sub(this.targetMotion).lengthSq() / (MAX_SPEED * MAX_SPEED) >
+            TARGET_MOTION_CHANGE_THRESHOLD
+        ) {
+            this.targetMotion.set(x, y, z);
+            this.hasChangedSinceLastQuery = true;
+        }
+    }
+
+    hasChanged(): boolean {
+        const result = this.hasChangedSinceLastQuery;
+        this.hasChangedSinceLastQuery = false;
+        return result;
+    }
+
+    getState(): PlayerState {
+        return new PlayerState(
+            Vector3Entity.fromVector3(this.position),
+            Vector3Entity.fromVector3(this.motion),
+            Vector3Entity.fromVector3(this.targetMotion)
+        );
     }
 
     /**

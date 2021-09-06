@@ -9,7 +9,6 @@
     -->
 
     <Match>
-        <Class name="moe.mewore.rabbit.Server"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

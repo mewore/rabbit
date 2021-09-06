@@ -9,33 +9,43 @@ import {
     MeshLambertMaterial,
     PerspectiveCamera,
     Scene,
+    Vector3,
     WebGLRenderer,
     sRGBEncoding,
 } from 'three';
-import { AxisHelper, makeGround } from './three-util';
+import { AxisHelper, makeGround, projectOntoCamera } from './three-util';
 import { AutoFollow } from './auto-follow';
 import { Character } from './character';
 import { OrbitControls } from '@three-ts/orbit-controls';
+import { PlayerConnectEvent } from './entities/events/player-connect-event';
+import { PlayerDisconnectEvent } from './entities/events/player-disconnect-event';
+import { PlayerUpdateEvent } from './entities/events/player-update-event';
+import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Sun } from './sun';
 import { Updatable } from './updatable';
 import { addCredit } from '../temp-util';
 
 addCredit('<a target="_blank" href="https://threejs.org/">Three.js</a>');
 
+enum EventType {
+    CONNECT,
+    UPDATE,
+    DISCONNECT,
+}
+
 export class GameScene {
     private readonly MAX_DELTA = 0.5;
 
     private readonly scene: THREE.Scene = new Scene();
-    private readonly camera: THREE.PerspectiveCamera;
+    private readonly camera = new PerspectiveCamera(80, 1, 1, 10000);
     private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
 
     private readonly toUpdate: Updatable[];
-    private readonly character = new Character();
-
-    private run = false;
-    private requestedAnimationFrame?: number;
+    private readonly character = new Character('');
 
     private readonly clock = new Clock();
+
+    private readonly characterById = new Map<number, Character>();
 
     readonly inputs = {
         up: false,
@@ -44,24 +54,20 @@ export class GameScene {
         right: false,
     };
 
-    constructor(wrapperElement: HTMLElement) {
+    constructor(private readonly wrapperElement: HTMLElement, private readonly webSocket: WebSocket) {
         this.scene.background = new Color(0xcce0ff);
         this.scene.fog = new Fog(0xcce0ff, 500, 8000);
 
-        this.camera = new PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 10000);
         this.camera.position.set(-100, 50, -200);
         this.camera.position.multiplyScalar(2);
 
         this.scene.add(this.character);
-        this.run = true;
-        wrapperElement.tabIndex = 0;
-        wrapperElement.focus();
-        wrapperElement.appendChild(this.renderer.domElement);
+        this.wrapperElement.tabIndex = 0;
+        this.wrapperElement.focus();
+        this.wrapperElement.appendChild(this.renderer.domElement);
         this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputEncoding = sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
-        this.requestedAnimationFrame = requestAnimationFrame(this.animate.bind(this));
 
         this.scene.add(new AmbientLight(0x666666));
         this.scene.add(makeGround());
@@ -95,41 +101,81 @@ export class GameScene {
         this.scene.add(new AxisHelper());
         this.toUpdate = [this.character, cameraControls, new AutoFollow(sun, this.character)];
 
-        window.addEventListener('resize', this.onWindowResize.bind(this));
+        this.webSocket.onopen = () => {
+            this.webSocket.send(this.character.getState().encodeToBinary());
+        };
+        this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
+            const reader = new SignedBinaryReader(message.data);
+            const eventType = reader.readByte();
+            switch (eventType) {
+                case EventType.CONNECT:
+                    return this.onPlayerConnected(reader);
+                case EventType.UPDATE:
+                    return this.onPlayerUpdate(reader);
+                case EventType.DISCONNECT:
+                    return this.onPlayerDisconnected(reader);
+                default:
+                    throw new Error('Unrecognized event type: ' + eventType);
+            }
+        };
+
+        this.refreshSize();
     }
 
-    stopRunning(): void {
-        this.run = false;
-        if (typeof this.requestedAnimationFrame === 'number') {
-            cancelAnimationFrame(this.requestedAnimationFrame);
-        }
+    private onPlayerConnected(reader: SignedBinaryReader): void {
+        const event = PlayerConnectEvent.decodeFromBinary(reader);
+        const character = this.getOrCreateCharacter(event.player.id, event.player.username);
+        character.setState(event.player.state);
     }
 
-    private onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-
-        if (this.run) {
-            this.render();
-        }
+    private onPlayerUpdate(reader: SignedBinaryReader): void {
+        const event = PlayerUpdateEvent.decodeFromBinary(reader);
+        const character = this.getOrCreateCharacter(event.playerId, 'Unknown');
+        character.setState(event.newState);
     }
 
-    private animate() {
-        if (!this.run) {
+    private onPlayerDisconnected(reader: SignedBinaryReader): void {
+        const event = PlayerDisconnectEvent.decodeFromBinary(reader);
+        const character = this.characterById.get(event.playerId);
+        if (!character) {
             return;
         }
+        this.scene.remove(character);
+        this.characterById.delete(event.playerId);
+        const index = this.toUpdate.indexOf(character);
+        if (index < 0) {
+            return;
+        }
+        this.toUpdate[index] = this.toUpdate[this.toUpdate.length - 1];
+        this.toUpdate.pop();
+    }
+
+    private getOrCreateCharacter(playerId: number, username: string): Character {
+        const existingCharacter = this.characterById.get(playerId);
+        if (existingCharacter) {
+            return existingCharacter;
+        }
+        const newCharacter = new Character(username);
+        this.scene.add(newCharacter);
+        this.toUpdate.push(newCharacter);
+        this.characterById.set(playerId, newCharacter);
+        return newCharacter;
+    }
+
+    animate(): void {
         this.requestMovement(
             (this.inputs.right ? 1 : 0) - (this.inputs.left ? 1 : 0),
             (this.inputs.down ? 1 : 0) - (this.inputs.up ? 1 : 0)
         );
-        this.requestedAnimationFrame = requestAnimationFrame(this.animate.bind(this));
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
         for (const updatable of this.toUpdate) {
             updatable.update(delta);
         }
         this.render();
+
+        if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
+            this.webSocket.send(this.character.getState().encodeToBinary());
+        }
     }
 
     private render() {
@@ -142,5 +188,29 @@ export class GameScene {
         } else {
             this.character.stopMoving();
         }
+    }
+
+    forEveryPlayerLabel(callback: (position: Vector3, username: string) => void): void {
+        for (const character of this.characterById.values()) {
+            const projectedPoint = projectOntoCamera(character.getHoverTextPosition(), this.camera);
+            if (projectedPoint) {
+                callback(projectedPoint, character.username);
+            }
+        }
+    }
+
+    refreshSize(): void {
+        const [width, height] = [this.getWidth(), this.getHeight()];
+        this.camera.aspect = width / height;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(width, height);
+    }
+
+    getWidth(): number {
+        return this.wrapperElement.clientWidth;
+    }
+
+    getHeight(): number {
+        return this.wrapperElement.clientHeight;
     }
 }

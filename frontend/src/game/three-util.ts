@@ -1,6 +1,7 @@
 import {
     BackSide,
     BoxGeometry,
+    Camera,
     LinearMipMapLinearFilter,
     Material,
     Mesh,
@@ -130,4 +131,14 @@ export class AxisHelper extends Object3D {
 
 export function globalVector(from: Object3D, to: Object3D): Vector3 {
     return to.localToWorld(tmpVector3.set(0, 0, 0)).sub(from.localToWorld(otherTmpVector3.set(0, 0, 0)));
+}
+
+export function projectOntoCamera(worldPosition: Vector3, camera: Camera): Vector3 | undefined {
+    const distance = camera.worldToLocal(tmpVector3.copy(worldPosition)).length();
+    const vector = tmpVector3.copy(worldPosition).project(camera);
+    if (vector.z > 1.0) {
+        // The point is behind the camera
+        return undefined;
+    }
+    return vector.set((vector.x + 1) / 2, (-vector.y + 1) / 2, distance);
 }
