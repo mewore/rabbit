@@ -1,55 +1,28 @@
 <template>
-    <h1 id="title-header">{{ title }}</h1>
-    <SceneContainer />
-    <Footer />
+    <ReisenGame />
 </template>
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
-import { SiteType, getSiteType } from './temp-util';
-import Footer from './components/Footer.vue';
-import SceneContainer from './components/SceneContainer.vue';
+import ReisenGame from './components/ReisenGame.vue';
 
 @Options({
     components: {
-        SceneContainer,
-        Footer,
+        ReisenGame,
     },
 })
-export default class App extends Vue {
-    title = '';
-
-    mounted(): void {
-        switch (getSiteType()) {
-            case SiteType.REISEN:
-                this.title = 'Reisen';
-                break;
-            case SiteType.TEWI:
-                this.title =
-                    "Tewi (actually just a carrot because I don't have a model for her :c)";
-                break;
-            default:
-                return;
-        }
-        document.title = this.title;
-    }
-}
+export default class App extends Vue {}
 </script>
 
 <style lang="scss">
-#title-header {
-    text-align: center;
-    margin: 1em auto;
-    width: 100%;
-    position: absolute;
-    z-index: 1;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    user-select: none;
-    pointer-events: none;
-    color: rgba(100, 0, 200, 0.5);
-}
 body {
     overflow: hidden;
     margin: 0;
+}
+a {
+    text-decoration: none;
+    &:hover {
+        text-decoration: underline;
+    }
 }
 </style>

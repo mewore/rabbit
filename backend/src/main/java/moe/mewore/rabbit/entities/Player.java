@@ -1,7 +1,5 @@
 package moe.mewore.rabbit.entities;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -15,8 +13,7 @@ public class Player extends BinaryEntity {
 
     private final String username;
 
-    @Setter
-    private @Nullable Boolean isReisen = null;
+    private final boolean isReisen;
 
     @Setter
     private PlayerState state = new PlayerState();
@@ -25,7 +22,7 @@ public class Player extends BinaryEntity {
     public void appendToBinaryOutput(final SafeDataOutput output) {
         output.writeInt(id);
         output.writeAsciiWithLength(username);
-        output.writeNullableBoolean(isReisen);
+        output.writeBoolean(isReisen);
         state.appendToBinaryOutput(output);
     }
 }

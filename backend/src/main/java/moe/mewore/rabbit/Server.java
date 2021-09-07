@@ -10,9 +10,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.jetty.websocket.api.Session;
-import org.jetbrains.annotations.NotNull;
 
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
@@ -26,12 +26,11 @@ import io.javalin.websocket.WsContext;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.entities.BinaryEntity;
 import moe.mewore.rabbit.entities.Player;
-import moe.mewore.rabbit.entities.events.PlayerConnectEvent;
 import moe.mewore.rabbit.entities.events.PlayerDisconnectEvent;
-import moe.mewore.rabbit.entities.events.PlayerSetUpEvent;
+import moe.mewore.rabbit.entities.events.PlayerJoinEvent;
 import moe.mewore.rabbit.entities.events.PlayerUpdateEvent;
 import moe.mewore.rabbit.entities.mutations.MutationType;
-import moe.mewore.rabbit.entities.mutations.PlayerSetUpMutation;
+import moe.mewore.rabbit.entities.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.entities.mutations.PlayerUpdateMutation;
 
 @RequiredArgsConstructor
@@ -72,24 +71,16 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     }
 
     @Override
-    public void handleConnect(@NotNull final WsConnectContext sender) {
-        final int playerId = nextPlayerId.incrementAndGet();
-        final String username = "Player " + playerId;
-        final Player newPlayer = new Player(playerId, username);
-        broadcast(sender, new PlayerConnectEvent(newPlayer));
+    public void handleConnect(final @NonNull WsConnectContext sender) {
         for (final Player player : playerBySessionId.values()) {
-            sender.send(ByteBuffer.wrap(new PlayerConnectEvent(player).encodeToBinary()));
+            sender.send(ByteBuffer.wrap(new PlayerJoinEvent(player).encodeToBinary()));
         }
-        playerBySessionId.put(sender.getSessionId(), newPlayer);
         sessionById.put(sender.getSessionId(), sender.session);
     }
 
     @Override
-    public void handleBinaryMessage(@NotNull final WsBinaryMessageContext sender) throws IOException {
+    public void handleBinaryMessage(final WsBinaryMessageContext sender) throws IOException {
         final @Nullable Player player = playerBySessionId.get(sender.getSessionId());
-        if (player == null) {
-            throw new IllegalArgumentException("There is no session with ID " + sender.getSessionId());
-        }
         final DataInput dataInput = new DataInputStream(new ByteArrayInputStream(sender.data()));
         final byte mutationTypeIndex = dataInput.readByte();
         final MutationType mutationType = Arrays.stream(MutationType.values())
@@ -98,27 +89,41 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             .orElseThrow(
                 () -> new IllegalArgumentException("There is no mutation type with index " + mutationTypeIndex));
         switch (mutationType) {
-            case SET_UP:
-                final PlayerSetUpMutation mutation = PlayerSetUpMutation.decodeFromBinary(dataInput);
-                player.setIsReisen(mutation.isReisen());
-                broadcast(sender, new PlayerSetUpEvent(player.getId(), mutation.isReisen()));
+            case JOIN:
+                if (player != null) {
+                    throw new IllegalArgumentException(
+                        "There is already a player for session " + sender.getSessionId() + "! Cannot join again.");
+                }
+                handleJoin(sender, PlayerJoinMutation.decodeFromBinary(dataInput));
                 return;
             case UPDATE:
-                final PlayerUpdateMutation updated = PlayerUpdateMutation.decodeFromBinary(dataInput);
-                player.setState(updated.getState());
-                broadcast(sender, new PlayerUpdateEvent(player.getId(), updated.getState()));
+                if (player == null) {
+                    throw new IllegalArgumentException("There is no player for session " + sender.getSessionId());
+                }
+                handleUpdate(sender, player, PlayerUpdateMutation.decodeFromBinary(dataInput));
         }
     }
 
+    private synchronized void handleJoin(final WsContext sender, final PlayerJoinMutation joinMutation) {
+        final int playerId = nextPlayerId.incrementAndGet();
+        final String username = "Player " + playerId;
+        final Player newPlayer = new Player(playerId, username, joinMutation.isReisen());
+        playerBySessionId.put(sender.getSessionId(), newPlayer);
+        broadcast(sender, new PlayerJoinEvent(newPlayer));
+    }
+
+    private void handleUpdate(final WsContext sender, final Player player, final PlayerUpdateMutation updateMutation) {
+        player.setState(updateMutation.getState());
+        broadcast(sender, new PlayerUpdateEvent(player.getId(), updateMutation.getState()));
+    }
+
     @Override
-    public void handleClose(@NotNull final WsCloseContext sender) {
-        final @Nullable Player player = playerBySessionId.get(sender.getSessionId());
-        if (player == null) {
-            throw new IllegalArgumentException("There is no session with ID " + sender.getSessionId());
-        }
-        playerBySessionId.remove(sender.getSessionId());
+    public void handleClose(final WsCloseContext sender) {
         sessionById.remove(sender.getSessionId());
-        broadcast(sender, new PlayerDisconnectEvent(player));
+        final @Nullable Player player = playerBySessionId.remove(sender.getSessionId());
+        if (player != null) {
+            broadcast(sender, new PlayerDisconnectEvent(player));
+        }
     }
 
     private void broadcast(final WsContext context, final BinaryEntity entityToBroadcast) {

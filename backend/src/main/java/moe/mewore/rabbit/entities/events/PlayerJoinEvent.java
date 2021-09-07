@@ -6,13 +6,13 @@ import moe.mewore.rabbit.entities.BinaryEntity;
 import moe.mewore.rabbit.entities.Player;
 
 @RequiredArgsConstructor
-public class PlayerConnectEvent extends BinaryEntity {
+public class PlayerJoinEvent extends BinaryEntity {
 
     private final Player player;
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeByte(EventType.CONNECT.getIndex());
+        output.writeByte(EventType.JOIN.getIndex());
         player.appendToBinaryOutput(output);
     }
 }

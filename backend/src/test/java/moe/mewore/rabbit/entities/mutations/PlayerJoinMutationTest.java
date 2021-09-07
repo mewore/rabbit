@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class PlayerSetUpMutationTest {
+class PlayerJoinMutationTest {
 
     @Test
     void testDecodeEncode() throws IOException {
         final byte[] initialData = new byte[]{1};
 
-        final PlayerSetUpMutation decoded = PlayerSetUpMutation.decodeFromBinary(
+        final PlayerJoinMutation decoded = PlayerJoinMutation.decodeFromBinary(
             new DataInputStream(new ByteArrayInputStream(initialData)));
 
         final byte[] encoded = decoded.encodeToBinary();
@@ -25,6 +25,6 @@ class PlayerSetUpMutationTest {
 
     @Test
     void testEncode() {
-        assertEquals(2, new PlayerSetUpMutation(true).encodeToBinary().length);
+        assertEquals(2, new PlayerJoinMutation(true).encodeToBinary().length);
     }
 }

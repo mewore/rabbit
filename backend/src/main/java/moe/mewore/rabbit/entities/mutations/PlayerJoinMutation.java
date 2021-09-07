@@ -10,17 +10,17 @@ import moe.mewore.rabbit.entities.BinaryEntity;
 
 @Getter
 @RequiredArgsConstructor
-public class PlayerSetUpMutation extends BinaryEntity {
+public class PlayerJoinMutation extends BinaryEntity {
 
     private final boolean isReisen;
 
-    public static PlayerSetUpMutation decodeFromBinary(final DataInput input) throws IOException {
-        return new PlayerSetUpMutation(input.readBoolean());
+    public static PlayerJoinMutation decodeFromBinary(final DataInput input) throws IOException {
+        return new PlayerJoinMutation(input.readBoolean());
     }
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeByte(MutationType.SET_UP.getIndex());
+        output.writeByte(MutationType.JOIN.getIndex());
         output.writeBoolean(isReisen);
     }
 }

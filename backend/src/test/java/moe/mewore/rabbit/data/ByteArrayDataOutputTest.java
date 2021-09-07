@@ -41,7 +41,31 @@ class ByteArrayDataOutputTest {
     @Test
     void testWriteBoolean_true() {
         dataOutput.writeBoolean(true);
-        assertArrayEquals(new byte[]{0x1}, byteArrayOutputStream.toByteArray());
+        assertArrayEquals(new byte[]{1}, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
+    void testWriteBoolean_false() {
+        dataOutput.writeBoolean(false);
+        assertArrayEquals(new byte[]{0}, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
+    void testWriteNullableBoolean_true() {
+        dataOutput.writeNullableBoolean(true);
+        assertArrayEquals(new byte[]{1}, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
+    void testWriteNullableBoolean_false() {
+        dataOutput.writeNullableBoolean(false);
+        assertArrayEquals(new byte[]{0}, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
+    void testWriteNullableBoolean_null() {
+        dataOutput.writeNullableBoolean(null);
+        assertArrayEquals(new byte[]{-1}, byteArrayOutputStream.toByteArray());
     }
 
     @Test

@@ -14,19 +14,19 @@ import {
     sRGBEncoding,
 } from 'three';
 import { AxisHelper, makeGround, projectOntoCamera } from './three-util';
+import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './auto-follow';
 import { Character } from './character';
+import { Input } from './input';
 import { OrbitControls } from '@three-ts/orbit-controls';
-import { PlayerConnectEvent } from './entities/events/player-connect-event';
 import { PlayerDisconnectEvent } from './entities/events/player-disconnect-event';
-import { PlayerSetUpEvent } from './entities/events/player-set-up-event';
-import { PlayerSetUpMutation } from './entities/mutations/player-set-up-mutation';
+import { PlayerJoinEvent } from './entities/events/player-join-event';
+import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
 import { PlayerUpdateEvent } from './entities/events/player-update-event';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Sun } from './sun';
 import { Updatable } from './updatable';
-import { isReisen } from '../temp-util';
 
 enum EventType {
     CONNECT,
@@ -34,6 +34,11 @@ enum EventType {
     UPDATE,
     DISCONNECT,
 }
+
+addCredit({
+    thing: { text: 'Three.js', url: 'https://threejs.org/' },
+    author: { text: 'Mr.doob', url: 'https://github.com/mrdoob' },
+});
 
 export class GameScene {
     private readonly MAX_DELTA = 0.5;
@@ -49,12 +54,7 @@ export class GameScene {
 
     private readonly characterById = new Map<number, Character>();
 
-    readonly inputs = {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-    };
+    readonly input = new Input();
 
     constructor(private readonly wrapperElement: HTMLElement, private readonly webSocket: WebSocket) {
         this.scene.background = new Color(0xcce0ff);
@@ -63,8 +63,6 @@ export class GameScene {
         this.camera.position.set(-20, 10, -40);
 
         this.scene.add(this.character);
-        this.wrapperElement.tabIndex = 0;
-        this.wrapperElement.focus();
         this.wrapperElement.appendChild(this.renderer.domElement);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.outputEncoding = sRGBEncoding;
@@ -100,12 +98,8 @@ export class GameScene {
         sun.target = this.character;
         this.scene.add(sun);
         this.scene.add(new AxisHelper());
-        this.toUpdate = [this.character, cameraControls, new AutoFollow(sun, this.character)];
+        this.toUpdate = [cameraControls, new AutoFollow(sun, this.character)];
 
-        this.webSocket.onopen = () => {
-            this.webSocket.send(new PlayerSetUpMutation(isReisen()).encodeToBinary());
-            this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
-        };
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             const reader = new SignedBinaryReader(message.data);
             const eventType = reader.readByte();
@@ -113,7 +107,7 @@ export class GameScene {
                 case EventType.CONNECT:
                     return this.onPlayerConnected(reader);
                 case EventType.SET_UP:
-                    return this.onPlayerSetUp(reader);
+                    return this.onPlayerJoined(reader);
                 case EventType.UPDATE:
                     return this.onPlayerUpdate(reader);
                 case EventType.DISCONNECT:
@@ -124,18 +118,36 @@ export class GameScene {
         };
 
         this.refreshSize();
+        this.character.visible = false;
+    }
+
+    start(): void {
+        if (this.character.visible) {
+            return;
+        }
+        this.character.visible = true;
+        this.toUpdate.push(this.character);
+        if (this.webSocket.readyState === WebSocket.OPEN) {
+            this.sendInitialPlayerInfo();
+        } else {
+            this.webSocket.onopen = () => this.sendInitialPlayerInfo();
+        }
+    }
+
+    private sendInitialPlayerInfo(): void {
+        this.webSocket.send(new PlayerJoinMutation(isReisen()).encodeToBinary());
+        this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
     }
 
     private onPlayerConnected(reader: SignedBinaryReader): void {
-        const event = PlayerConnectEvent.decodeFromBinary(reader);
+        const event = PlayerJoinEvent.decodeFromBinary(reader);
         const character = this.getOrCreateCharacter(event.player.id, event.player.username, event.player.isReisen);
         character.setState(event.player.state);
     }
 
-    private onPlayerSetUp(reader: SignedBinaryReader): void {
-        const event = PlayerSetUpEvent.decodeFromBinary(reader);
-        const character = this.getOrCreateCharacter(event.playerId, 'Unknown', undefined);
-        character.setUpMesh(event.isReisen);
+    private onPlayerJoined(reader: SignedBinaryReader): void {
+        const event = PlayerJoinEvent.decodeFromBinary(reader);
+        this.getOrCreateCharacter(event.player.id, event.player.username, event.player.isReisen);
     }
 
     private onPlayerUpdate(reader: SignedBinaryReader): void {
@@ -173,17 +185,14 @@ export class GameScene {
     }
 
     animate(): void {
-        this.requestMovement(
-            (this.inputs.right ? 1 : 0) - (this.inputs.left ? 1 : 0),
-            (this.inputs.down ? 1 : 0) - (this.inputs.up ? 1 : 0)
-        );
+        this.requestMovement(this.input.side, this.input.forwards);
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
         for (const updatable of this.toUpdate) {
             updatable.update(delta);
         }
         this.render();
 
-        if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
+        if (this.character.visible && this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
             this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
         }
     }
@@ -192,9 +201,12 @@ export class GameScene {
         this.renderer.render(this.scene, this.camera);
     }
 
-    requestMovement(dx: number, dy: number): void {
-        if (Math.abs(dx) > 0 || Math.abs(dy) > 0) {
-            this.character.move(this.camera, dy, dx);
+    private requestMovement(side: number, forwards: number): void {
+        if (!this.character.visible) {
+            return;
+        }
+        if (Math.abs(side) > 0 || Math.abs(forwards) > 0) {
+            this.character.move(this.camera, forwards, side);
         } else {
             this.character.stopMoving();
         }

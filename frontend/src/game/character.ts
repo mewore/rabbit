@@ -14,6 +14,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PlayerState } from './entities/player-state';
 import { Updatable } from './updatable';
 import { Vector3Entity } from './entities/vector3-entity';
+import { addCredit } from '@/temp-util';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
@@ -69,6 +70,7 @@ export class Character extends Object3D implements Updatable {
         dummyBox.position.set(1, 10, 5);
         this.mesh = dummyBox;
 
+        this.visible = false;
         if (isReisen != null) {
             this.setUpMesh(isReisen);
         }
@@ -79,11 +81,17 @@ export class Character extends Object3D implements Updatable {
             return;
         }
         this.hasBeenSetUp = true;
+        this.visible = true;
         if (isReisen) {
             new GLTFLoader()
                 .setPath('/assets/reisen/')
                 .loadAsync('reisen.glb')
                 .then((gltf) => {
+                    addCredit({
+                        thing: { text: 'Fumo', url: 'https://fumo.website/' },
+                        author: { text: 'ROYALCAT', url: 'https://royalcat.xyz/' },
+                    });
+
                     const reisen = gltf.scene;
                     reisen.name = 'Reisen';
                     reisen.position.set(this.position.x, this.position.y, this.position.z);
@@ -113,6 +121,13 @@ export class Character extends Object3D implements Updatable {
                 .setPath('/assets/carrot/')
                 .loadAsync('scene.gltf')
                 .then((gltf) => {
+                    addCredit({
+                        thing: {
+                            text: 'Carrot model',
+                            url: 'https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d',
+                        },
+                        author: { text: 'thepianomonster', url: 'https://sketchfab.com/thepianomonster' },
+                    });
                     const carrotSize = 5;
                     const carrot = gltf.scene;
                     carrot.name = 'Carrot';

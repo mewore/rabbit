@@ -1,4 +1,4 @@
-import Footer from '@/components/Footer.vue';
+import Footer from '@/components/menu/Footer.vue';
 import { expect } from 'chai';
 import { shallowMount } from '@vue/test-utils';
 

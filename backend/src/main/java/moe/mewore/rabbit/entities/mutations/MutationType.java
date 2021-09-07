@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Getter
 public enum MutationType {
-    SET_UP(0),
-    UPDATE(1);
+    JOIN((byte) 0),
+    UPDATE((byte) 1);
 
-    private final int index;
+    private final byte index;
 }

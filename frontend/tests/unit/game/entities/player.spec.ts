@@ -10,7 +10,7 @@ describe('Player', () => {
             const original = new Player(
                 18,
                 'Player',
-                undefined,
+                true,
                 new PlayerState(
                     new Vector3Entity(0.1, 0.2, 0.3),
                     new Vector3Entity(0.4, 0.5, 0.6),
