@@ -42,6 +42,7 @@ export default class App extends Vue {
     margin: 1em auto;
     width: 100%;
     position: absolute;
+    z-index: 1;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     user-select: none;
     pointer-events: none;
