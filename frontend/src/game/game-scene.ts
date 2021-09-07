@@ -39,7 +39,7 @@ export class GameScene {
     private readonly MAX_DELTA = 0.5;
 
     private readonly scene: THREE.Scene = new Scene();
-    private readonly camera = new PerspectiveCamera(80, 1, 1, 10000);
+    private readonly camera = new PerspectiveCamera(80, 1, 1, 1000);
     private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
 
     private readonly toUpdate: Updatable[];
@@ -58,10 +58,9 @@ export class GameScene {
 
     constructor(private readonly wrapperElement: HTMLElement, private readonly webSocket: WebSocket) {
         this.scene.background = new Color(0xcce0ff);
-        this.scene.fog = new Fog(0xcce0ff, 500, 8000);
-
-        this.camera.position.set(-100, 50, -200);
-        this.camera.position.multiplyScalar(2);
+        this.scene.fog = new Fog(0xcce0ff, 50, 800);
+        1;
+        this.camera.position.set(-20, 10, -40);
 
         this.scene.add(this.character);
         this.wrapperElement.tabIndex = 0;
@@ -77,8 +76,8 @@ export class GameScene {
         const cameraControls = new OrbitControls(this.camera, this.renderer.domElement);
         cameraControls.minPolarAngle = Math.PI * 0.1;
         cameraControls.maxPolarAngle = Math.PI * 0.4;
-        cameraControls.minDistance = 50;
-        cameraControls.maxDistance = 1000;
+        cameraControls.minDistance = 5;
+        cameraControls.maxDistance = 100;
         cameraControls.enablePan = false;
         cameraControls.enableDamping = true;
         cameraControls.dampingFactor = 0.1;
@@ -90,11 +89,11 @@ export class GameScene {
 
         cameraControls.target = this.character.position;
 
-        const shadowDummyBox = new Mesh(new BoxGeometry(200, 1000, 200), new MeshLambertMaterial({ color: 0x666666 }));
+        const shadowDummyBox = new Mesh(new BoxGeometry(20, 100, 20), new MeshLambertMaterial({ color: 0x666666 }));
         shadowDummyBox.name = 'ShadowDummyBox';
         shadowDummyBox.receiveShadow = true;
         shadowDummyBox.castShadow = true;
-        shadowDummyBox.position.set(300, 500.0, -100);
+        shadowDummyBox.position.set(30, 50, -10);
         this.scene.add(shadowDummyBox);
 
         const sun = new Sun(50);

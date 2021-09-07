@@ -48,7 +48,7 @@ export function makeGround(): Object3D {
     const groundMaterial = new MeshStandardMaterial();
     groundMaterial.name = 'GroundMaterial';
 
-    const targetMeshSize = new Vector2(200000, 200000);
+    const targetMeshSize = new Vector2(20000, 20000);
     const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
 
     (async (): Promise<void> => {
@@ -58,7 +58,7 @@ export function makeGround(): Object3D {
             textureLoader.loadAsync('./assets/ground-roughness.png'),
             textureLoader.loadAsync('./assets/ground-bumpmap.png'),
         ]);
-        const textureScale = 0.125;
+        const textureScale = 1 / 80;
         const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
         groundTexture.wrapS = groundTexture.wrapT = MirroredRepeatWrapping;
         groundTexture.repeat.copy(targetMeshSize).divide(textureSize).divideScalar(textureScale).floor();
@@ -81,7 +81,6 @@ export function makeGround(): Object3D {
         groundMaterial.roughnessMap = groundRoughnessTexture;
 
         groundMaterial.bumpMap = groundBumpMap;
-        groundMaterial.bumpScale = 1 / textureScale;
 
         groundMesh.geometry = new PlaneGeometry(
             groundTexture.repeat.x * textureSize.x * textureScale,
@@ -95,13 +94,11 @@ export function makeGround(): Object3D {
     return groundMesh;
 }
 
-// TODO: Optimize
 export function wrapAngle(angle: number): number {
-    while (angle > TAU) {
-        angle -= TAU;
-    }
-    while (angle < 0) {
-        angle += TAU;
+    if (angle >= TAU) {
+        angle -= Math.floor(angle / TAU) * TAU;
+    } else if (angle < 0) {
+        angle += Math.floor(-angle / TAU) * TAU;
     }
     return angle;
 }
@@ -111,20 +108,20 @@ export class AxisHelper extends Object3D {
         super();
         this.name = 'AxisHelper';
 
-        const xBox = new Mesh(new BoxGeometry(50, 10, 20), new MeshLambertMaterial({ color: 'red' }));
+        const xBox = new Mesh(new BoxGeometry(5, 1, 2), new MeshLambertMaterial({ color: 'red' }));
         xBox.name = 'X-Box';
         xBox.receiveShadow = true;
         xBox.castShadow = true;
-        xBox.position.setX(50);
-        xBox.position.setY(5);
+        xBox.position.setX(5);
+        xBox.position.setY(0.5);
         this.attach(xBox);
 
-        const zBox = new Mesh(new BoxGeometry(20, 10, 50), new MeshLambertMaterial({ color: 'blue' }));
+        const zBox = new Mesh(new BoxGeometry(2, 1, 5), new MeshLambertMaterial({ color: 'blue' }));
         zBox.name = 'Z-Box';
         zBox.receiveShadow = true;
         zBox.castShadow = true;
-        zBox.position.setZ(50);
-        zBox.position.setY(5);
+        zBox.position.setZ(5);
+        zBox.position.setY(0.5);
         this.attach(zBox);
     }
 }

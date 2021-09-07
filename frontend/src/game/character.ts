@@ -34,10 +34,10 @@ const RUN_START_TIME = 1.0;
 const RUN_STOP_TIME = 0.3;
 const WALK_STOP_TIME = 0.1;
 
-const MAX_SPEED = 400.0;
-const ACCELERATION = 1000.0;
+const MAX_SPEED = 40;
+const ACCELERATION = 100;
 
-const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 50];
+const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 5];
 
 const tmpVector3 = new Vector3();
 const tmpVector2 = new Vector2();
@@ -45,7 +45,7 @@ const tmpVector2 = new Vector2();
 const TARGET_MOTION_CHANGE_THRESHOLD = 0.05;
 
 export class Character extends Object3D implements Updatable {
-    private readonly Y_OFFSET = 50.0;
+    private readonly Y_OFFSET = 5;
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
@@ -59,14 +59,14 @@ export class Character extends Object3D implements Updatable {
 
     constructor(readonly username: string, isReisen: boolean | undefined) {
         super();
-        this.name = 'Character:' + username;
+        this.name = username ? 'Character:' + username : 'Character';
         this.translateY(this.Y_OFFSET);
 
-        const dummyBox = new Mesh(new BoxGeometry(100, 100, 100), new MeshBasicMaterial());
+        const dummyBox = new Mesh(new BoxGeometry(10, 10, 10), new MeshBasicMaterial());
         dummyBox.name = 'CharacterDummyBox';
         dummyBox.receiveShadow = true;
         dummyBox.castShadow = true;
-        dummyBox.position.set(10, 100.0, 50);
+        dummyBox.position.set(1, 10, 5);
         this.mesh = dummyBox;
 
         if (isReisen != null) {
@@ -86,8 +86,6 @@ export class Character extends Object3D implements Updatable {
                 .then((gltf) => {
                     const reisen = gltf.scene;
                     reisen.name = 'Reisen';
-                    const reisenSize = 10;
-                    reisen.scale.set(reisenSize, reisenSize, reisenSize);
                     reisen.position.set(this.position.x, this.position.y, this.position.z);
                     makeAllCastAndReceiveShadow(reisen);
                     this.mesh = reisen;
@@ -115,7 +113,7 @@ export class Character extends Object3D implements Updatable {
                 .setPath('/assets/carrot/')
                 .loadAsync('scene.gltf')
                 .then((gltf) => {
-                    const carrotSize = 50;
+                    const carrotSize = 5;
                     const carrot = gltf.scene;
                     carrot.name = 'Carrot';
                     carrot.scale.set(carrotSize, carrotSize, carrotSize);
@@ -181,7 +179,7 @@ export class Character extends Object3D implements Updatable {
     }
 
     getHoverTextPosition(): Vector3 {
-        return this.localToWorld(tmpVector3.set(0, 200, 0));
+        return this.localToWorld(tmpVector3.set(0, 20, 0));
     }
 
     stopMoving(): void {
