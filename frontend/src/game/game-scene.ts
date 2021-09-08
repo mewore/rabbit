@@ -55,11 +55,14 @@ export class GameScene {
 
     readonly input = new Input();
 
+    private readonly cameraControls: RigidOrbitControls;
+
     constructor(private readonly wrapperElement: HTMLElement, private readonly webSocket: WebSocket) {
         this.scene.background = new Color(0xcce0ff);
         this.scene.fog = new Fog(0xcce0ff, 50, 800);
         1;
         this.camera.position.set(-20, 10, -40);
+        this.cameraControls = new RigidOrbitControls(this.input, this.camera, this.character);
 
         this.scene.add(this.character);
         this.wrapperElement.appendChild(this.renderer.domElement);
@@ -78,14 +81,13 @@ export class GameScene {
         shadowDummyBox.position.set(30, 50, -10);
         this.scene.add(shadowDummyBox);
 
-        const cameraControls = new RigidOrbitControls(this.input, this.camera, this.character);
-        cameraControls.intersectionObjects = [ground, shadowDummyBox];
+        this.cameraControls.intersectionObjects = [ground, shadowDummyBox];
 
         const sun = new Sun(50);
         sun.target = this.character;
         this.scene.add(sun);
         this.scene.add(new AxisHelper());
-        this.toUpdate = [cameraControls, new AutoFollow(sun, this.character)];
+        this.toUpdate = [new AutoFollow(sun, this.character)];
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             const reader = new SignedBinaryReader(message.data);
@@ -177,6 +179,7 @@ export class GameScene {
         for (const updatable of this.toUpdate) {
             updatable.update(delta);
         }
+        this.cameraControls.update(delta);
         this.render();
 
         if (this.character.visible && this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {

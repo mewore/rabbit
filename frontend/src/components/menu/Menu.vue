@@ -15,6 +15,13 @@
                 :class="{ disabled: !canResume }"
             >
                 {{ playing ? 'Resume' : 'Play' }}
+                <div class="button-sublabel" v-if="playing">
+                    {{
+                        canResume
+                            ? resumeButtonTip
+                            : 'Waiting for the Pointer Lock API to chill out...'
+                    }}
+                </div>
             </div>
             <Separator />
             <Footer />
@@ -42,12 +49,29 @@ export default class Menu extends Vue {
     playing!: boolean;
     canResume = false;
 
+    resumeButtonTip = 'or press [Escape]';
+    private readonly pointerLockErrorHandler = () => {
+        this.resumeButtonTip =
+            "The Pointer Lock API doesn't want you to use [Escape] this time. Try clicking instead.";
+    };
+
     mounted(): void {
         (this.$refs.menuWrapper as HTMLElement).focus();
         this.canResume = !this.playing;
         if (!this.canResume) {
-            setTimeout(() => (this.canResume = true), 2000);
+            setTimeout(() => (this.canResume = true), 1500);
         }
+        document.addEventListener(
+            'pointerlockerror',
+            this.pointerLockErrorHandler
+        );
+    }
+
+    beforeUnmount(): void {
+        document.removeEventListener(
+            'pointerlockerror',
+            this.pointerLockErrorHandler
+        );
     }
 
     onResumeOrPlayClicked(): void {
@@ -110,6 +134,10 @@ export default class Menu extends Vue {
             &:not(.disabled):hover {
                 color: #fff;
                 background: rgba(255, 255, 255, 0.2);
+            }
+            .button-sublabel {
+                padding-top: 0.5em;
+                font-size: 50%;
             }
         }
     }
