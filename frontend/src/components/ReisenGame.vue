@@ -95,13 +95,16 @@ export default class ReisenGame extends Vue {
         if (!this.menuIsVisible) {
             canvasWrapper.focus();
         }
-        document.addEventListener('blur', () =>
+        document.addEventListener(
+            'blur',
             this.addEvent(document, 'blur', () => this.scene?.input.clear())
         );
-        window.addEventListener('resize', () =>
-            this.addEvent(window, 'resize', () => this.onResize.bind(this))
+        window.addEventListener(
+            'resize',
+            this.addEvent(window, 'resize', this.onResize.bind(this))
         );
-        window.addEventListener('blur', () =>
+        window.addEventListener(
+            'blur',
             this.addEvent(window, 'blur', () => this.scene?.input.clear())
         );
         window.addEventListener(
