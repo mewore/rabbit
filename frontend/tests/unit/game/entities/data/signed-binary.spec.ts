@@ -59,8 +59,15 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
         });
     });
 
+    describe('when encoding and decoding a float', () => {
+        it('should retain only the float part', () => {
+            writer.writeFloat(0.123);
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readFloat()).to.closeTo(0.123, 0.00001);
+        });
+    });
+
     describe('when encoding and decoding a double', () => {
-        it('should retain only the byte part', () => {
+        it('should retain only the double part', () => {
             writer.writeDouble(0.123);
             expect(new SignedBinaryReader(writer.toArrayBuffer()).readDouble()).to.equal(0.123);
         });

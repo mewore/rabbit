@@ -6,6 +6,7 @@ import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -16,8 +17,9 @@ import io.javalin.websocket.WsBinaryMessageContext;
 import io.javalin.websocket.WsCloseContext;
 import io.javalin.websocket.WsConnectContext;
 import moe.mewore.rabbit.data.ByteArrayDataOutput;
-import moe.mewore.rabbit.entities.events.EventType;
+import moe.mewore.rabbit.entities.messages.MessageType;
 import moe.mewore.rabbit.entities.mutations.MutationType;
+import moe.mewore.rabbit.entities.world.FakeForest;
 import moe.mewore.rabbit.mock.ws.FakeWsSession;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -47,30 +49,14 @@ class ServerTest {
 
     @BeforeEach
     void setUp() {
-        server = new Server(new ServerSettings(new String[0], Map.of()), mock(Javalin.class));
+        server = new Server(new ServerSettings(new String[0], Map.of()), mock(Javalin.class), new FakeForest());
     }
 
     @Test
     void testHandleConnect() {
         final FakeWsSession session = new FakeWsSession("session");
         simulateConnect(session);
-        assertEquals(0, session.getSentData().size());
-    }
-
-    @Test
-    void testHandleConnect_two() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
-        simulateConnect(session);
-        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        byteArrayOutputStream.write(MutationType.JOIN.getIndex());
-        byteArrayOutputStream.write(1);
-        simulateBinaryData(session, byteArrayOutputStream.toByteArray());
-
-        final FakeWsSession otherSession = new FakeWsSession("other");
-        simulateConnect(otherSession);
-        assertEquals(1, otherSession.getSentData().size());
-        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(0)));
-        assertEquals(EventType.JOIN.getIndex(), eventInput.readByte());
+        assertEquals(List.of(MessageType.FOREST_DATA), session.getSentMessageTypes());
     }
 
     @Test
@@ -81,9 +67,7 @@ class ServerTest {
 
         final FakeWsSession otherSession = new FakeWsSession("other");
         simulateConnect(otherSession);
-        assertEquals(1, otherSession.getSentData().size());
-        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(0)));
-        assertEquals(EventType.JOIN.getIndex(), eventInput.readByte());
+        assertEquals(List.of(MessageType.FOREST_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());
     }
 
     @Test
@@ -95,9 +79,9 @@ class ServerTest {
         simulateConnect(otherSession);
         simulateJoin(session, false);
 
-        assertEquals(1, otherSession.getSentData().size());
-        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(0)));
-        assertEquals(EventType.JOIN.getIndex(), eventInput.readByte());
+        assertEquals(List.of(MessageType.FOREST_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());
+        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(1)));
+        assertEquals(MessageType.JOIN.getIndex(), eventInput.readByte());
         assertEquals(1, eventInput.readInt());
         assertEquals(8, eventInput.readInt());
         final byte[] stringBytes = new byte[8];
@@ -121,9 +105,10 @@ class ServerTest {
         writeDoubles(byteArrayOutputStream, 1, 2, 3, 4, 5, 6, 7, 8, 9);
         simulateBinaryData(session, byteArrayOutputStream.toByteArray());
 
-        assertEquals(2, otherSession.getSentData().size());
-        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(1)));
-        assertEquals(EventType.UPDATE.getIndex(), eventInput.readByte());
+        assertEquals(List.of(MessageType.FOREST_DATA, MessageType.JOIN, MessageType.UPDATE),
+            otherSession.getSentMessageTypes());
+        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(2)));
+        assertEquals(MessageType.UPDATE.getIndex(), eventInput.readByte());
         assertEquals(1, eventInput.readInt());
         assertArrayEquals(new double[]{1, 2, 3, 4, 5, 6, 7, 8, 9}, readNineDoubles(eventInput));
     }
@@ -159,7 +144,7 @@ class ServerTest {
         final FakeWsSession firstSession = new FakeWsSession("session");
         simulateConnect(firstSession);
         simulateClose(firstSession);
-        assertEquals(0, firstSession.getSentData().size());
+        assertEquals(List.of(MessageType.FOREST_DATA), firstSession.getSentMessageTypes());
     }
 
     @Test
@@ -172,9 +157,10 @@ class ServerTest {
         simulateConnect(otherSession);
         simulateClose(session);
 
-        assertEquals(2, otherSession.getSentData().size());
-        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(1)));
-        assertEquals(EventType.DISCONNECT.getIndex(), eventInput.readByte());
+        assertEquals(List.of(MessageType.FOREST_DATA, MessageType.JOIN, MessageType.DISCONNECT),
+            otherSession.getSentMessageTypes());
+        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(2)));
+        assertEquals(MessageType.DISCONNECT.getIndex(), eventInput.readByte());
         assertEquals(1, eventInput.readInt());
     }
 

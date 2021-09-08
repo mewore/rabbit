@@ -58,7 +58,7 @@ export function makeGround(): Object3D {
             textureLoader.loadAsync('./assets/ground-roughness.png'),
             textureLoader.loadAsync('./assets/ground-bumpmap.png'),
         ]);
-        const textureScale = 1 / 80;
+        const textureScale = 1 / 64;
         const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
         groundTexture.wrapS = groundTexture.wrapT = MirroredRepeatWrapping;
         groundTexture.repeat.copy(targetMeshSize).divide(textureSize).divideScalar(textureScale).floor();
@@ -94,11 +94,19 @@ export function makeGround(): Object3D {
     return groundMesh;
 }
 
+export function wrap(value: number, min: number, max: number): number {
+    let normalized = ((value - min) / (max - min)) % 1;
+    if (normalized < 0) {
+        normalized++;
+    }
+    return min + (max - min) * normalized;
+}
+
 export function wrapAngle(angle: number): number {
     if (angle >= TAU) {
-        angle -= Math.floor(angle / TAU) * TAU;
+        return angle - Math.floor(angle / TAU) * TAU;
     } else if (angle < 0) {
-        angle += Math.floor(-angle / TAU) * TAU;
+        return angle + Math.floor(-angle / TAU) * TAU;
     }
     return angle;
 }

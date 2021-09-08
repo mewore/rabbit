@@ -12,24 +12,27 @@ import {
     WebGLRenderer,
     sRGBEncoding,
 } from 'three';
-import { AxisHelper, makeGround, projectOntoCamera } from './three-util';
+import { AxisHelper, makeGround, projectOntoCamera, wrap } from './three-util';
 import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './auto-follow';
 import { Character } from './character';
+import { ForestDataMessage } from './entities/messages/forest-data-message';
+import { ForestObject } from './forest-object';
 import { Input } from './input';
-import { PlayerDisconnectEvent } from './entities/events/player-disconnect-event';
-import { PlayerJoinEvent } from './entities/events/player-join-event';
+import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
+import { PlayerJoinMessage } from './entities/messages/player-join-message';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
-import { PlayerUpdateEvent } from './entities/events/player-update-event';
+import { PlayerUpdateMessage } from './entities/messages/player-update-message';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
 import { RigidOrbitControls } from './rigid-orbit-controls';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Sun } from './sun';
 import { Updatable } from './updatable';
+import { degToRad } from 'three/src/math/MathUtils';
 
-enum EventType {
-    CONNECT,
-    SET_UP,
+enum MessageType {
+    JOIN,
+    FOREST_DATA,
     UPDATE,
     DISCONNECT,
 }
@@ -39,11 +42,30 @@ addCredit({
     author: { text: 'Mr.doob', url: 'https://github.com/mrdoob' },
 });
 
+const GROUND_TEXTURE_SCALE = 1 / 64;
+const ASSUMED_GROUND_TEXTURE_WIDTH = 512 * 2 * GROUND_TEXTURE_SCALE;
+const ASSUMED_GROUND_TEXTURE_HEIGHT = 880 * 2 * GROUND_TEXTURE_SCALE;
+const DESIRED_WORLD_SIZE = 500;
+const WORLD_WIDTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_WIDTH) * ASSUMED_GROUND_TEXTURE_WIDTH;
+const WORLD_DEPTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_HEIGHT) * ASSUMED_GROUND_TEXTURE_HEIGHT;
+
+const MIN_X = -WORLD_WIDTH / 2;
+const MAX_X = WORLD_WIDTH / 2;
+const MIN_Z = -WORLD_DEPTH / 2;
+const MAX_Z = WORLD_DEPTH / 2;
+
+const FOV = 80;
+// The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
+//  perpendicular to the camera intersecting the object insead of on the distance between the camera and the object.
+//  Fog is implemented like this in every damn 3D engine and it's so unrealistic, but I guess it's easier to calculate.
+const FOG_END = Math.cos(degToRad(FOV / 2)) * (Math.min(WORLD_WIDTH, WORLD_DEPTH) / 2);
+const FOG_START = FOG_END * 0.5;
+
 export class GameScene {
     private readonly MAX_DELTA = 0.5;
 
     private readonly scene: THREE.Scene = new Scene();
-    private readonly camera = new PerspectiveCamera(80, 1, 1, 1000);
+    private readonly camera = new PerspectiveCamera(FOV, 1, 1, 1000);
     private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
 
     private readonly toUpdate: Updatable[];
@@ -57,10 +79,11 @@ export class GameScene {
 
     private readonly cameraControls: RigidOrbitControls;
 
+    private readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH);
+
     constructor(private readonly wrapperElement: HTMLElement, private readonly webSocket: WebSocket) {
         this.scene.background = new Color(0xcce0ff);
-        this.scene.fog = new Fog(0xcce0ff, 50, 800);
-        1;
+        this.scene.fog = new Fog(0xcce0ff, FOG_START, FOG_END);
         this.camera.position.set(-20, 10, -40);
         this.cameraControls = new RigidOrbitControls(this.input, this.camera, this.character);
 
@@ -73,6 +96,8 @@ export class GameScene {
         this.scene.add(new AmbientLight(0x666666));
         const ground = makeGround();
         this.scene.add(ground);
+
+        this.scene.add(this.forest);
 
         const shadowDummyBox = new Mesh(new BoxGeometry(20, 100, 20), new MeshLambertMaterial({ color: 0x666666 }));
         shadowDummyBox.name = 'ShadowDummyBox';
@@ -91,18 +116,18 @@ export class GameScene {
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             const reader = new SignedBinaryReader(message.data);
-            const eventType = reader.readByte();
-            switch (eventType) {
-                case EventType.CONNECT:
-                    return this.onPlayerConnected(reader);
-                case EventType.SET_UP:
+            const messageType = reader.readByte();
+            switch (messageType) {
+                case MessageType.JOIN:
                     return this.onPlayerJoined(reader);
-                case EventType.UPDATE:
+                case MessageType.UPDATE:
                     return this.onPlayerUpdate(reader);
-                case EventType.DISCONNECT:
+                case MessageType.DISCONNECT:
                     return this.onPlayerDisconnected(reader);
+                case MessageType.FOREST_DATA:
+                    return this.onForestData(reader);
                 default:
-                    throw new Error('Unrecognized event type: ' + eventType);
+                    throw new Error('Unrecognized message type: ' + messageType);
             }
         };
 
@@ -128,37 +153,41 @@ export class GameScene {
         this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
     }
 
-    private onPlayerConnected(reader: SignedBinaryReader): void {
-        const event = PlayerJoinEvent.decodeFromBinary(reader);
-        const character = this.getOrCreateCharacter(event.player.id, event.player.username, event.player.isReisen);
-        character.setState(event.player.state);
-    }
-
     private onPlayerJoined(reader: SignedBinaryReader): void {
-        const event = PlayerJoinEvent.decodeFromBinary(reader);
-        this.getOrCreateCharacter(event.player.id, event.player.username, event.player.isReisen);
+        const message = PlayerJoinMessage.decodeFromBinary(reader);
+        const character = this.getOrCreateCharacter(
+            message.player.id,
+            message.player.username,
+            message.player.isReisen
+        );
+        character.setState(message.player.state);
     }
 
     private onPlayerUpdate(reader: SignedBinaryReader): void {
-        const event = PlayerUpdateEvent.decodeFromBinary(reader);
-        const character = this.getOrCreateCharacter(event.playerId, 'Unknown', undefined);
-        character.setState(event.newState);
+        const message = PlayerUpdateMessage.decodeFromBinary(reader);
+        const character = this.getOrCreateCharacter(message.playerId, 'Unknown', undefined);
+        character.setState(message.newState);
     }
 
     private onPlayerDisconnected(reader: SignedBinaryReader): void {
-        const event = PlayerDisconnectEvent.decodeFromBinary(reader);
-        const character = this.characterById.get(event.playerId);
+        const message = PlayerDisconnectMessage.decodeFromBinary(reader);
+        const character = this.characterById.get(message.playerId);
         if (!character) {
             return;
         }
         this.scene.remove(character);
-        this.characterById.delete(event.playerId);
+        this.characterById.delete(message.playerId);
         const index = this.toUpdate.indexOf(character);
         if (index < 0) {
             return;
         }
         this.toUpdate[index] = this.toUpdate[this.toUpdate.length - 1];
         this.toUpdate.pop();
+    }
+
+    private onForestData(reader: SignedBinaryReader): void {
+        const message = ForestDataMessage.decodeFromBinary(reader);
+        this.forest.setForestData(message.forest);
     }
 
     private getOrCreateCharacter(playerId: number, username: string, isReisen: boolean | undefined): Character {
@@ -176,15 +205,23 @@ export class GameScene {
     animate(): void {
         this.requestMovement(this.input.movementRight, this.input.movementForwards);
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
+        if (this.character.visible) {
+            const characterPosition = this.character.position;
+            if (characterPosition.x < MIN_X || characterPosition.x > MAX_X) {
+                characterPosition.setX(wrap(characterPosition.x, MIN_X, MAX_X));
+            }
+            if (characterPosition.z < MIN_Z || characterPosition.z > MAX_Z) {
+                characterPosition.setZ(wrap(characterPosition.z, MIN_Z, MAX_Z));
+            }
+            if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
+                this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
+            }
+        }
         for (const updatable of this.toUpdate) {
             updatable.update(delta);
         }
         this.cameraControls.update(delta);
         this.render();
-
-        if (this.character.visible && this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
-            this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
-        }
     }
 
     private render() {

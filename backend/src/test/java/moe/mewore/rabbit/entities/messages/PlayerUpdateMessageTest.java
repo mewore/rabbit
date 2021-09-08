@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.entities.events;
+package moe.mewore.rabbit.entities.messages;
 
 import org.junit.jupiter.api.Test;
 
@@ -9,12 +9,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-class PlayerUpdateEventTest {
+class PlayerUpdateMessageTest {
 
     @Test
     void testEncode() {
         final PlayerState playerState = mock(PlayerState.class);
-        assertEquals(5, new PlayerUpdateEvent(1, playerState).encodeToBinary().length);
+        assertEquals(5, new PlayerUpdateMessage(1, playerState).encodeToBinary().length);
         verify(playerState).appendToBinaryOutput(any());
     }
 }

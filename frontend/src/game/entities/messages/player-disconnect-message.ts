@@ -2,7 +2,7 @@ import { BinaryEntity } from '../binary-entity';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
 
-export class PlayerDisconnectEvent extends BinaryEntity {
+export class PlayerDisconnectMessage extends BinaryEntity {
     constructor(readonly playerId: number) {
         super();
     }
@@ -11,7 +11,7 @@ export class PlayerDisconnectEvent extends BinaryEntity {
         writer.writeInt(this.playerId);
     }
 
-    static decodeFromBinary(reader: SignedBinaryReader): PlayerDisconnectEvent {
-        return new PlayerDisconnectEvent(reader.readInt());
+    static decodeFromBinary(reader: SignedBinaryReader): PlayerDisconnectMessage {
+        return new PlayerDisconnectMessage(reader.readInt());
     }
 }

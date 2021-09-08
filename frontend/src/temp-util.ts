@@ -26,7 +26,7 @@ export function getSiteType(): SiteType {
 
 export interface LinkInfo {
     text: string;
-    url: string;
+    url?: string;
 }
 
 export interface Credit {

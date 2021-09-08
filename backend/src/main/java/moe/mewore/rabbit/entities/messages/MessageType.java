@@ -1,12 +1,13 @@
-package moe.mewore.rabbit.entities.events;
+package moe.mewore.rabbit.entities.messages;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Getter
-public enum EventType {
+public enum MessageType {
     JOIN((byte) 0),
+    FOREST_DATA((byte) 1),
     UPDATE((byte) 2),
     DISCONNECT((byte) 3);
 

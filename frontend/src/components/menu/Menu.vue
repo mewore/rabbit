@@ -12,7 +12,7 @@
                 class="menu-button"
                 @click="onResumeOrPlayClicked($event)"
                 tabindex="2"
-                :class="{ disabled: !canResume }"
+                :class="{ disabled: playing && !canResume }"
             >
                 {{ playing ? 'Resume' : 'Play' }}
                 <div class="button-sublabel" v-if="playing">
@@ -126,7 +126,6 @@ export default class Menu extends Vue {
             text-align: center;
             user-select: none;
             padding: 0.5em 0;
-            transition: color 0.5s;
             &.disabled {
                 color: orangered;
                 cursor: default;

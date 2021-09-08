@@ -3,13 +3,23 @@
         <div class="footer-title">Credits</div>
         <div class="credit" v-for="credit in credits" :key="credit">
             <div>
-                <a target="_blank" :href="credit.thing.url">
+                <a
+                    v-if="credit.thing.url"
+                    target="_blank"
+                    :href="credit.thing.url"
+                >
                     {{ credit.thing.text }}
                 </a>
+                <span v-else>{{ credit.thing.text }}</span>
                 by
-                <a target="_blank" :href="credit.author.url">
+                <a
+                    v-if="credit.author.url"
+                    target="_blank"
+                    :href="credit.author.url"
+                >
                     {{ credit.author.text }}
                 </a>
+                <span v-else>{{ credit.author.text }}</span>
             </div>
         </div>
     </div>

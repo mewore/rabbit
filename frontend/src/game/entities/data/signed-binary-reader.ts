@@ -25,6 +25,12 @@ export class SignedBinaryReader {
         return result;
     }
 
+    readFloat(): number {
+        const result = this.dataView.getFloat32(this.index);
+        this.index += 4;
+        return result;
+    }
+
     readDouble(): number {
         const result = this.dataView.getFloat64(this.index);
         this.index += 8;

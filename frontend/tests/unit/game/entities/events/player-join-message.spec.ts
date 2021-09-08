@@ -1,14 +1,14 @@
 import { Player } from '@/game/entities/player';
-import { PlayerJoinEvent } from '@/game/entities/events/player-join-event';
+import { PlayerJoinMessage } from '@/game/entities/messages/player-join-message';
 import { PlayerState } from '@/game/entities/player-state';
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { Vector3Entity } from '@/game/entities/vector3-entity';
 import { expect } from 'chai';
 
-describe('PlayerJoinEvent', () => {
+describe('PlayerJoinMessage', () => {
     describe('when encoded and decoded', () => {
         it('should retain its value', () => {
-            const original = new PlayerJoinEvent(
+            const original = new PlayerJoinMessage(
                 new Player(
                     1,
                     'Player',
@@ -21,7 +21,7 @@ describe('PlayerJoinEvent', () => {
                 )
             );
             const encoded = original.encodeToBinary();
-            const decoded = PlayerJoinEvent.decodeFromBinary(new SignedBinaryReader(encoded));
+            const decoded = PlayerJoinMessage.decodeFromBinary(new SignedBinaryReader(encoded));
             expect(decoded).to.deep.equals(original);
         });
     });

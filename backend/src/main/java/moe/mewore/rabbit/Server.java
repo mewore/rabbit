@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -26,25 +27,29 @@ import io.javalin.websocket.WsContext;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.entities.BinaryEntity;
 import moe.mewore.rabbit.entities.Player;
-import moe.mewore.rabbit.entities.events.PlayerDisconnectEvent;
-import moe.mewore.rabbit.entities.events.PlayerJoinEvent;
-import moe.mewore.rabbit.entities.events.PlayerUpdateEvent;
+import moe.mewore.rabbit.entities.messages.ForestDataMessage;
+import moe.mewore.rabbit.entities.messages.PlayerDisconnectMessage;
+import moe.mewore.rabbit.entities.messages.PlayerJoinMessage;
+import moe.mewore.rabbit.entities.messages.PlayerUpdateMessage;
 import moe.mewore.rabbit.entities.mutations.MutationType;
 import moe.mewore.rabbit.entities.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.entities.mutations.PlayerUpdateMutation;
+import moe.mewore.rabbit.entities.world.Forest;
 
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
 
     private final AtomicInteger nextPlayerId = new AtomicInteger();
 
+    private final Map<String, Player> playerBySessionId = new HashMap<>();
+
+    private final Map<String, Session> sessionById = new HashMap<>();
+
     private final ServerSettings serverSettings;
 
     private final Javalin javalin;
 
-    private final Map<String, Player> playerBySessionId = new HashMap<>();
-
-    private final Map<String, Session> sessionById = new HashMap<>();
+    private final Forest forest;
 
     public static void main(final String[] args) {
         start(new ServerSettings(args, System.getenv()));
@@ -58,7 +63,8 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 config.addStaticFiles(settings.getExternalStaticLocation(), Location.EXTERNAL);
             }
         });
-        return new Server(settings, javalin).start();
+        final Forest forest = Forest.generate(new Random());
+        return new Server(settings, javalin, forest).start();
     }
 
     private Javalin start() {
@@ -72,8 +78,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     @Override
     public void handleConnect(final @NonNull WsConnectContext sender) {
+        sender.send(ByteBuffer.wrap(new ForestDataMessage(forest).encodeToBinary()));
         for (final Player player : playerBySessionId.values()) {
-            sender.send(ByteBuffer.wrap(new PlayerJoinEvent(player).encodeToBinary()));
+            sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player).encodeToBinary()));
         }
         sessionById.put(sender.getSessionId(), sender.session);
     }
@@ -109,12 +116,12 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         final String username = "Player " + playerId;
         final Player newPlayer = new Player(playerId, username, joinMutation.isReisen());
         playerBySessionId.put(sender.getSessionId(), newPlayer);
-        broadcast(sender, new PlayerJoinEvent(newPlayer));
+        broadcast(sender, new PlayerJoinMessage(newPlayer));
     }
 
     private void handleUpdate(final WsContext sender, final Player player, final PlayerUpdateMutation updateMutation) {
         player.setState(updateMutation.getState());
-        broadcast(sender, new PlayerUpdateEvent(player.getId(), updateMutation.getState()));
+        broadcast(sender, new PlayerUpdateMessage(player.getId(), updateMutation.getState()));
     }
 
     @Override
@@ -122,7 +129,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         sessionById.remove(sender.getSessionId());
         final @Nullable Player player = playerBySessionId.remove(sender.getSessionId());
         if (player != null) {
-            broadcast(sender, new PlayerDisconnectEvent(player));
+            broadcast(sender, new PlayerDisconnectMessage(player));
         }
     }
 

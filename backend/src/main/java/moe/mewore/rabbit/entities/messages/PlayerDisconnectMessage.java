@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.entities.events;
+package moe.mewore.rabbit.entities.messages;
 
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.data.SafeDataOutput;
@@ -6,13 +6,13 @@ import moe.mewore.rabbit.entities.BinaryEntity;
 import moe.mewore.rabbit.entities.Player;
 
 @RequiredArgsConstructor
-public class PlayerJoinEvent extends BinaryEntity {
+public class PlayerDisconnectMessage extends BinaryEntity {
 
     private final Player player;
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeByte(EventType.JOIN.getIndex());
-        player.appendToBinaryOutput(output);
+        output.writeByte(MessageType.DISCONNECT.getIndex());
+        output.writeInt(player.getId());
     }
 }

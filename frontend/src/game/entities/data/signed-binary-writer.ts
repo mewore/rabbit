@@ -1,6 +1,7 @@
 enum NumberBinaryType {
     BYTE,
     INTEGER,
+    FLOAT,
     DOUBLE,
 }
 
@@ -28,6 +29,10 @@ export class SignedBinaryWriter {
 
     writeInt(value: number): void {
         this.data.push([value, NumberBinaryType.INTEGER]);
+    }
+
+    writeFloat(value: number): void {
+        this.data.push([value, NumberBinaryType.FLOAT]);
     }
 
     writeDouble(value: number): void {
@@ -82,6 +87,9 @@ export class SignedBinaryWriter {
             case NumberBinaryType.INTEGER:
                 dataView.setInt32(index, value);
                 return index + 4;
+            case NumberBinaryType.FLOAT:
+                dataView.setFloat32(index, value);
+                return index + 4;
             case NumberBinaryType.DOUBLE:
                 dataView.setFloat64(index, value);
                 return index + 8;
@@ -107,6 +115,7 @@ export class SignedBinaryWriter {
             case NumberBinaryType.BYTE:
                 return 1;
             case NumberBinaryType.INTEGER:
+            case NumberBinaryType.FLOAT:
                 return 4;
             case NumberBinaryType.DOUBLE:
                 return 8;

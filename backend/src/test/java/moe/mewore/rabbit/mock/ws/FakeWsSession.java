@@ -1,7 +1,9 @@
 package moe.mewore.rabbit.mock.ws;
 
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.eclipse.jetty.websocket.api.CloseStatus;
 import org.eclipse.jetty.websocket.api.Session;
@@ -12,6 +14,7 @@ import org.eclipse.jetty.websocket.api.WebSocketPolicy;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import moe.mewore.rabbit.entities.messages.MessageType;
 
 @Getter
 @RequiredArgsConstructor
@@ -25,6 +28,18 @@ public class FakeWsSession implements Session {
 
     public List<byte[]> getSentData() {
         return remote.getSentData();
+    }
+
+    public List<MessageType> getSentMessageTypes() {
+        return remote.getSentData().stream().map(data -> {
+            if (data.length == 0) {
+                return null;
+            }
+            return Arrays.stream(MessageType.values())
+                .filter(type -> type.getIndex() == data[0])
+                .findAny()
+                .orElse(null);
+        }).collect(Collectors.toList());
     }
 
     @Override

@@ -3,7 +3,7 @@ import { PlayerState } from '../player-state';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
 
-export class PlayerUpdateEvent extends BinaryEntity {
+export class PlayerUpdateMessage extends BinaryEntity {
     constructor(readonly playerId: number, readonly newState: PlayerState) {
         super();
     }
@@ -13,7 +13,7 @@ export class PlayerUpdateEvent extends BinaryEntity {
         this.newState.appendToBinaryOutput(writer);
     }
 
-    static decodeFromBinary(reader: SignedBinaryReader): PlayerUpdateEvent {
-        return new PlayerUpdateEvent(reader.readInt(), PlayerState.decodeFromBinary(reader));
+    static decodeFromBinary(reader: SignedBinaryReader): PlayerUpdateMessage {
+        return new PlayerUpdateMessage(reader.readInt(), PlayerState.decodeFromBinary(reader));
     }
 }
