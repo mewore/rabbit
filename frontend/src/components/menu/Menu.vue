@@ -12,6 +12,7 @@
                 class="menu-button"
                 @click="onResumeOrPlayClicked($event)"
                 tabindex="2"
+                :class="{ disabled: !canResume }"
             >
                 {{ playing ? 'Resume' : 'Play' }}
             </div>
@@ -39,23 +40,27 @@ import { getTitle } from '@/temp-util';
 export default class Menu extends Vue {
     title = getTitle();
     playing!: boolean;
+    canResume = false;
 
     mounted(): void {
-        const wrapper = this.$refs.menuWrapper as HTMLElement;
-        wrapper.classList.remove('visible');
-        setTimeout(() => {
-            wrapper.classList.add('visible');
-        }, 0);
-        wrapper.focus();
+        (this.$refs.menuWrapper as HTMLElement).focus();
+        this.canResume = !this.playing;
+        if (!this.canResume) {
+            setTimeout(() => (this.canResume = true), 2000);
+        }
     }
 
     onResumeOrPlayClicked(): void {
-        this.$emit('close');
+        if (this.canResume) {
+            this.$emit('close');
+        }
     }
 
     onKeyUp(event: KeyboardEvent): void {
-        if (this.playing && event.code === 'Escape') {
-            this.$emit('close');
+        if (this.canResume) {
+            if (this.playing && event.code === 'Escape') {
+                this.$emit('close');
+            }
         }
     }
 }
@@ -97,10 +102,15 @@ export default class Menu extends Vue {
             text-align: center;
             user-select: none;
             padding: 0.5em 0;
-        }
-        .menu-button:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.2);
+            transition: color 0.5s;
+            &.disabled {
+                color: orangered;
+                cursor: default;
+            }
+            &:not(.disabled):hover {
+                color: #fff;
+                background: rgba(255, 255, 255, 0.2);
+            }
         }
     }
 }

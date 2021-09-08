@@ -1,6 +1,7 @@
 <template>
     <div
         class="game-container"
+        ref="container"
         @keydown="onKeyDown($event)"
         @keyup="onKeyUp($event)"
         @blur="onGameBlurred()"
@@ -9,6 +10,9 @@
             class="canvas-wrapper"
             ref="canvasWrapper"
             @keyup="onCanvasKeyUp($event)"
+            @mousemove="onMouseMove($event)"
+            @click="onClick($event)"
+            @mousewheel="onMouseWheel($event)"
             tabindex="0"
             :style="{
                 filter: `blur(${inactivity}vw) `,
@@ -71,11 +75,17 @@ export default class ReisenGame extends Vue {
     playing = false;
     menuIsVisible = true;
 
+    private readonly eventsToRemove: [
+        Node | Window,
+        string,
+        (event: unknown) => void
+    ][] = [];
+
     mounted(): void {
         this.webSocket = new WebSocket(
             `ws://${window.location.host}/multiplayer`
         );
-        const canvasWrapper = this.$refs.canvasWrapper as HTMLElement;
+        const canvasWrapper = this.getCanvasWrapper();
         this.webSocket.binaryType = 'arraybuffer';
         this.scene = new GameScene(canvasWrapper, this.webSocket);
         this.requestedAnimationFrame = requestAnimationFrame(
@@ -85,21 +95,68 @@ export default class ReisenGame extends Vue {
         if (!this.menuIsVisible) {
             canvasWrapper.focus();
         }
-        window.addEventListener('resize', this.onResize.bind(this));
-        document.addEventListener('blur', () => this.scene?.input.clear());
-        window.addEventListener('blur', () => this.scene?.input.clear());
+        document.addEventListener('blur', () =>
+            this.addEvent(document, 'blur', () => this.scene?.input.clear())
+        );
+        window.addEventListener('resize', () =>
+            this.addEvent(window, 'resize', () => this.onResize.bind(this))
+        );
+        window.addEventListener('blur', () =>
+            this.addEvent(window, 'blur', () => this.scene?.input.clear())
+        );
+        window.addEventListener(
+            'focus',
+            this.addEvent(window, 'focus', () => {
+                if (!this.menuIsVisible) {
+                    this.lockMouse();
+                }
+            })
+        );
+        document.addEventListener(
+            'pointerlockchange',
+            this.addEvent(document, 'pointerlockchange', () => {
+                if (this.scene) {
+                    this.menuIsVisible = !document.pointerLockElement;
+                    this.scene.input.active = !this.menuIsVisible;
+                    if (this.menuIsVisible) {
+                        this.scene.input.clear();
+                    } else {
+                        this.requestAnimationFrame();
+                        canvasWrapper.focus();
+                        if (!this.playing) {
+                            this.playing = true;
+                            this.scene.start();
+                        }
+                    }
+                }
+            })
+        );
+    }
+
+    private addEvent<T extends Event>(
+        element: Node | Window,
+        eventType: string,
+        callback: (event: T) => void
+    ): (event: T) => void {
+        this.eventsToRemove.push([
+            element,
+            eventType,
+            callback as unknown as (event: unknown) => void,
+        ]);
+        return callback;
     }
 
     onMenuClosed(): void {
-        if (this.scene) {
-            this.menuIsVisible = false;
-            this.scene.input.active = true;
-            (this.$refs.canvasWrapper as HTMLElement).focus();
-            this.requestAnimationFrame();
-            if (!this.playing) {
-                this.playing = true;
-                this.scene.start();
-            }
+        this.lockMouse();
+    }
+
+    private getCanvasWrapper(): HTMLElement {
+        return this.$refs.canvasWrapper as HTMLElement;
+    }
+
+    private lockMouse(): void {
+        if (this.scene && !document.pointerLockElement) {
+            this.getCanvasWrapper().requestPointerLock();
         }
     }
 
@@ -168,6 +225,9 @@ export default class ReisenGame extends Vue {
             cancelAnimationFrame(this.requestedAnimationFrame);
         }
         this.webSocket?.close();
+        for (const toRemove of this.eventsToRemove) {
+            toRemove[0].removeEventListener(toRemove[1], toRemove[2]);
+        }
     }
 
     onGameBlurred(): void {
@@ -189,6 +249,27 @@ export default class ReisenGame extends Vue {
                 this.scene.input.active = false;
             }
         }
+    }
+
+    onMouseMove(event: MouseEvent): void {
+        if (this.scene && !this.menuIsVisible) {
+            this.scene.input.processMouseMovement(
+                event.movementX,
+                event.movementY
+            );
+        }
+    }
+
+    onClick(): void {
+        if (!this.menuIsVisible) {
+            this.lockMouse();
+        }
+    }
+
+    onMouseWheel(event: WheelEvent): void {
+        this.scene?.input.processMouseWheel(
+            (event as unknown as { wheelDelta: number }).wheelDelta
+        );
     }
 
     onResize(): void {

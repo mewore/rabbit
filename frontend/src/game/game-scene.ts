@@ -4,7 +4,6 @@ import {
     Clock,
     Color,
     Fog,
-    MOUSE,
     Mesh,
     MeshLambertMaterial,
     PerspectiveCamera,
@@ -18,12 +17,12 @@ import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './auto-follow';
 import { Character } from './character';
 import { Input } from './input';
-import { OrbitControls } from '@three-ts/orbit-controls';
 import { PlayerDisconnectEvent } from './entities/events/player-disconnect-event';
 import { PlayerJoinEvent } from './entities/events/player-join-event';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
 import { PlayerUpdateEvent } from './entities/events/player-update-event';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
+import { RigidOrbitControls } from './rigid-orbit-controls';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Sun } from './sun';
 import { Updatable } from './updatable';
@@ -69,23 +68,8 @@ export class GameScene {
         this.renderer.shadowMap.enabled = true;
 
         this.scene.add(new AmbientLight(0x666666));
-        this.scene.add(makeGround());
-
-        const cameraControls = new OrbitControls(this.camera, this.renderer.domElement);
-        cameraControls.minPolarAngle = Math.PI * 0.1;
-        cameraControls.maxPolarAngle = Math.PI * 0.4;
-        cameraControls.minDistance = 5;
-        cameraControls.maxDistance = 100;
-        cameraControls.enablePan = false;
-        cameraControls.enableDamping = true;
-        cameraControls.dampingFactor = 0.1;
-        cameraControls.mouseButtons = {
-            ZOOM: MOUSE.MIDDLE,
-            ORBIT: MOUSE.RIGHT,
-            PAN: MOUSE.LEFT,
-        };
-
-        cameraControls.target = this.character.position;
+        const ground = makeGround();
+        this.scene.add(ground);
 
         const shadowDummyBox = new Mesh(new BoxGeometry(20, 100, 20), new MeshLambertMaterial({ color: 0x666666 }));
         shadowDummyBox.name = 'ShadowDummyBox';
@@ -93,6 +77,9 @@ export class GameScene {
         shadowDummyBox.castShadow = true;
         shadowDummyBox.position.set(30, 50, -10);
         this.scene.add(shadowDummyBox);
+
+        const cameraControls = new RigidOrbitControls(this.input, this.camera, this.character);
+        cameraControls.intersectionObjects = [ground, shadowDummyBox];
 
         const sun = new Sun(50);
         sun.target = this.character;
@@ -185,7 +172,7 @@ export class GameScene {
     }
 
     animate(): void {
-        this.requestMovement(this.input.side, this.input.forwards);
+        this.requestMovement(this.input.movementRight, this.input.movementForwards);
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
         for (const updatable of this.toUpdate) {
             updatable.update(delta);

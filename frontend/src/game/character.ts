@@ -46,7 +46,7 @@ const tmpVector2 = new Vector2();
 const TARGET_MOTION_CHANGE_THRESHOLD = 0.05;
 
 export class Character extends Object3D implements Updatable {
-    private readonly Y_OFFSET = 5;
+    private readonly Y_OFFSET = 7.5;
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
