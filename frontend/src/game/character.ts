@@ -1,7 +1,7 @@
 import {
     AnimationAction,
     AnimationMixer,
-    BoxGeometry,
+    BoxBufferGeometry,
     LoopOnce,
     Mesh,
     MeshBasicMaterial,
@@ -63,7 +63,7 @@ export class Character extends Object3D implements Updatable {
         this.name = username ? 'Character:' + username : 'Character';
         this.translateY(this.Y_OFFSET);
 
-        const dummyBox = new Mesh(new BoxGeometry(10, 10, 10), new MeshBasicMaterial());
+        const dummyBox = new Mesh(new BoxBufferGeometry(10, 10, 10), new MeshBasicMaterial());
         dummyBox.name = 'CharacterDummyBox';
         dummyBox.receiveShadow = true;
         dummyBox.castShadow = true;

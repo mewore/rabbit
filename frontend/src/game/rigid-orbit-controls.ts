@@ -10,9 +10,6 @@ const MIN_PHI = EPSILON;
 const MAX_PHI = Math.PI - EPSILON;
 
 export class RigidOrbitControls implements Updatable {
-    speedRetention = 0.000001;
-    private phiDelta = 0.0;
-    private thetaDelta = 0.0;
     private readonly spherical = new Spherical();
 
     intersectionObjects?: Object3D[];
@@ -25,26 +22,14 @@ export class RigidOrbitControls implements Updatable {
         object.lookAt(targetWorldPosition);
     }
 
-    update(delta: number): void {
-        this.thetaDelta -= this.input.lookRight;
-        this.phiDelta -= this.input.lookDown;
-
+    update(): void {
         if (this.input.zoom) {
             this.spherical.radius /= Math.pow(this.zoomMultiplier, this.input.zoom);
         }
 
+        this.spherical.theta -= this.input.lookRight;
+        this.spherical.phi = Math.max(MIN_PHI, Math.min(MAX_PHI, this.spherical.phi - this.input.lookDown));
         this.input.clearMouseDelta();
-
-        this.spherical.theta += this.thetaDelta;
-        this.spherical.phi = Math.max(MIN_PHI, Math.min(MAX_PHI, this.spherical.phi + this.phiDelta));
-
-        if (this.speedRetention) {
-            const currentSpeedRetention = Math.pow(this.speedRetention, delta);
-            this.thetaDelta *= currentSpeedRetention;
-            this.phiDelta *= currentSpeedRetention;
-        } else {
-            this.thetaDelta = this.phiDelta = 0;
-        }
 
         this.object.position.setFromSpherical(this.spherical);
         this.object.lookAt(0, 0, 0);

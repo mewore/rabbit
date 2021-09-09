@@ -18,6 +18,7 @@ export default class App extends Vue {}
 body {
     overflow: hidden;
     margin: 0;
+    background: black;
 }
 a {
     text-decoration: none;

@@ -1,15 +1,15 @@
 import { DirectionalLight } from 'three';
 
-export class Sun extends DirectionalLight {
+export class Moon extends DirectionalLight {
     private static readonly DISTANCE = 200;
 
     constructor(shadowSharpnessRatio?: number) {
         super(0xdfebff, 1);
 
-        this.name = 'Sun:' + shadowSharpnessRatio;
-        this.position.set(1, 4, 2);
+        this.name = 'Moon:' + shadowSharpnessRatio;
+        this.position.set(1, 6, 4);
         this.position.normalize();
-        this.position.multiplyScalar(Sun.DISTANCE);
+        this.position.multiplyScalar(Moon.DISTANCE);
 
         if (shadowSharpnessRatio != null) {
             this.castShadow = true;
@@ -22,7 +22,7 @@ export class Sun extends DirectionalLight {
             this.shadow.camera.left = this.shadow.camera.bottom = -shadowSideHalfLength;
             this.shadow.camera.right = this.shadow.camera.top = shadowSideHalfLength;
 
-            this.shadow.camera.far = 1000;
+            this.shadow.camera.far = Moon.DISTANCE * 5;
         }
     }
 }

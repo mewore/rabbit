@@ -1,7 +1,9 @@
 import {
     BackSide,
-    BoxGeometry,
+    BoxBufferGeometry,
     Camera,
+    CubeTexture,
+    CubeTextureLoader,
     LinearMipMapLinearFilter,
     Material,
     Mesh,
@@ -9,6 +11,7 @@ import {
     MeshStandardMaterial,
     MirroredRepeatWrapping,
     Object3D,
+    PlaneBufferGeometry,
     PlaneGeometry,
     TextureLoader,
     Vector2,
@@ -48,7 +51,7 @@ export function makeGround(): Object3D {
     const groundMaterial = new MeshStandardMaterial();
     groundMaterial.name = 'GroundMaterial';
 
-    const targetMeshSize = new Vector2(20000, 20000);
+    const targetMeshSize = new Vector2(2000, 2000);
     const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
 
     (async (): Promise<void> => {
@@ -82,7 +85,8 @@ export function makeGround(): Object3D {
 
         groundMaterial.bumpMap = groundBumpMap;
 
-        groundMesh.geometry = new PlaneGeometry(
+        groundMesh.geometry.dispose();
+        groundMesh.geometry = new PlaneBufferGeometry(
             groundTexture.repeat.x * textureSize.x * textureScale,
             groundTexture.repeat.y * textureSize.y * textureScale
         );
@@ -92,6 +96,17 @@ export function makeGround(): Object3D {
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     return groundMesh;
+}
+
+export async function makeSkybox(): Promise<CubeTexture> {
+    const imgArray = ['left', 'right', 'top', 'bottom', 'front', 'back'];
+
+    const urls = imgArray.map((side) => '/assets/sky/skybox/skybox_' + side + '.PNG');
+    return new Promise((resolve) => {
+        new CubeTextureLoader().load(urls, (texture) => {
+            resolve(texture);
+        });
+    });
 }
 
 export function wrap(value: number, min: number, max: number): number {
@@ -116,7 +131,7 @@ export class AxisHelper extends Object3D {
         super();
         this.name = 'AxisHelper';
 
-        const xBox = new Mesh(new BoxGeometry(5, 1, 2), new MeshLambertMaterial({ color: 'red' }));
+        const xBox = new Mesh(new BoxBufferGeometry(5, 1, 2), new MeshLambertMaterial({ color: 'red' }));
         xBox.name = 'X-Box';
         xBox.receiveShadow = true;
         xBox.castShadow = true;
@@ -124,7 +139,7 @@ export class AxisHelper extends Object3D {
         xBox.position.setY(0.5);
         this.attach(xBox);
 
-        const zBox = new Mesh(new BoxGeometry(2, 1, 5), new MeshLambertMaterial({ color: 'blue' }));
+        const zBox = new Mesh(new BoxBufferGeometry(2, 1, 5), new MeshLambertMaterial({ color: 'blue' }));
         zBox.name = 'Z-Box';
         zBox.receiveShadow = true;
         zBox.castShadow = true;

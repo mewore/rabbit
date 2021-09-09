@@ -75,6 +75,8 @@ export default class ReisenGame extends Vue {
     playing = false;
     menuIsVisible = true;
 
+    frame = 0;
+
     private readonly eventsToRemove: [
         Node | Window,
         string,
@@ -204,10 +206,11 @@ export default class ReisenGame extends Vue {
             if (labelIndex >= this.labels.length) {
                 this.labels.push({} as LabelInfo);
             }
-            this.labels[labelIndex].left = left;
-            this.labels[labelIndex].top = top;
-            this.labels[labelIndex].text = username;
-            this.labels[labelIndex].opacity = opacity;
+            const label = this.labels[labelIndex];
+            label.left = left;
+            label.top = top;
+            label.text = username;
+            label.opacity = opacity;
             labelIndex++;
         });
         this.labels.splice(labelIndex);

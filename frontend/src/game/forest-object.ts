@@ -113,8 +113,8 @@ export class ForestObject extends Object3D {
         for (let i = 0; i < this.forestData.length; i++) {
             rotations[i] = Math.random() * Math.PI * 2;
         }
-        for (const deltaX of [-this.worldWidth, 0, this.worldWidth]) {
-            for (const deltaZ of [-this.worldDepth, 0, this.worldDepth]) {
+        for (const deltaX of xDeltas) {
+            for (const deltaZ of zDeltas) {
                 for (let i = 0; i < this.forestData.length; i++) {
                     translation.set(
                         (this.forestData.plantX[i] - 0.5) * this.worldWidth + deltaX,

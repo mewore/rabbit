@@ -1,24 +1,25 @@
 import {
     AmbientLight,
-    BoxGeometry,
+    BoxBufferGeometry,
     Clock,
     Color,
     Fog,
+    HemisphereLight,
     Mesh,
     MeshLambertMaterial,
     PerspectiveCamera,
     Scene,
     Vector3,
     WebGLRenderer,
-    sRGBEncoding,
 } from 'three';
-import { AxisHelper, makeGround, projectOntoCamera, wrap } from './three-util';
+import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './three-util';
 import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './auto-follow';
 import { Character } from './character';
 import { ForestDataMessage } from './entities/messages/forest-data-message';
 import { ForestObject } from './forest-object';
 import { Input } from './input';
+import { Moon } from './moon';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
 import { PlayerJoinMessage } from './entities/messages/player-join-message';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
@@ -26,7 +27,6 @@ import { PlayerUpdateMessage } from './entities/messages/player-update-message';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
 import { RigidOrbitControls } from './rigid-orbit-controls';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
-import { Sun } from './sun';
 import { Updatable } from './updatable';
 import { degToRad } from 'three/src/math/MathUtils';
 
@@ -54,12 +54,12 @@ const MAX_X = WORLD_WIDTH / 2;
 const MIN_Z = -WORLD_DEPTH / 2;
 const MAX_Z = WORLD_DEPTH / 2;
 
-const FOV = 80;
+const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
 //  perpendicular to the camera intersecting the object insead of on the distance between the camera and the object.
 //  Fog is implemented like this in every damn 3D engine and it's so unrealistic, but I guess it's easier to calculate.
-const FOG_END = Math.cos(degToRad(FOV / 2)) * (Math.min(WORLD_WIDTH, WORLD_DEPTH) / 2);
-const FOG_START = FOG_END * 0.5;
+const FOG_END = Math.cos(degToRad(FOV / 2)) * (Math.min(WORLD_WIDTH, WORLD_DEPTH) * 0.8);
+const FOG_START = FOG_END * 0;
 
 export class GameScene {
     private readonly MAX_DELTA = 0.5;
@@ -68,7 +68,7 @@ export class GameScene {
     private readonly camera = new PerspectiveCamera(FOV, 1, 1, 1000);
     private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
 
-    private readonly toUpdate: Updatable[];
+    private readonly toUpdate: Updatable[] = [];
     private readonly character = new Character('', isReisen());
 
     private readonly clock = new Clock();
@@ -81,38 +81,47 @@ export class GameScene {
 
     private readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH);
 
+    private width = 0;
+    private height = 0;
+
     constructor(private readonly wrapperElement: HTMLElement, private readonly webSocket: WebSocket) {
-        this.scene.background = new Color(0xcce0ff);
-        this.scene.fog = new Fog(0xcce0ff, FOG_START, FOG_END);
-        this.camera.position.set(-20, 10, -40);
+        this.scene.background = new Color(0x0b051b);
+        this.scene.fog = new Fog(this.scene.background, FOG_START, FOG_END);
+        this.camera.position.set(-30, 10, -50);
         this.cameraControls = new RigidOrbitControls(this.input, this.camera, this.character);
+
+        makeSkybox().then((skybox) => (this.scene.background = skybox));
 
         this.scene.add(this.character);
         this.wrapperElement.appendChild(this.renderer.domElement);
         this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.outputEncoding = sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
 
-        this.scene.add(new AmbientLight(0x666666));
+        this.scene.add(new AmbientLight(this.scene.background, 3));
+        this.scene.add(new AmbientLight(0x223333, 1));
+        this.scene.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
         const ground = makeGround();
         this.scene.add(ground);
 
         this.scene.add(this.forest);
 
-        const shadowDummyBox = new Mesh(new BoxGeometry(20, 100, 20), new MeshLambertMaterial({ color: 0x666666 }));
+        const shadowDummyBox = new Mesh(
+            new BoxBufferGeometry(20, 100, 20),
+            new MeshLambertMaterial({ color: 0x666666 })
+        );
         shadowDummyBox.name = 'ShadowDummyBox';
         shadowDummyBox.receiveShadow = true;
         shadowDummyBox.castShadow = true;
         shadowDummyBox.position.set(30, 50, -10);
-        this.scene.add(shadowDummyBox);
+        this.scene.add(shadowDummyBox, new AxisHelper());
 
         this.cameraControls.intersectionObjects = [ground, shadowDummyBox];
 
-        const sun = new Sun(50);
-        sun.target = this.character;
-        this.scene.add(sun);
-        this.scene.add(new AxisHelper());
-        this.toUpdate = [new AutoFollow(sun, this.character)];
+        const moon = new Moon(30);
+        moon.target = this.character;
+        this.scene.add(moon);
+
+        this.toUpdate = [new AutoFollow(moon, this.character)];
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             const reader = new SignedBinaryReader(message.data);
@@ -220,7 +229,7 @@ export class GameScene {
         for (const updatable of this.toUpdate) {
             updatable.update(delta);
         }
-        this.cameraControls.update(delta);
+        this.cameraControls.update();
         this.render();
     }
 
@@ -249,17 +258,18 @@ export class GameScene {
     }
 
     refreshSize(): void {
-        const [width, height] = [this.getWidth(), this.getHeight()];
-        this.camera.aspect = width / height;
+        this.width = this.wrapperElement.clientWidth;
+        this.height = this.wrapperElement.clientHeight;
+        this.camera.aspect = this.width / this.height;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(width, height);
+        this.renderer.setSize(this.width, this.height);
     }
 
     getWidth(): number {
-        return this.wrapperElement.clientWidth;
+        return this.width;
     }
 
     getHeight(): number {
-        return this.wrapperElement.clientHeight;
+        return this.height;
     }
 }
