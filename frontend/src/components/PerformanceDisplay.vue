@@ -38,7 +38,7 @@ interface EmptySegment extends Segment {
 @Options({
     props: {
         segmentTime: {
-            default: 0.05,
+            default: 0.5,
             type: Number,
         },
         smoothness: {
@@ -52,7 +52,7 @@ export default class PerformanceDisplay extends Vue {
     smoothness!: number;
 
     private index = 0;
-    private readonly resolution = 150;
+    private readonly resolution = 50;
 
     smoothnessCount = Math.min(
         this.resolution - 1,
