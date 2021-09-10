@@ -39,7 +39,6 @@ export default class Footer extends Vue {
 #footer {
     color: #ddd;
     padding: 3px;
-    border-top-right-radius: 5px;
     min-height: 2em;
     font-family: sans-serif;
     min-width: 20em;

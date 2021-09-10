@@ -66,12 +66,13 @@ export class GameScene {
 
     private readonly scene: THREE.Scene = new Scene();
     private readonly camera = new PerspectiveCamera(FOV, 1, 1, 1000);
-    private readonly renderer: THREE.WebGLRenderer = new WebGLRenderer({ antialias: true });
+    readonly renderer: WebGLRenderer = new WebGLRenderer({ antialias: true });
 
     private readonly toUpdate: Updatable[] = [];
     private readonly character = new Character('', isReisen());
 
     private readonly clock = new Clock();
+    private readonly elapsedTimeClock = new Clock();
 
     private readonly characterById = new Map<number, Character>();
 
@@ -142,6 +143,10 @@ export class GameScene {
 
         this.refreshSize();
         this.character.visible = false;
+    }
+
+    get time(): number {
+        return this.elapsedTimeClock.getElapsedTime();
     }
 
     start(): void {

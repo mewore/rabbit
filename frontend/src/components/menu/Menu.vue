@@ -23,6 +23,15 @@
                     }}
                 </div>
             </div>
+            <div
+                class="menu-button"
+                @click="onTogglePerformanceDisplayClicked($event)"
+                tabindex="3"
+            >
+                {{
+                    (showingPerformance ? 'Hide' : 'Show') + ' performance info'
+                }}
+            </div>
             <Separator />
             <Footer />
         </div>
@@ -42,11 +51,13 @@ import { getTitle } from '@/temp-util';
     },
     props: {
         playing: Boolean,
+        showingPerformance: Boolean,
     },
 })
 export default class Menu extends Vue {
     title = getTitle();
     playing!: boolean;
+    showingPerformance!: boolean;
     canResume = false;
 
     resumeButtonTip = 'or press [Escape]';
@@ -78,6 +89,10 @@ export default class Menu extends Vue {
         if (this.canResume) {
             this.$emit('close');
         }
+    }
+
+    onTogglePerformanceDisplayClicked(): void {
+        this.$emit('performanceDisplayToggled');
     }
 
     onKeyUp(event: KeyboardEvent): void {

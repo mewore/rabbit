@@ -31,10 +31,16 @@
                 >{{ label.text }}</span
             >
         </div>
+        <PerformanceDisplay
+            :style="{ display: showingPerformance ? 'block' : 'none' }"
+            ref="performanceDisplay"
+        />
         <Menu
             v-if="menuIsVisible"
             :playing="playing"
+            :showingPerformance="showingPerformance"
             v-on:close="onMenuClosed()"
+            v-on:performanceDisplayToggled="onPerformanceDisplayToggled()"
         />
     </div>
 </template>
@@ -43,6 +49,7 @@
 import { Options, Vue } from 'vue-class-component';
 import { GameScene } from '../game/game-scene';
 import Menu from '@/components/menu/Menu.vue';
+import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
 
 interface LabelInfo {
     top: number;
@@ -59,9 +66,13 @@ const RESIZE_INACTIVITY_MULTIPLIER = 0.8;
 const INACTIVITY_THRESHOLD = 0.98;
 const INACTIVITY_LOW_THRESHOLD = 0.05;
 
+const DEFAULT_FRAME_DELTA = 1 / ACTIVE_FPS;
+const INACTIVE_FRAME_DELTA = 1 / INACTIVE_FPS;
+
 @Options({
     components: {
         Menu,
+        PerformanceDisplay,
     },
 })
 export default class ReisenGame extends Vue {
@@ -75,7 +86,9 @@ export default class ReisenGame extends Vue {
     playing = false;
     menuIsVisible = true;
 
-    frame = 0;
+    showingPerformance = false;
+    targetFrameDelta = INACTIVE_FRAME_DELTA;
+    nextFrameMinTime = 0;
 
     private readonly eventsToRemove: [
         Node | Window,
@@ -90,9 +103,10 @@ export default class ReisenGame extends Vue {
         const canvasWrapper = this.getCanvasWrapper();
         this.webSocket.binaryType = 'arraybuffer';
         this.scene = new GameScene(canvasWrapper, this.webSocket);
-        this.requestedAnimationFrame = requestAnimationFrame(
-            this.animate.bind(this)
+        (this.$refs.performanceDisplay as PerformanceDisplay).start(
+            this.scene.time
         );
+        this.requestAnimationFrame();
         this.scene.input.active = !this.menuIsVisible;
         if (!this.menuIsVisible) {
             canvasWrapper.focus();
@@ -155,6 +169,12 @@ export default class ReisenGame extends Vue {
         this.lockMouse();
     }
 
+    onPerformanceDisplayToggled(): void {
+        if (this.scene) {
+            this.showingPerformance = !this.showingPerformance;
+        }
+    }
+
     private getCanvasWrapper(): HTMLElement {
         return this.$refs.canvasWrapper as HTMLElement;
     }
@@ -170,7 +190,26 @@ export default class ReisenGame extends Vue {
         if (!this.scene) {
             return;
         }
+        this.requestAnimationFrame();
+        const performanceDisplay = this.$refs
+            .performanceDisplay as PerformanceDisplay;
+        const time = this.scene.time;
+        if (time < this.nextFrameMinTime) {
+            performanceDisplay.registerFrame(
+                time,
+                this.targetFrameDelta,
+                0,
+                true
+            );
+            return;
+        }
         this.scene.animate();
+        const rendererInfo = this.scene.renderer.info;
+        performanceDisplay.registerFrame(
+            time,
+            this.targetFrameDelta,
+            rendererInfo.render.calls
+        );
         if (this.menuIsVisible) {
             if (this.inactivity < 1.0) {
                 this.inactivity =
@@ -179,18 +218,17 @@ export default class ReisenGame extends Vue {
                         : INACTIVITY_INCREASE_SPEED +
                           (1.0 - INACTIVITY_INCREASE_SPEED) * this.inactivity;
             }
-            const maxFps =
+            const targetFps =
                 this.inactivity * INACTIVE_FPS +
                 (1.0 - this.inactivity) * ACTIVE_FPS;
-            setTimeout(() => {
-                this.requestAnimationFrame();
-            }, 1000 / maxFps);
+            this.targetFrameDelta = 1 / targetFps;
+            this.nextFrameMinTime = time + this.targetFrameDelta;
         } else {
             this.inactivity *= 1.0 - INACTIVITY_DECREASE_SPEED;
             if (this.inactivity < INACTIVITY_LOW_THRESHOLD) {
                 this.inactivity = 0.0;
             }
-            this.requestAnimationFrame();
+            this.targetFrameDelta = DEFAULT_FRAME_DELTA;
         }
         const width = this.scene.getWidth();
         const height = this.scene.getHeight();
