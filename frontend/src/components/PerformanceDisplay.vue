@@ -142,15 +142,17 @@ export default class PerformanceDisplay extends Vue {
             averageFrameCount /= segmentsTakenIntoAccount;
             averageTargetFrameCount /= segmentsTakenIntoAccount;
             averageDrawCalls /= segmentsTakenIntoAccount;
-            const targetFps = Math.round(
+            const targetFps = averageTargetFrameCount / this.segmentTime;
+            const roundedTargetFps = Math.round(
                 averageTargetFrameCount / this.segmentTime
             );
-            const fps = Math.round(averageFrameCount / this.segmentTime);
+            const fps = averageFrameCount / this.segmentTime;
+            const roundedFps = Math.round(fps);
 
             this.segments[this.index++] = {
-                fps: Math.min(fps, targetFps),
-                targetFps,
-                className: this.getSegmentClass(fps, targetFps),
+                fps: Math.min(roundedFps, roundedTargetFps),
+                targetFps: roundedTargetFps,
+                className: this.getSegmentClass(fps + 1, targetFps),
                 drawCalls: this.segmentDrawCalls,
                 drawCallsPerFrame: Math.round(
                     averageDrawCalls / averageFrameCount
