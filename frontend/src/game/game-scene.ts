@@ -17,7 +17,7 @@ import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './auto-follow';
 import { Character } from './character';
 import { ForestDataMessage } from './entities/messages/forest-data-message';
-import { ForestObject } from './forest-object';
+import { ForestObject } from './forest/forest-object';
 import { Input } from './input';
 import { Moon } from './moon';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
