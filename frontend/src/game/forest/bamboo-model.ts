@@ -13,13 +13,15 @@ import {
 import { ForestData } from '../entities/world/forest-data';
 import { createToast } from 'mosha-vue-toastify';
 
-const MAX_LEANING_ANGLE = 0.1 * Math.PI;
+const MAX_LEANING_ANGLE = 0.05 * Math.PI;
+const DEFAULT_MAX_DEPTH = 5.0;
 
 export class BambooModel {
     constructor(
         readonly maxHeight: number,
         private readonly stemMesh: Mesh<BufferGeometry, Material>,
-        private readonly leafMesh: Mesh<BufferGeometry, Material>
+        private readonly leafMesh: Mesh<BufferGeometry, Material>,
+        public maxDepth: number = DEFAULT_MAX_DEPTH
     ) {}
 
     static fromObject(bambooObject: Group): BambooModel | undefined {
@@ -86,11 +88,12 @@ export class BambooModel {
             rotationEuler.y = Math.random() * Math.PI * 2;
             rotationEuler.z = Math.random() * Math.random() * MAX_LEANING_ANGLE * tallness;
             rotation.setFromEuler(rotationEuler);
+            const y = -Math.random() * this.maxDepth;
             for (const deltaX of xDeltas) {
                 for (const deltaZ of zDeltas) {
                     translation.set(
                         (forestData.plantX[i] - 0.5) * worldWidth + deltaX,
-                        0,
+                        y,
                         (forestData.plantZ[i] - 0.5) * worldDepth + deltaZ
                     );
                     matrix.compose(translation, rotation, scale);

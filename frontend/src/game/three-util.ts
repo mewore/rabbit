@@ -65,14 +65,14 @@ export function makeGround(): Object3D {
         const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
         groundTexture.wrapS = groundTexture.wrapT = MirroredRepeatWrapping;
         groundTexture.repeat.copy(targetMeshSize).divide(textureSize).divideScalar(textureScale).floor();
-        groundTexture.anisotropy = 16;
+        groundTexture.anisotropy = 8;
         groundTexture.encoding = sRGBEncoding;
         groundTexture.minFilter = LinearMipMapLinearFilter;
 
         for (const otherTexture of [groundRoughnessTexture, groundBumpMap]) {
             otherTexture.wrapS = otherTexture.wrapT = MirroredRepeatWrapping;
             otherTexture.repeat.copy(groundTexture.repeat);
-            otherTexture.anisotropy = groundTexture.anisotropy = 16;
+            otherTexture.anisotropy = groundTexture.anisotropy = 8;
             otherTexture.encoding = groundTexture.encoding = sRGBEncoding;
             otherTexture.minFilter = groundTexture.minFilter;
         }

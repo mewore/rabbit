@@ -44,6 +44,7 @@ export class ForestObject extends Object3D {
                 }
 
                 this.bambooModels = bambooModels.sort((first, second) => first.maxHeight - second.maxHeight);
+                this.bambooModels[0].maxDepth = 0;
                 this.generateIfPossible();
             });
     }

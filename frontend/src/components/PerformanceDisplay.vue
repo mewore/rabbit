@@ -8,8 +8,18 @@
                 :style="{ opacity: segment.opacity }"
             ></div>
         </div>
-        <div>FPS: {{ lastSegment.fps }} / {{ lastSegment.targetFps }}</div>
-        <div>Draw calls per frame: {{ lastSegment.drawCallsPerFrame }}</div>
+        <div class="detailed-info">
+            <div>FPS: {{ lastSegment.fps }} / {{ lastSegment.targetFps }}</div>
+            <div>
+                Milliseconds per frame:
+                {{
+                    lastSegment.msPerFrame === Infinity
+                        ? ''
+                        : lastSegment.msPerFrame
+                }}ms (target: {{ lastSegment.targetMsPerFrame }}ms)
+            </div>
+            <div>Draw calls per frame: {{ lastSegment.drawCallsPerFrame }}</div>
+        </div>
     </div>
 </template>
 
@@ -26,6 +36,8 @@ interface SegmentInfo extends Segment {
     drawCalls: number;
     fps: number;
     targetFps: number;
+    msPerFrame: number;
+    targetMsPerFrame: number;
     drawCallsPerFrame: number;
     className: string;
     opacity?: number;
@@ -41,22 +53,22 @@ interface EmptySegment extends Segment {
             default: 0.5,
             type: Number,
         },
-        smoothness: {
-            default: 1.0,
+        smoothnessTime: {
+            default: 3.0,
             type: Number,
         },
     },
 })
 export default class PerformanceDisplay extends Vue {
     segmentTime!: number;
-    smoothness!: number;
+    smoothnessTime!: number;
 
     private index = 0;
     private readonly resolution = 50;
 
     smoothnessCount = Math.min(
         this.resolution - 1,
-        this.smoothness / this.segmentTime
+        this.smoothnessTime / this.segmentTime
     );
 
     private segmentEnd = 0;
@@ -142,16 +154,21 @@ export default class PerformanceDisplay extends Vue {
             averageFrameCount /= segmentsTakenIntoAccount;
             averageTargetFrameCount /= segmentsTakenIntoAccount;
             averageDrawCalls /= segmentsTakenIntoAccount;
+            const fps = averageFrameCount / this.segmentTime;
+            const roundedFps = Math.round(fps);
+            const roundedMsPerFrame = Math.round(1000 / roundedFps);
+
             const targetFps = averageTargetFrameCount / this.segmentTime;
             const roundedTargetFps = Math.round(
                 averageTargetFrameCount / this.segmentTime
             );
-            const fps = averageFrameCount / this.segmentTime;
-            const roundedFps = Math.round(fps);
+            const roundedTargetMsPerFrame = Math.round(1000 / roundedTargetFps);
 
             this.segments[this.index++] = {
                 fps: Math.min(roundedFps, roundedTargetFps),
                 targetFps: roundedTargetFps,
+                msPerFrame: roundedMsPerFrame,
+                targetMsPerFrame: roundedTargetMsPerFrame,
                 className: this.getSegmentClass(fps + 1, targetFps),
                 drawCalls: this.segmentDrawCalls,
                 drawCallsPerFrame: Math.round(
@@ -185,6 +202,9 @@ export default class PerformanceDisplay extends Vue {
     }
 
     getSegmentClass(fps: number, targetFps: number): string {
+        if (fps >= targetFps) {
+            return 'perfect';
+        }
         if (fps >= targetFps * 0.8) {
             return 'great';
         }
@@ -220,20 +240,23 @@ export default class PerformanceDisplay extends Vue {
         > div {
             display: inline-block;
             flex: 1;
+            &.perfect {
+                background: hsl(180, 60%, 70%);
+            }
             &.great {
-                background: cyan;
+                background: hsl(135, 60%, 70%);
             }
             &.good {
-                background: greenyellow;
+                background: hsl(75, 60%, 60%);
             }
             &.medium {
-                background: orange;
+                background: hsl(50, 80%, 50%);
             }
             &.bad {
-                background: indianred;
+                background: hsl(25, 80%, 50%);
             }
             &.horrible {
-                background: red;
+                background: hsl(0, 100%, 50%);
             }
             &.skipped {
                 visibility: hidden;
@@ -242,6 +265,9 @@ export default class PerformanceDisplay extends Vue {
                 visibility: hidden;
             }
         }
+    }
+    .detailed-info {
+        font-size: 0.9em;
     }
 }
 </style>

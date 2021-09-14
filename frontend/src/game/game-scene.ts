@@ -58,7 +58,7 @@ const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
 //  perpendicular to the camera intersecting the object insead of on the distance between the camera and the object.
 //  Fog is implemented like this in every damn 3D engine and it's so unrealistic, but I guess it's easier to calculate.
-const FOG_END = Math.cos(degToRad(FOV / 2)) * (Math.min(WORLD_WIDTH, WORLD_DEPTH) * 0.8);
+const FOG_END = Math.cos(degToRad(FOV / 2)) * (Math.min(WORLD_WIDTH, WORLD_DEPTH) * 0.5);
 const FOG_START = FOG_END * 0;
 
 export class GameScene {
@@ -89,6 +89,7 @@ export class GameScene {
         this.scene.background = new Color(0x0b051b);
         this.scene.fog = new Fog(this.scene.background, FOG_START, FOG_END);
         this.camera.position.set(-30, 10, -50);
+        this.camera.far = FOG_END * 2;
         this.cameraControls = new RigidOrbitControls(this.input, this.camera, this.character);
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
@@ -118,7 +119,7 @@ export class GameScene {
 
         this.cameraControls.intersectionObjects = [ground, shadowDummyBox];
 
-        const moon = new Moon(30);
+        const moon = new Moon(50);
         moon.target = this.character;
         this.scene.add(moon);
 

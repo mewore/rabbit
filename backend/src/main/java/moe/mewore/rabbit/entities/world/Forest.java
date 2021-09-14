@@ -24,14 +24,17 @@ public class Forest extends BinaryEntity {
      * grows very quickly, even a few samples are enough to make the trees bunch up into the regions with a higher
      * fertility.
      */
-    private static final int SAMPLE_COUNT_PER_PLANT = 5;
+    private static final int SAMPLE_COUNT_PER_PLANT = 2;
 
     private static final int PLANT_COUNT = 128;
+
+    private static final double TINY_CHANCE = 0.2;
 
     private final @NonNull Plant @NonNull [] plants;
 
     public static Forest generate(final Random random) {
-        final Noise fertilityNoise = DiamondSquareNoise.createSeamless(10, random, true);
+        final Noise fertilityNoise = DiamondSquareNoise.createSeamless(6, random, true);
+
         final List<@NonNull Plant> plants = new ArrayList<>(PLANT_COUNT);
         double bestX = 0.0;
         double bestY = 0.0;
@@ -51,7 +54,7 @@ public class Forest extends BinaryEntity {
                     bestFertility = fertility;
                 }
             }
-            plants.add(new Plant(bestX, bestY, Math.min(1, Math.max(0, bestFertility + random.nextGaussian() * 0.5))));
+            plants.add(new Plant(bestX, bestY, random.nextDouble() < TINY_CHANCE ? 0.0 : bestFertility));
         }
         return new Forest(plants.toArray(new Plant[0]));
     }
