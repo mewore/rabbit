@@ -32,9 +32,9 @@ class ServerTest {
 
     private Server server;
 
-    private static double[] readNineDoubles(final DataInput eventInput) throws IOException {
-        final double[] result = new double[9];
-        for (int i = 0; i < 9; i++) {
+    private static double[] readEightDoubles(final DataInput eventInput) throws IOException {
+        final double[] result = new double[8];
+        for (int i = 0; i < 8; i++) {
             result[i] = eventInput.readDouble();
         }
         return result;
@@ -88,7 +88,7 @@ class ServerTest {
         eventInput.readFully(stringBytes);
         assertEquals("Player 1", new String(stringBytes, StandardCharsets.US_ASCII));
         assertFalse(eventInput.readBoolean());
-        assertArrayEquals(new double[]{0, 0, 0, 0, 0, 0, 0, 0, 0}, readNineDoubles(eventInput));
+        assertArrayEquals(new double[]{0, 0, 0, 0, 0, 0, 0, 0}, readEightDoubles(eventInput));
     }
 
     @Test
@@ -102,7 +102,7 @@ class ServerTest {
 
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byteArrayOutputStream.write(MutationType.UPDATE.getIndex());
-        writeDoubles(byteArrayOutputStream, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        writeDoubles(byteArrayOutputStream, 1, 2, 3, 4, 5, 6, 7, 8);
         simulateBinaryData(session, byteArrayOutputStream.toByteArray());
 
         assertEquals(List.of(MessageType.FOREST_DATA, MessageType.JOIN, MessageType.UPDATE),
@@ -110,7 +110,7 @@ class ServerTest {
         final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(2)));
         assertEquals(MessageType.UPDATE.getIndex(), eventInput.readByte());
         assertEquals(1, eventInput.readInt());
-        assertArrayEquals(new double[]{1, 2, 3, 4, 5, 6, 7, 8, 9}, readNineDoubles(eventInput));
+        assertArrayEquals(new double[]{1, 2, 3, 4, 5, 6, 7, 8}, readEightDoubles(eventInput));
     }
 
     @Test

@@ -13,7 +13,7 @@ class PlayerUpdateMutationTest {
 
     @Test
     void testDecodeEncode() throws IOException {
-        final byte[] initialData = new byte[9 * 8];
+        final byte[] initialData = new byte[8 * 8];
         Arrays.fill(initialData, (byte) 25);
         final PlayerUpdateMutation decoded = PlayerUpdateMutation.decodeFromBinary(
             new DataInputStream(new ByteArrayInputStream(initialData)));

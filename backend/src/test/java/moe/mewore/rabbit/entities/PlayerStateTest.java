@@ -14,7 +14,7 @@ class PlayerStateTest {
     @Test
     void testReEncode() throws IOException {
         final PlayerState playerState = new PlayerState(new Vector3(.1, .2, .3), new Vector3(.4, .5, .6),
-            new Vector3(.7, .8, .9));
+            new Vector2(.7, .8));
 
         final byte[] encoded = playerState.encodeToBinary();
 
@@ -27,6 +27,6 @@ class PlayerStateTest {
 
     @Test
     void testEncode() {
-        assertEquals(72, new PlayerState().encodeToBinary().length);
+        assertEquals(64, new PlayerState().encodeToBinary().length);
     }
 }

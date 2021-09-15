@@ -16,6 +16,7 @@ import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './t
 import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './auto-follow';
 import { Character } from './character';
+import { FixedDistanceOrbitControls } from './fixed-distance-orbit-controls';
 import { ForestDataMessage } from './entities/messages/forest-data-message';
 import { ForestObject } from './forest/forest-object';
 import { Input } from './input';
@@ -25,7 +26,6 @@ import { PlayerJoinMessage } from './entities/messages/player-join-message';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
 import { PlayerUpdateMessage } from './entities/messages/player-update-message';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
-import { RigidOrbitControls } from './rigid-orbit-controls';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Updatable } from './updatable';
 import { degToRad } from 'three/src/math/MathUtils';
@@ -78,7 +78,7 @@ export class GameScene {
 
     readonly input = new Input();
 
-    private readonly cameraControls: RigidOrbitControls;
+    private readonly cameraControls: FixedDistanceOrbitControls;
 
     private readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH);
 
@@ -90,7 +90,8 @@ export class GameScene {
         this.scene.fog = new Fog(this.scene.background, FOG_START, FOG_END);
         this.camera.position.set(-30, 10, -50);
         this.camera.far = FOG_END * 2;
-        this.cameraControls = new RigidOrbitControls(this.input, this.camera, this.character);
+        this.cameraControls = new FixedDistanceOrbitControls(this.input, this.camera, this.character);
+        this.camera.rotation.reorder('YXZ');
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
 
@@ -155,6 +156,7 @@ export class GameScene {
             return;
         }
         this.character.visible = true;
+        this.character.position.y = 300;
         this.toUpdate.push(this.character);
         if (this.webSocket.readyState === WebSocket.OPEN) {
             this.sendInitialPlayerInfo();
@@ -219,7 +221,11 @@ export class GameScene {
 
     animate(): void {
         this.requestMovement(this.input.movementRight, this.input.movementForwards);
+        const now = this.time;
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
+        if (this.character.visible && this.input.wantsToJump) {
+            this.character.jump(now);
+        }
         if (this.character.visible) {
             const characterPosition = this.character.position;
             if (characterPosition.x < MIN_X || characterPosition.x > MAX_X) {
@@ -233,9 +239,9 @@ export class GameScene {
             }
         }
         for (const updatable of this.toUpdate) {
-            updatable.update(delta);
+            updatable.update(delta, now);
         }
-        this.cameraControls.update();
+        this.cameraControls.update(delta);
         this.render();
     }
 

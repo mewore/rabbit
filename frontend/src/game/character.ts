@@ -9,34 +9,46 @@ import {
     Vector2,
     Vector3,
 } from 'three';
-import { globalVector, makeAllCastAndReceiveShadow } from './three-util';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PlayerState } from './entities/player-state';
 import { Updatable } from './updatable';
+import { Vector2Entity } from './entities/vector2-entity';
 import { Vector3Entity } from './entities/vector3-entity';
 import { addCredit } from '@/temp-util';
+import { makeAllCastAndReceiveShadow } from './three-util';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
     readonly walkAction: AnimationAction;
     readonly runAction: AnimationAction;
     readonly idleAction: AnimationAction;
+    readonly riseAction: AnimationAction;
+    readonly fallAction: AnimationAction;
 }
 
 enum CharacterState {
-    LOADING,
     IDLE,
     WALKING,
     RUNNING,
+    AIRBORNE,
 }
 
 const WALK_START_TIME = 0.2;
 const RUN_START_TIME = 1.0;
 const RUN_STOP_TIME = 0.3;
 const WALK_STOP_TIME = 0.1;
+const AIRBORNE_START_TIME = 0.3;
+const AIRBORNE_STOP_TIME = 0.2;
+
+const Y_OFFSET = 7.5;
+const MIN_Y = Y_OFFSET;
 
 const MAX_SPEED = 40;
 const ACCELERATION = 100;
+const JUMP_CONTROL_LENIENCY = 0.1;
+const JUMP_SPEED = 80;
+const MIN_Y_SPEED = -JUMP_SPEED * 2;
+const GRAVITY = 200;
 
 const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 5];
 
@@ -46,14 +58,15 @@ const tmpVector2 = new Vector2();
 const TARGET_MOTION_CHANGE_THRESHOLD = 0.05;
 
 export class Character extends Object3D implements Updatable {
-    private readonly Y_OFFSET = 7.5;
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
-    private state = CharacterState.LOADING;
+    private state = CharacterState.IDLE;
 
-    private readonly targetMotion = new Vector3();
-    private readonly motion = new Vector3();
+    private readonly targetHorizontalMotion = new Vector2();
+    private readonly horizontalMotion = new Vector2();
+    private jumpWantedAt = -Infinity;
+    private ySpeed = 0;
     private hasChangedSinceLastQuery = true;
 
     private hasBeenSetUp = false;
@@ -61,7 +74,7 @@ export class Character extends Object3D implements Updatable {
     constructor(readonly username: string, isReisen: boolean | undefined) {
         super();
         this.name = username ? 'Character:' + username : 'Character';
-        this.translateY(this.Y_OFFSET);
+        this.translateY(Y_OFFSET);
 
         const dummyBox = new Mesh(new BoxBufferGeometry(10, 10, 10), new MeshBasicMaterial());
         dummyBox.name = 'CharacterDummyBox';
@@ -104,7 +117,9 @@ export class Character extends Object3D implements Updatable {
                     const idleAnimation = gltf.animations.find((animation) => animation.name === 'T-Pose');
                     const walkAnimation = gltf.animations.find((animation) => animation.name === 'Walk');
                     const runAnimation = gltf.animations.find((animation) => animation.name === 'Run');
-                    if (!idleAnimation || !walkAnimation || !runAnimation) {
+                    const riseAnimation = gltf.animations.find((animation) => animation.name === 'Rise');
+                    const fallAnimation = gltf.animations.find((animation) => animation.name === 'Fall');
+                    if (!idleAnimation || !walkAnimation || !runAnimation || !riseAnimation || !fallAnimation) {
                         return;
                     }
                     this.animationInfo = {
@@ -112,9 +127,10 @@ export class Character extends Object3D implements Updatable {
                         walkAction: mixer.clipAction(walkAnimation),
                         runAction: mixer.clipAction(runAnimation),
                         idleAction: mixer.clipAction(idleAnimation),
+                        riseAction: mixer.clipAction(riseAnimation),
+                        fallAction: mixer.clipAction(fallAnimation),
                     };
                     this.animationInfo.idleAction.play();
-                    this.state = CharacterState.IDLE;
                 });
         } else {
             new GLTFLoader()
@@ -136,7 +152,6 @@ export class Character extends Object3D implements Updatable {
                     makeAllCastAndReceiveShadow(carrot);
                     this.mesh = carrot;
                     this.animationInfo = undefined;
-                    this.state = CharacterState.IDLE;
                 });
         }
     }
@@ -149,43 +164,68 @@ export class Character extends Object3D implements Updatable {
         this.currentMesh = newMesh;
         newMesh.rotation.set(0, 0, 0);
         newMesh.position.set(0, 0, 0);
-        newMesh.translateY(-this.Y_OFFSET);
+        newMesh.translateY(-Y_OFFSET);
     }
 
     setState(newState: PlayerState): void {
         this.position.set(newState.position.x, newState.position.y, newState.position.z);
-        this.motion.set(newState.motion.x, newState.motion.y, newState.motion.z);
-        this.targetMotion.set(newState.targetMotion.x, newState.targetMotion.y, newState.targetMotion.z);
+        this.horizontalMotion.set(newState.motion.x, newState.motion.z);
+        this.ySpeed = newState.motion.y;
+        this.targetHorizontalMotion.set(newState.targetMotion.x, newState.targetMotion.y);
         this.hasChangedSinceLastQuery = true;
     }
 
-    update(delta: number): void {
+    update(delta: number, now: number): void {
         const maxFrameAcceleration = ACCELERATION * delta;
-        const motionToTargetMotionDistanceSquared = this.motion.distanceToSquared(this.targetMotion);
+        const motionToTargetMotionDistanceSquared = this.horizontalMotion.distanceToSquared(
+            this.targetHorizontalMotion
+        );
         if (motionToTargetMotionDistanceSquared < maxFrameAcceleration * maxFrameAcceleration) {
-            this.motion.copy(this.targetMotion);
+            this.horizontalMotion.copy(this.targetHorizontalMotion);
         } else {
-            this.motion.add(tmpVector3.subVectors(this.targetMotion, this.motion).setLength(maxFrameAcceleration));
-        }
-
-        if (this.motion.lengthSq() > 0.0) {
-            this.rotation.y = tmpVector2.set(this.motion.x, this.motion.z).angle();
-            this.translateZ(this.motion.length() * delta);
-        }
-
-        const currentSpeedSquared = this.motion.lengthSq();
-        if (currentSpeedSquared < MOVEMENT_ANIMATION_THRESHOLDS[0] * MOVEMENT_ANIMATION_THRESHOLDS[0]) {
-            this.transitionIntoState(
-                CharacterState.IDLE,
-                this.state === CharacterState.WALKING ? WALK_STOP_TIME : RUN_STOP_TIME
+            this.horizontalMotion.add(
+                tmpVector2
+                    .subVectors(this.targetHorizontalMotion, this.horizontalMotion)
+                    .setLength(maxFrameAcceleration)
             );
+        }
+
+        if (this.horizontalMotion.lengthSq() > 0.0) {
+            this.rotation.y = this.horizontalMotion.angle();
+            this.translateZ(this.horizontalMotion.length() * delta);
+        }
+
+        if (this.position.y > MIN_Y) {
+            this.ySpeed -= GRAVITY * delta;
+            if (this.ySpeed < MIN_Y_SPEED) {
+                this.ySpeed = MIN_Y_SPEED;
+            }
+        } else if (now - this.jumpWantedAt < JUMP_CONTROL_LENIENCY) {
+            this.jumpWantedAt = -Infinity;
+            this.ySpeed = JUMP_SPEED;
+            this.hasChangedSinceLastQuery = true;
+        }
+        this.position.y += this.ySpeed * delta;
+        if (this.position.y < MIN_Y) {
+            this.position.y = MIN_Y;
+            this.ySpeed = 0;
+        }
+
+        const currentSpeedSquared = this.horizontalMotion.lengthSq();
+        if (this.position.y > MIN_Y) {
+            this.transitionIntoState(CharacterState.AIRBORNE);
+            if (this.animationInfo) {
+                const riseCoefficient = this.ySpeed >= 0 ? this.ySpeed / JUMP_SPEED : -this.ySpeed / MIN_Y_SPEED;
+                const riseActionWeight = 0.5 + riseCoefficient * 0.5;
+                this.animationInfo.riseAction.setEffectiveWeight(riseActionWeight);
+                this.animationInfo.fallAction.setEffectiveWeight(1 - riseActionWeight);
+            }
+        } else if (currentSpeedSquared < MOVEMENT_ANIMATION_THRESHOLDS[0] * MOVEMENT_ANIMATION_THRESHOLDS[0]) {
+            this.transitionIntoState(CharacterState.IDLE);
         } else if (currentSpeedSquared < MOVEMENT_ANIMATION_THRESHOLDS[1] * MOVEMENT_ANIMATION_THRESHOLDS[1]) {
-            this.transitionIntoState(
-                CharacterState.WALKING,
-                this.state === CharacterState.IDLE ? WALK_START_TIME : RUN_STOP_TIME
-            );
+            this.transitionIntoState(CharacterState.WALKING);
         } else {
-            this.transitionIntoState(CharacterState.RUNNING, RUN_START_TIME);
+            this.transitionIntoState(CharacterState.RUNNING);
         }
 
         if (this.animationInfo) {
@@ -198,21 +238,24 @@ export class Character extends Object3D implements Updatable {
     }
 
     stopMoving(): void {
-        this.setTargetMotion(0, 0, 0);
+        this.setTargetMotion(0, 0);
     }
 
     move(viewpoint: Object3D, forward: number, right: number): void {
-        const direction = globalVector(viewpoint, this);
-        const angle = tmpVector2.set(direction.x, direction.z).angle() + tmpVector2.set(right, forward).angle();
-        this.setTargetMotion(Math.cos(-angle) * MAX_SPEED, 0, Math.sin(-angle) * MAX_SPEED);
+        const angle = viewpoint.rotation.y + tmpVector2.set(forward, right).angle();
+        this.setTargetMotion(Math.cos(angle) * MAX_SPEED, Math.sin(angle) * MAX_SPEED);
     }
 
-    private setTargetMotion(x: number, y: number, z: number): void {
+    jump(now: number): void {
+        this.jumpWantedAt = now;
+    }
+
+    private setTargetMotion(x: number, z: number): void {
         if (
-            tmpVector3.set(x, y, z).sub(this.targetMotion).lengthSq() / (MAX_SPEED * MAX_SPEED) >
+            tmpVector2.set(x, z).sub(this.targetHorizontalMotion).lengthSq() / (MAX_SPEED * MAX_SPEED) >
             TARGET_MOTION_CHANGE_THRESHOLD
         ) {
-            this.targetMotion.set(x, y, z);
+            this.targetHorizontalMotion.set(x, z);
             this.hasChangedSinceLastQuery = true;
         }
     }
@@ -226,8 +269,8 @@ export class Character extends Object3D implements Updatable {
     getState(): PlayerState {
         return new PlayerState(
             Vector3Entity.fromVector3(this.position),
-            Vector3Entity.fromVector3(this.motion),
-            Vector3Entity.fromVector3(this.targetMotion)
+            new Vector3Entity(this.horizontalMotion.x, this.ySpeed, this.horizontalMotion.y),
+            Vector2Entity.fromVector2(this.targetHorizontalMotion)
         );
     }
 
@@ -235,20 +278,22 @@ export class Character extends Object3D implements Updatable {
      * @param newState The new state to transition into.
      * @param duration The duration of the transition in SECONDS.
      */
-    private transitionIntoState(newState: CharacterState, duration: number): void {
+    private transitionIntoState(newState: CharacterState): void {
         if (this.state === newState) {
             return;
         }
         if (this.animationInfo && newState !== this.state) {
-            const oldAction = this.getActionForState(this.state);
-            const newAction = this.getActionForState(newState);
-            if (oldAction) {
+            const duration = this.getActionDuration(this.state, newState);
+            const oldActions = this.getActionsForState(this.state, this.animationInfo);
+            const newActions = this.getActionsForState(newState, this.animationInfo);
+            for (const oldAction of oldActions) {
                 oldAction.fadeOut(duration);
             }
-            if (newAction) {
+
+            for (const newAction of newActions) {
                 newAction.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(duration);
-                if (newAction.loop !== LoopOnce && oldAction) {
-                    newAction.startAt(oldAction.time);
+                if (newAction.loop !== LoopOnce && oldActions.length === 1) {
+                    newAction.startAt(oldActions[0].time);
                 }
                 newAction.play();
             }
@@ -256,16 +301,49 @@ export class Character extends Object3D implements Updatable {
         this.state = newState;
     }
 
-    private getActionForState(state: CharacterState): AnimationAction | undefined {
+    private getActionsForState(state: CharacterState, animationInfo: AnimationInfo): AnimationAction[] {
         switch (state) {
             case CharacterState.IDLE:
-                return this.animationInfo?.idleAction;
+                return [animationInfo.idleAction];
             case CharacterState.WALKING:
-                return this.animationInfo?.walkAction;
+                return [animationInfo.walkAction];
             case CharacterState.RUNNING:
-                return this.animationInfo?.runAction;
-            default:
-                return undefined;
+                return [animationInfo.runAction];
+            case CharacterState.AIRBORNE:
+                return [animationInfo.riseAction, animationInfo.fallAction];
+        }
+    }
+
+    private getActionDuration(sourceState: CharacterState, targetState: CharacterState): number {
+        if (targetState === CharacterState.AIRBORNE) {
+            return AIRBORNE_START_TIME;
+        }
+        switch (sourceState) {
+            case CharacterState.IDLE:
+                switch (targetState) {
+                    case CharacterState.WALKING:
+                        return WALK_START_TIME;
+                    case CharacterState.RUNNING:
+                        return RUN_START_TIME;
+                }
+                return 0;
+            case CharacterState.RUNNING:
+                switch (targetState) {
+                    case CharacterState.IDLE:
+                    case CharacterState.WALKING:
+                        return RUN_STOP_TIME;
+                }
+                return 0;
+            case CharacterState.WALKING:
+                switch (targetState) {
+                    case CharacterState.IDLE:
+                        return WALK_STOP_TIME;
+                    case CharacterState.RUNNING:
+                        return RUN_START_TIME;
+                }
+                return 0;
+            case CharacterState.AIRBORNE:
+                return AIRBORNE_STOP_TIME;
         }
     }
 }

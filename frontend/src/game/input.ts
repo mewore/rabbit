@@ -8,6 +8,7 @@ export class Input {
     private down = false;
     private left = false;
     private right = false;
+    private jump = false;
     private mouseMovementY = 0;
     private mouseMovementX = 0;
     private mouseScrollUp = 0;
@@ -34,12 +35,16 @@ export class Input {
         return this.active ? this.mouseMovementY * this.mouseSensitivity : 0;
     }
 
+    get wantsToJump(): boolean {
+        return this.active && this.jump;
+    }
+
     get zoom(): number {
         return this.mouseScrollUp * this.mouseZoomSensitivity;
     }
 
     clear(): void {
-        this.up = this.down = this.left = this.right = false;
+        this.up = this.down = this.left = this.right = this.jump = false;
         this.clearMouseDelta();
     }
 
@@ -73,6 +78,9 @@ export class Input {
             case 'KeyD':
             case 'ArrowRight':
                 this.right = isDown;
+                break;
+            case 'Space':
+                this.jump = isDown;
                 break;
         }
     }

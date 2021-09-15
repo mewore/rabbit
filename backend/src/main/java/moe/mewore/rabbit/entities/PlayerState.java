@@ -14,21 +14,21 @@ public class PlayerState extends BinaryEntity {
 
     private final Vector3 motion;
 
-    private final Vector3 targetMotion;
+    private final Vector2 targetHorizontalMotion;
 
     PlayerState() {
-        this(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO);
+        this(Vector3.ZERO, Vector3.ZERO, Vector2.ZERO);
     }
 
     public static PlayerState decodeFromBinary(final DataInput input) throws IOException {
         return new PlayerState(Vector3.decodeFromBinary(input), Vector3.decodeFromBinary(input),
-            Vector3.decodeFromBinary(input));
+            Vector2.decodeFromBinary(input));
     }
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
         position.appendToBinaryOutput(output);
         motion.appendToBinaryOutput(output);
-        targetMotion.appendToBinaryOutput(output);
+        targetHorizontalMotion.appendToBinaryOutput(output);
     }
 }
