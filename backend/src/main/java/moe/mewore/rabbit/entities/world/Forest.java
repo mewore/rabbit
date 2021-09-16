@@ -54,7 +54,12 @@ public class Forest extends BinaryEntity {
                     bestFertility = fertility;
                 }
             }
-            plants.add(new Plant(bestX, bestY, random.nextDouble() < TINY_CHANCE ? 0.0 : bestFertility));
+
+            // Using smoothstep, make medium-height plants rarer, and short and tall plants - more common
+            final double baseHeight = bestFertility + 0.2;
+            final double height =
+                baseHeight > 1 ? 1 : baseHeight * baseHeight * baseHeight * (10 + baseHeight * (6 * baseHeight - 15));
+            plants.add(new Plant(bestX, bestY, random.nextDouble() < TINY_CHANCE ? 0.0 : height));
         }
         return new Forest(plants.toArray(new Plant[0]));
     }
