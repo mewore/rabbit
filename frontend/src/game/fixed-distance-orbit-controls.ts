@@ -4,6 +4,7 @@ import { Updatable } from './updatable';
 
 const rayDirection = new Vector3();
 const newTargetWorldPosition = new Vector3();
+const raycaster = new Raycaster();
 
 const EPSILON = 0.000001;
 const MIN_PHI = EPSILON;
@@ -23,6 +24,8 @@ export class FixedDistanceOrbitControls implements Updatable {
      * [(1 - yPositionChangeSpeed) ^ T].
      */
     yPositionChangeSpeed = 0.95;
+
+    padding = 5;
 
     private readonly targetWorldPosition = new Vector3();
 
@@ -53,12 +56,13 @@ export class FixedDistanceOrbitControls implements Updatable {
             newTargetWorldPosition.z
         );
 
-        if (this.intersectionObjects && this.intersectionObjects.length) {
+        if (this.intersectionObjects && this.intersectionObjects.length && this.spherical.radius > -this.padding) {
             rayDirection.copy(this.object.position).normalize();
-            const raycaster = new Raycaster(this.targetWorldPosition, rayDirection, 0, this.spherical.radius);
-            const intersections = raycaster.intersectObjects(this.intersectionObjects, true);
-            if (intersections.length) {
-                this.object.position.copy(intersections[0].point);
+            raycaster.set(this.targetWorldPosition, rayDirection);
+            raycaster.far = this.spherical.radius + this.padding;
+            const intersection = raycaster.intersectObjects(this.intersectionObjects, true)[0];
+            if (intersection) {
+                this.object.position.copy(intersection.point).addScaledVector(rayDirection, -this.padding);
             } else {
                 this.object.position.add(this.targetWorldPosition);
             }
