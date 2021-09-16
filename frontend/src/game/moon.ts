@@ -7,7 +7,7 @@ export class Moon extends DirectionalLight {
         super(0xdfebff, 1);
 
         this.name = 'Moon:' + shadowSharpnessRatio;
-        this.position.set(1, 6, 4);
+        this.position.set(0.75, 3, 4);
         this.position.normalize();
         this.position.multiplyScalar(Moon.DISTANCE);
 
