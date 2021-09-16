@@ -199,8 +199,9 @@ export default class ReisenGame extends Vue {
                 time,
                 this.targetFrameDelta,
                 0,
-                this.scene.forest.totalPlants,
-                this.scene.forest.renderedPlants,
+                0,
+                0,
+                0,
                 true
             );
             return;
@@ -212,7 +213,8 @@ export default class ReisenGame extends Vue {
             this.targetFrameDelta,
             rendererInfo.render.calls,
             this.scene.forest.totalPlants,
-            this.scene.forest.renderedPlants
+            this.scene.forest.renderedDetailedPlants,
+            this.scene.forest.renderedDummyPlants
         );
         if (this.menuIsVisible) {
             if (this.inactivity < 1.0) {

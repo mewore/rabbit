@@ -54,6 +54,11 @@ const MAX_X = WORLD_WIDTH / 2;
 const MIN_Z = -WORLD_DEPTH / 2;
 const MAX_Z = WORLD_DEPTH / 2;
 
+const oldCameraPosition = new Vector3();
+const BASE_FOREST_UPDATE_RATE = 1;
+const FOREST_UPDATE_PER_ROTATION = 0.3;
+const FOREST_UPDATE_PER_MOVEMENT = 0.3;
+
 const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
 //  perpendicular to the camera intersecting the object insead of on the distance between the camera and the object.
@@ -80,6 +85,7 @@ export class GameScene {
 
     private readonly cameraControls: FixedDistanceOrbitControls;
 
+    private forestUpdateTimeout = 0;
     readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH);
 
     private width = 0;
@@ -89,7 +95,7 @@ export class GameScene {
         this.scene.background = new Color(0x0b051b);
         this.scene.fog = new Fog(this.scene.background, FOG_START, FOG_END);
         this.camera.position.set(-30, 10, -50);
-        this.camera.far = FOG_END * 2;
+        this.camera.far = FOG_END * 3;
         this.cameraControls = new FixedDistanceOrbitControls(this.input, this.camera, this.character);
         this.camera.rotation.reorder('YXZ');
         this.forest.camera = this.camera;
@@ -102,7 +108,7 @@ export class GameScene {
         this.renderer.shadowMap.enabled = true;
 
         this.scene.add(new AmbientLight(this.scene.background, 3));
-        this.scene.add(new AmbientLight(0x223333, 1));
+        this.scene.add(new AmbientLight(0x112255, 1));
         this.scene.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
         const ground = makeGround();
         this.scene.add(ground);
@@ -227,16 +233,13 @@ export class GameScene {
         if (this.character.visible && this.input.wantsToJump) {
             this.character.jump(now);
         }
-        let characterWrapped = false;
         if (this.character.visible) {
             const characterPosition = this.character.position;
             if (characterPosition.x < MIN_X || characterPosition.x > MAX_X) {
                 characterPosition.setX(wrap(characterPosition.x, MIN_X, MAX_X));
-                characterWrapped = true;
             }
             if (characterPosition.z < MIN_Z || characterPosition.z > MAX_Z) {
                 characterPosition.setZ(wrap(characterPosition.z, MIN_Z, MAX_Z));
-                characterWrapped = true;
             }
             if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
                 this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
@@ -245,13 +248,18 @@ export class GameScene {
         for (const updatable of this.toUpdate) {
             updatable.update(delta, now);
         }
+        oldCameraPosition.copy(this.camera.position);
         this.cameraControls.update(delta);
-        if (
-            characterWrapped ||
-            Math.random() < 0.2 + (Math.abs(this.input.lookRight) + Math.abs(this.input.lookDown))
-        ) {
+
+        this.forestUpdateTimeout -=
+            delta * BASE_FOREST_UPDATE_RATE +
+            (Math.abs(this.input.lookRight) + Math.abs(this.input.lookDown)) * FOREST_UPDATE_PER_ROTATION +
+            oldCameraPosition.distanceToSquared(this.camera.position) * FOREST_UPDATE_PER_MOVEMENT;
+        if (this.forestUpdateTimeout <= 0) {
             this.forest.update();
+            this.forestUpdateTimeout = 1;
         }
+
         this.input.clearMouseDelta();
 
         this.render();

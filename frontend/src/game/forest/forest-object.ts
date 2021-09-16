@@ -1,4 +1,4 @@
-import { Camera, Frustum, Group, Matrix4, Object3D } from 'three';
+import { Camera, Frustum, Group, Matrix4, Object3D, OrthographicCamera, PerspectiveCamera } from 'three';
 import { BambooModel } from './bamboo-model';
 import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
 import { ForestData } from '../entities/world/forest-data';
@@ -9,15 +9,20 @@ import { createToast } from 'mosha-vue-toastify';
 
 const matrix4 = new Matrix4();
 const frustum = new Frustum();
+const tmpOrthographicCamera = new OrthographicCamera(0, 0, 0, 0);
+const tmpPerspectiveCamera = new PerspectiveCamera();
 
 export class ForestObject extends Object3D implements Updatable {
     private bambooModels?: BambooModel[];
+    private dummyBambooModels: BambooModel[] = [];
     private forestData?: ForestData;
     private readonly meshes: CullableInstancedMesh[] = [];
+    private readonly dummyMeshes: CullableInstancedMesh[] = [];
     camera?: Camera;
 
     private currentTotalPlants = 0;
-    private currentRenderedPlants = 0;
+    private currentRenderedDetailedPlants = 0;
+    private currentRenderedDummyPlants = 0;
 
     constructor(private readonly worldWidth: number, private readonly worldDepth: number) {
         super();
@@ -36,16 +41,26 @@ export class ForestObject extends Object3D implements Updatable {
                 });
 
                 const bambooObjects: Group[] = [];
+                const dummyBambooObjects: Group[] = [];
                 gltf.scene.traverse((object) => {
                     if (object instanceof Group && object.name.startsWith('Bamboo')) {
                         bambooObjects.push(object);
+                    } else if (object instanceof Group && object.name.startsWith('DummyBamboo')) {
+                        dummyBambooObjects.push(object);
                     }
                 });
                 const bambooModels: BambooModel[] = [];
-                for (const bambooObject of bambooObjects) {
-                    const bambooModel = BambooModel.fromObject(bambooObject);
-                    if (bambooModel) {
-                        bambooModels.push(bambooModel);
+                const dummyBambooModels: BambooModel[] = [];
+                const containerTypes: [Group[], BambooModel[]][] = [
+                    [bambooObjects, bambooModels],
+                    [dummyBambooObjects, dummyBambooModels],
+                ];
+                for (const containers of containerTypes) {
+                    for (const bambooObject of containers[0]) {
+                        const bambooModel = BambooModel.fromObject(bambooObject);
+                        if (bambooModel) {
+                            containers[1].push(bambooModel);
+                        }
                     }
                 }
                 if (bambooModels.length === 0) {
@@ -55,6 +70,10 @@ export class ForestObject extends Object3D implements Updatable {
 
                 this.bambooModels = bambooModels.sort((first, second) => first.maxHeight - second.maxHeight);
                 this.bambooModels[0].maxDepth = 0;
+
+                this.dummyBambooModels = dummyBambooModels.sort((first, second) => first.maxHeight - second.maxHeight);
+                this.dummyBambooModels[0].maxDepth = 0;
+
                 this.generateIfPossible();
             });
     }
@@ -63,8 +82,12 @@ export class ForestObject extends Object3D implements Updatable {
         return this.currentTotalPlants;
     }
 
-    get renderedPlants(): number {
-        return this.currentRenderedPlants;
+    get renderedDetailedPlants(): number {
+        return this.currentRenderedDetailedPlants;
+    }
+
+    get renderedDummyPlants(): number {
+        return this.currentRenderedDummyPlants;
     }
 
     setForestData(forestData: ForestData): void {
@@ -77,15 +100,51 @@ export class ForestObject extends Object3D implements Updatable {
             return;
         }
 
+        if (!(this.camera instanceof OrthographicCamera || this.camera instanceof PerspectiveCamera)) {
+            throw new Error(
+                'The camera should be either an orthographic or a perspective one. Instead, it is of type "' +
+                    this.camera.type
+            );
+        }
+
+        const crossfadeRatio = 0.1;
+        const fadeOutRatio = 0.1;
+        const detailedRatio = 0.4;
+
         this.camera.updateMatrixWorld();
+        const tmpCamera =
+            this.camera instanceof OrthographicCamera
+                ? tmpOrthographicCamera.copy(this.camera)
+                : tmpPerspectiveCamera.copy(this.camera);
+        const splitDistance = this.camera.near * (1.0 - detailedRatio) + this.camera.far * detailedRatio;
+        const crossfadeDistance =
+            Math.min(splitDistance - tmpCamera.near, tmpCamera.far - splitDistance) * crossfadeRatio;
+        tmpCamera.far = splitDistance + crossfadeDistance / 2;
+        tmpCamera.updateProjectionMatrix();
         frustum.setFromProjectionMatrix(
-            matrix4.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+            matrix4.multiplyMatrices(tmpCamera.projectionMatrix, tmpCamera.matrixWorldInverse)
         );
+
+        // The nearby ones are detailed
         this.currentTotalPlants = 0;
-        this.currentRenderedPlants = 0;
+        this.currentRenderedDetailedPlants = 0;
         for (const mesh of this.meshes) {
-            this.currentRenderedPlants += mesh.cull(frustum);
+            this.currentRenderedDetailedPlants += mesh.cull(frustum, crossfadeDistance);
             this.currentTotalPlants += mesh.count;
+        }
+
+        // The rest are dummies
+        const fadeOutDistance = (tmpCamera.far - tmpCamera.near) * fadeOutRatio;
+        tmpCamera.near = splitDistance - crossfadeDistance / 2;
+        tmpCamera.far = this.camera.far;
+        tmpCamera.updateProjectionMatrix();
+        tmpCamera.updateMatrixWorld();
+        frustum.setFromProjectionMatrix(
+            matrix4.multiplyMatrices(tmpCamera.projectionMatrix, tmpCamera.matrixWorldInverse)
+        );
+        this.currentRenderedDummyPlants = 0;
+        for (const mesh of this.dummyMeshes) {
+            this.currentRenderedDummyPlants += mesh.cull(frustum, crossfadeDistance, fadeOutDistance);
         }
     }
 
@@ -98,10 +157,17 @@ export class ForestObject extends Object3D implements Updatable {
         const zDeltas = [-this.worldDepth, 0, this.worldDepth];
 
         const indicesPerModel: number[][] = this.bambooModels.map(() => []);
+        const indicesPerDummyModel: number[][] = this.dummyBambooModels.map(() => []);
         for (let i = 0; i < this.forestData.length; i++) {
             for (let j = 0; j < this.bambooModels.length; j++) {
                 if (this.bambooModels[j].maxHeight > this.forestData.plantHeight[i]) {
                     indicesPerModel[j].push(i);
+                    break;
+                }
+            }
+            for (let j = 0; j < this.dummyBambooModels.length; j++) {
+                if (this.dummyBambooModels[j].maxHeight > this.forestData.plantHeight[i]) {
+                    indicesPerDummyModel[j].push(i);
                     break;
                 }
             }
@@ -122,6 +188,21 @@ export class ForestObject extends Object3D implements Updatable {
                 this.currentTotalPlants += instancedMesh.count;
             }
         }
-        this.currentRenderedPlants = this.currentTotalPlants;
+        for (let i = 0; i < this.dummyBambooModels.length; i++) {
+            const instancedDummyMesh = this.dummyBambooModels[i].makeInstances(
+                this.forestData,
+                indicesPerDummyModel[i],
+                xDeltas,
+                zDeltas,
+                this.worldWidth,
+                this.worldDepth,
+                (i + 1) / this.dummyBambooModels.length
+            );
+            if (instancedDummyMesh.count > 0) {
+                this.attach(instancedDummyMesh);
+                this.dummyMeshes.push(instancedDummyMesh);
+            }
+        }
+        this.currentRenderedDetailedPlants = this.currentRenderedDummyPlants = this.currentTotalPlants;
     }
 }

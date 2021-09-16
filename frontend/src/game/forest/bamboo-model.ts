@@ -1,5 +1,6 @@
 import {
     BufferGeometry,
+    Color,
     Euler,
     FrontSide,
     Group,
@@ -7,6 +8,8 @@ import {
     Material,
     Matrix4,
     Mesh,
+    MeshBasicMaterial,
+    MeshStandardMaterial,
     Quaternion,
     Vector3,
 } from 'three';
@@ -14,7 +17,7 @@ import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
 import { ForestData } from '../entities/world/forest-data';
 import { createToast } from 'mosha-vue-toastify';
 
-const PLANT_PADDING = 30;
+const PLANT_PADDING = 15;
 const PLANT_HEIGHT = 100;
 
 const MAX_LEANING_ANGLE = 0.05 * Math.PI;
@@ -28,14 +31,14 @@ export class BambooModel {
         public maxDepth: number = DEFAULT_MAX_DEPTH
     ) {}
 
-    static fromObject(bambooObject: Group): BambooModel | undefined {
-        let stem: Mesh<BufferGeometry, Material> | undefined;
-        let leaf: Mesh<BufferGeometry, Material> | undefined;
+    static fromObject(bambooObject: Group, isDummy = false): BambooModel | undefined {
+        let stem: Mesh<BufferGeometry, MeshStandardMaterial | MeshBasicMaterial> | undefined;
+        let leaf: Mesh<BufferGeometry, MeshStandardMaterial | MeshBasicMaterial> | undefined;
         bambooObject.traverse((child) => {
             if (!(child instanceof Mesh) || !(child.geometry instanceof BufferGeometry)) {
                 return;
             }
-            if (child.material instanceof Material) {
+            if (child.material instanceof MeshStandardMaterial) {
                 if (child.material.name === 'Stem') {
                     stem = child;
                 } else if (child.material.name === 'Leaf') {
@@ -57,7 +60,26 @@ export class BambooModel {
             });
             return;
         }
-        return new BambooModel(parseInt(bambooObject.name.substring('Bamboo'.length)), stem, leaf);
+        if (isDummy) {
+            stem.material = new MeshBasicMaterial({ color: new Color(0x003300) });
+            leaf.material = new MeshBasicMaterial({
+                color: new Color(0x003300),
+                alphaMap: leaf.material.alphaMap,
+                transparent: true,
+            });
+        }
+        const firstDigitIndex = /\d/.exec(bambooObject.name)?.index;
+        if (firstDigitIndex == null) {
+            createToast(
+                `The Bamboo model "${bambooObject.name}" does not contain a maximum height at the end of its name`,
+                {
+                    type: 'danger',
+                    showIcon: true,
+                }
+            );
+            return;
+        }
+        return new BambooModel(parseInt(bambooObject.name.substring(firstDigitIndex)), stem, leaf);
     }
 
     makeInstances(
@@ -82,9 +104,9 @@ export class BambooModel {
         const translation = new Vector3();
         const rotation = new Quaternion();
         const rotationEuler = new Euler();
-        const scale = new Vector3(2, 1, 2);
+        const scale = new Vector3(1, 1, 1);
 
-        let meshIndex = 0;
+        let instanceIndex = 0;
         for (const i of indices) {
             rotationEuler.x = Math.random() * Math.random() * MAX_LEANING_ANGLE * tallness;
             rotationEuler.y = Math.random() * Math.PI * 2;
@@ -101,9 +123,9 @@ export class BambooModel {
                     matrix.compose(translation, rotation, scale);
 
                     for (const mesh of [stems, leaves]) {
-                        mesh.setMatrixAt(meshIndex, matrix);
+                        mesh.setMatrixAt(instanceIndex, matrix);
                     }
-                    meshIndex++;
+                    instanceIndex++;
                 }
             }
         }
