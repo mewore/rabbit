@@ -1,13 +1,23 @@
-import { Group, Object3D } from 'three';
+import { Camera, Frustum, Group, Matrix4, Object3D } from 'three';
 import { BambooModel } from './bamboo-model';
+import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
 import { ForestData } from '../entities/world/forest-data';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { Updatable } from '../updatable';
 import { addCredit } from '@/temp-util';
 import { createToast } from 'mosha-vue-toastify';
 
-export class ForestObject extends Object3D {
+const matrix4 = new Matrix4();
+const frustum = new Frustum();
+
+export class ForestObject extends Object3D implements Updatable {
     private bambooModels?: BambooModel[];
     private forestData?: ForestData;
+    private readonly meshes: CullableInstancedMesh[] = [];
+    camera?: Camera;
+
+    private currentTotalPlants = 0;
+    private currentRenderedPlants = 0;
 
     constructor(private readonly worldWidth: number, private readonly worldDepth: number) {
         super();
@@ -49,9 +59,34 @@ export class ForestObject extends Object3D {
             });
     }
 
+    get totalPlants(): number {
+        return this.currentTotalPlants;
+    }
+
+    get renderedPlants(): number {
+        return this.currentRenderedPlants;
+    }
+
     setForestData(forestData: ForestData): void {
         this.forestData = forestData;
         this.generateIfPossible();
+    }
+
+    update(): void {
+        if (!this.camera || !this.meshes.length) {
+            return;
+        }
+
+        this.camera.updateMatrixWorld();
+        frustum.setFromProjectionMatrix(
+            matrix4.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+        );
+        this.currentTotalPlants = 0;
+        this.currentRenderedPlants = 0;
+        for (const mesh of this.meshes) {
+            this.currentRenderedPlants += mesh.cull(frustum);
+            this.currentTotalPlants += mesh.count;
+        }
     }
 
     private generateIfPossible(): void {
@@ -72,7 +107,7 @@ export class ForestObject extends Object3D {
             }
         }
         for (let i = 0; i < this.bambooModels.length; i++) {
-            const instancedMeshes = this.bambooModels[i].makeInstances(
+            const instancedMesh = this.bambooModels[i].makeInstances(
                 this.forestData,
                 indicesPerModel[i],
                 xDeltas,
@@ -81,9 +116,12 @@ export class ForestObject extends Object3D {
                 this.worldDepth,
                 (i + 1) / this.bambooModels.length
             );
-            for (const instancedMesh of instancedMeshes) {
+            if (instancedMesh.count > 0) {
                 this.attach(instancedMesh);
+                this.meshes.push(instancedMesh);
+                this.currentTotalPlants += instancedMesh.count;
             }
         }
+        this.currentRenderedPlants = this.currentTotalPlants;
     }
 }

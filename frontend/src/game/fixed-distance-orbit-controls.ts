@@ -42,7 +42,6 @@ export class FixedDistanceOrbitControls implements Updatable {
 
         this.spherical.theta -= this.input.lookRight;
         this.spherical.phi = Math.max(MIN_PHI, Math.min(MAX_PHI, this.spherical.phi - this.input.lookDown));
-        this.input.clearMouseDelta();
 
         this.object.position.setFromSpherical(this.spherical);
         this.object.lookAt(0, 0, 0);

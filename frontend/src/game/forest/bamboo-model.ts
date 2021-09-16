@@ -10,8 +10,12 @@ import {
     Quaternion,
     Vector3,
 } from 'three';
+import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
 import { ForestData } from '../entities/world/forest-data';
 import { createToast } from 'mosha-vue-toastify';
+
+const PLANT_PADDING = 30;
+const PLANT_HEIGHT = 100;
 
 const MAX_LEANING_ANGLE = 0.05 * Math.PI;
 const DEFAULT_MAX_DEPTH = 5.0;
@@ -64,17 +68,15 @@ export class BambooModel {
         worldWidth: number,
         worldDepth: number,
         tallness: number
-    ): InstancedMesh[] {
+    ): CullableInstancedMesh {
         const bambooCount = indices.length * xDeltas.length * zDeltas.length;
 
         const stems = new InstancedMesh(this.stemMesh.geometry, this.stemMesh.material, bambooCount);
         stems.name = `Bamboo:${this.maxHeight}:Stems`;
-        stems.matrixAutoUpdate = false;
         stems.material.side = FrontSide;
 
         const leaves = new InstancedMesh(this.leafMesh.geometry, this.leafMesh.material, bambooCount);
         leaves.name = `Bamboo:${this.maxHeight}:Leaves`;
-        leaves.matrixAutoUpdate = false;
 
         const matrix = new Matrix4();
         const translation = new Vector3();
@@ -106,6 +108,6 @@ export class BambooModel {
             }
         }
 
-        return [stems, leaves];
+        return new CullableInstancedMesh([stems, leaves], PLANT_PADDING, PLANT_HEIGHT);
     }
 }

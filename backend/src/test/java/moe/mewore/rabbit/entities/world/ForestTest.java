@@ -11,7 +11,7 @@ class ForestTest {
     @Test
     void testGenerate() {
         final Forest forest = Forest.generate(new Random(25L));
-        assertEquals(1156, forest.encodeToBinary().length);
+        assertEquals(9220, forest.encodeToBinary().length);
     }
 
     @Test

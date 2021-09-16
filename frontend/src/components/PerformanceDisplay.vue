@@ -19,6 +19,15 @@
                 }}ms (target: {{ lastSegment.targetMsPerFrame }}ms)
             </div>
             <div>Draw calls per frame: {{ lastSegment.drawCallsPerFrame }}</div>
+            <div>
+                Rendered plants: {{ lastSegment.renderedPlantsPerFrame }} /
+                {{ lastSegment.totalPlantsPerFrame }} ({{
+                    Math.round(
+                        (lastSegment.renderedPlantsPerFrame * 100) /
+                            lastSegment.totalPlantsPerFrame
+                    )
+                }}%)
+            </div>
         </div>
     </div>
 </template>
@@ -41,6 +50,8 @@ interface SegmentInfo extends Segment {
     drawCallsPerFrame: number;
     className: string;
     opacity?: number;
+    totalPlantsPerFrame: number;
+    renderedPlantsPerFrame: number;
 }
 
 interface EmptySegment extends Segment {
@@ -76,6 +87,8 @@ export default class PerformanceDisplay extends Vue {
     private frameCount = 0;
     private targetFrameCount = 0;
     private segmentDrawCalls = 0;
+    private totalPlants = 0;
+    private renderedPlants = 0;
 
     lastSegment: EmptySegment | SegmentInfo = { className: 'empty' };
     readonly segments: (EmptySegment | SegmentInfo)[] = [];
@@ -97,6 +110,8 @@ export default class PerformanceDisplay extends Vue {
         timestamp: number,
         targetDelta: number,
         drawCalls: number,
+        totalPlants: number,
+        renderedPlants: number,
         skipped = false
     ): void {
         const targetFrameCount = this.segmentTime / targetDelta;
@@ -164,6 +179,7 @@ export default class PerformanceDisplay extends Vue {
             );
             const roundedTargetMsPerFrame = Math.round(1000 / roundedTargetFps);
 
+            const hasFrames = this.frameCount > 0;
             this.segments[this.index++] = {
                 fps: Math.min(roundedFps, roundedTargetFps),
                 targetFps: roundedTargetFps,
@@ -176,6 +192,12 @@ export default class PerformanceDisplay extends Vue {
                 ),
                 frameCount: this.frameCount,
                 targetFrameCount: this.targetFrameCount,
+                totalPlantsPerFrame: hasFrames
+                    ? Math.round(this.totalPlants / this.frameCount)
+                    : totalPlants,
+                renderedPlantsPerFrame: hasFrames
+                    ? Math.round(this.renderedPlants / this.frameCount)
+                    : renderedPlants,
             };
             this.lastSegment = this.segments[this.index - 1];
 
@@ -187,10 +209,14 @@ export default class PerformanceDisplay extends Vue {
             this.frameCount = 0;
             this.targetFrameCount = 0;
             this.segmentDrawCalls = 0;
+            this.totalPlants = 0;
+            this.renderedPlants = 0;
         }
         if (!skipped) {
             this.frameCount++;
             this.segmentDrawCalls += drawCalls;
+            this.totalPlants += totalPlants;
+            this.renderedPlants += renderedPlants;
         }
         this.targetFrameCount +=
             (timestamp - this.lastFrameTime) * targetFrameCount;

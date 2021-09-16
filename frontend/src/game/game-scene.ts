@@ -58,7 +58,7 @@ const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
 //  perpendicular to the camera intersecting the object insead of on the distance between the camera and the object.
 //  Fog is implemented like this in every damn 3D engine and it's so unrealistic, but I guess it's easier to calculate.
-const FOG_END = Math.cos(degToRad(FOV / 2)) * (Math.min(WORLD_WIDTH, WORLD_DEPTH) * 0.5);
+const FOG_END = (Math.cos(degToRad(FOV / 2)) * (Math.min(WORLD_WIDTH, WORLD_DEPTH) * 0.5)) / 2;
 const FOG_START = FOG_END * 0;
 
 export class GameScene {
@@ -80,7 +80,7 @@ export class GameScene {
 
     private readonly cameraControls: FixedDistanceOrbitControls;
 
-    private readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH);
+    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH);
 
     private width = 0;
     private height = 0;
@@ -92,6 +92,7 @@ export class GameScene {
         this.camera.far = FOG_END * 2;
         this.cameraControls = new FixedDistanceOrbitControls(this.input, this.camera, this.character);
         this.camera.rotation.reorder('YXZ');
+        this.forest.camera = this.camera;
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
 
@@ -226,13 +227,16 @@ export class GameScene {
         if (this.character.visible && this.input.wantsToJump) {
             this.character.jump(now);
         }
+        let characterWrapped = false;
         if (this.character.visible) {
             const characterPosition = this.character.position;
             if (characterPosition.x < MIN_X || characterPosition.x > MAX_X) {
                 characterPosition.setX(wrap(characterPosition.x, MIN_X, MAX_X));
+                characterWrapped = true;
             }
             if (characterPosition.z < MIN_Z || characterPosition.z > MAX_Z) {
                 characterPosition.setZ(wrap(characterPosition.z, MIN_Z, MAX_Z));
+                characterWrapped = true;
             }
             if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
                 this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
@@ -242,6 +246,14 @@ export class GameScene {
             updatable.update(delta, now);
         }
         this.cameraControls.update(delta);
+        if (
+            characterWrapped ||
+            Math.random() < 0.2 + (Math.abs(this.input.lookRight) + Math.abs(this.input.lookDown))
+        ) {
+            this.forest.update();
+        }
+        this.input.clearMouseDelta();
+
         this.render();
     }
 
