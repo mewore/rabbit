@@ -7,6 +7,7 @@ import {
     HemisphereLight,
     Mesh,
     MeshLambertMaterial,
+    Object3D,
     PerspectiveCamera,
     Scene,
     Vector3,
@@ -59,6 +60,14 @@ const BASE_FOREST_UPDATE_RATE = 1;
 const FOREST_UPDATE_PER_ROTATION = 0.3;
 const FOREST_UPDATE_PER_MOVEMENT = 0.3;
 
+const WRAP_X_OFFSETS = [-WORLD_WIDTH, 0, WORLD_WIDTH];
+const WRAP_Z_OFFSETS = [-WORLD_DEPTH, 0, WORLD_DEPTH];
+
+const WRAP_OFFSETS: Vector3[] = WRAP_X_OFFSETS.flatMap((xOffset) =>
+    WRAP_Z_OFFSETS.map((zOffset) => new Vector3(xOffset, 0, zOffset))
+);
+const NONZERO_WRAP_OFFSETS: Vector3[] = WRAP_OFFSETS.filter((offset) => offset.lengthSq() > 0);
+
 const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
 //  perpendicular to the camera intersecting the object insead of on the distance between the camera and the object.
@@ -86,7 +95,7 @@ export class GameScene {
     private readonly cameraControls: FixedDistanceOrbitControls;
 
     private forestUpdateTimeout = 0;
-    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH);
+    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH, WRAP_OFFSETS);
 
     private width = 0;
     private height = 0;
@@ -125,8 +134,9 @@ export class GameScene {
         shadowDummyBox.castShadow = true;
         shadowDummyBox.position.set(30, 50, -10);
         shadowDummyBox.updateMatrixWorld();
-        this.scene.add(shadowDummyBox, new AxisHelper());
+        this.scene.add(...this.wrap(shadowDummyBox));
 
+        this.scene.add(...this.wrap(new AxisHelper()));
         this.cameraControls.intersectionObjects = [ground, shadowDummyBox];
 
         const moon = new Moon(50);
@@ -154,6 +164,16 @@ export class GameScene {
 
         this.refreshSize();
         this.character.visible = false;
+    }
+
+    wrap(object: Object3D): Object3D[] {
+        const result: Object3D[] = [object];
+        for (const offset of NONZERO_WRAP_OFFSETS) {
+            const cloned = object.clone(false);
+            cloned.position.add(offset);
+            result.push(cloned);
+        }
+        return result;
     }
 
     get time(): number {

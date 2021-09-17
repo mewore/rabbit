@@ -85,13 +85,12 @@ export class BambooModel {
     makeInstances(
         forestData: ForestData,
         indices: number[],
-        xDeltas: number[],
-        zDeltas: number[],
+        offsets: Vector3[],
         worldWidth: number,
         worldDepth: number,
         tallness: number
     ): CullableInstancedMesh {
-        const bambooCount = indices.length * xDeltas.length * zDeltas.length;
+        const bambooCount = indices.length * offsets.length;
 
         const stems = new InstancedMesh(this.stemMesh.geometry, this.stemMesh.material, bambooCount);
         stems.name = `Bamboo:${this.maxHeight}:Stems`;
@@ -113,20 +112,16 @@ export class BambooModel {
             rotationEuler.z = Math.random() * Math.random() * MAX_LEANING_ANGLE * tallness;
             rotation.setFromEuler(rotationEuler);
             const y = -Math.random() * this.maxDepth;
-            for (const deltaX of xDeltas) {
-                for (const deltaZ of zDeltas) {
-                    translation.set(
-                        (forestData.plantX[i] - 0.5) * worldWidth + deltaX,
-                        y,
-                        (forestData.plantZ[i] - 0.5) * worldDepth + deltaZ
-                    );
-                    matrix.compose(translation, rotation, scale);
+            for (const offset of offsets) {
+                translation
+                    .set((forestData.plantX[i] - 0.5) * worldWidth, y, (forestData.plantZ[i] - 0.5) * worldDepth)
+                    .add(offset);
+                matrix.compose(translation, rotation, scale);
 
-                    for (const mesh of [stems, leaves]) {
-                        mesh.setMatrixAt(instanceIndex, matrix);
-                    }
-                    instanceIndex++;
+                for (const mesh of [stems, leaves]) {
+                    mesh.setMatrixAt(instanceIndex, matrix);
                 }
+                instanceIndex++;
             }
         }
 

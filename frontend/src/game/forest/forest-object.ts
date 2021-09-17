@@ -1,4 +1,4 @@
-import { Camera, Frustum, Group, Matrix4, Object3D, OrthographicCamera, PerspectiveCamera } from 'three';
+import { Camera, Frustum, Group, Matrix4, Object3D, OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { BambooModel } from './bamboo-model';
 import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
 import { ForestData } from '../entities/world/forest-data';
@@ -24,7 +24,11 @@ export class ForestObject extends Object3D implements Updatable {
     private currentRenderedDetailedPlants = 0;
     private currentRenderedDummyPlants = 0;
 
-    constructor(private readonly worldWidth: number, private readonly worldDepth: number) {
+    constructor(
+        private readonly worldWidth: number,
+        private readonly worldDepth: number,
+        private readonly offsets: Vector3[] = [new Vector3()]
+    ) {
         super();
 
         this.name = 'Forest';
@@ -153,9 +157,6 @@ export class ForestObject extends Object3D implements Updatable {
             return;
         }
 
-        const xDeltas = [-this.worldWidth, 0, this.worldWidth];
-        const zDeltas = [-this.worldDepth, 0, this.worldDepth];
-
         const indicesPerModel: number[][] = this.bambooModels.map(() => []);
         const indicesPerDummyModel: number[][] = this.dummyBambooModels.map(() => []);
         for (let i = 0; i < this.forestData.length; i++) {
@@ -176,8 +177,7 @@ export class ForestObject extends Object3D implements Updatable {
             const instancedMesh = this.bambooModels[i].makeInstances(
                 this.forestData,
                 indicesPerModel[i],
-                xDeltas,
-                zDeltas,
+                this.offsets,
                 this.worldWidth,
                 this.worldDepth,
                 (i + 1) / this.bambooModels.length
@@ -192,8 +192,7 @@ export class ForestObject extends Object3D implements Updatable {
             const instancedDummyMesh = this.dummyBambooModels[i].makeInstances(
                 this.forestData,
                 indicesPerDummyModel[i],
-                xDeltas,
-                zDeltas,
+                this.offsets,
                 this.worldWidth,
                 this.worldDepth,
                 (i + 1) / this.dummyBambooModels.length
