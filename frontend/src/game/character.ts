@@ -10,12 +10,12 @@ import {
     Vector3,
 } from 'three';
 import { PlayerState } from './entities/player-state';
-import { Updatable } from './updatable';
+import { Updatable } from './util/updatable';
 import { Vector2Entity } from './entities/vector2-entity';
 import { Vector3Entity } from './entities/vector3-entity';
 import { addCredit } from '@/temp-util';
 import { loadGltfWithCaching } from './util/gltf-util';
-import { makeAllCastAndReceiveShadow } from './three-util';
+import { makeAllCastAndReceiveShadow } from './util/three-util';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;

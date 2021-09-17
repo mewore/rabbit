@@ -3,7 +3,7 @@ import { BambooModel } from './bamboo-model';
 import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
 import { ForestData } from '../entities/world/forest-data';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { Updatable } from '../updatable';
+import { Updatable } from '../util/updatable';
 import { addCredit } from '@/temp-util';
 import { createToast } from 'mosha-vue-toastify';
 

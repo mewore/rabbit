@@ -13,14 +13,14 @@ import {
     Vector3,
     WebGLRenderer,
 } from 'three';
-import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './three-util';
+import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './util/three-util';
 import { addCredit, isReisen } from '../temp-util';
-import { AutoFollow } from './auto-follow';
+import { AutoFollow } from './util/auto-follow';
 import { Character } from './character';
-import { FixedDistanceOrbitControls } from './fixed-distance-orbit-controls';
+import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
 import { ForestDataMessage } from './entities/messages/forest-data-message';
 import { ForestObject } from './forest/forest-object';
-import { Input } from './input';
+import { Input } from './util/input';
 import { Moon } from './moon';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
 import { PlayerJoinMessage } from './entities/messages/player-join-message';
@@ -28,7 +28,7 @@ import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
 import { PlayerUpdateMessage } from './entities/messages/player-update-message';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
-import { Updatable } from './updatable';
+import { Updatable } from './util/updatable';
 import { degToRad } from 'three/src/math/MathUtils';
 
 enum MessageType {
