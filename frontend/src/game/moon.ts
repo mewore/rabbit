@@ -14,7 +14,7 @@ export class Moon extends DirectionalLight {
         if (shadowSharpnessRatio != null) {
             this.castShadow = true;
 
-            const shadowResolution = 2048;
+            const shadowResolution = 4096;
             this.shadow.mapSize.width = this.shadow.mapSize.height = shadowResolution;
 
             const shadowSideMultiplier = 10;

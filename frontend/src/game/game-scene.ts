@@ -6,10 +6,13 @@ import {
     Fog,
     HemisphereLight,
     Mesh,
+    MeshBasicMaterial,
     MeshLambertMaterial,
     Object3D,
     PerspectiveCamera,
+    PointLight,
     Scene,
+    SphereBufferGeometry,
     Vector3,
     WebGLRenderer,
 } from 'three';
@@ -117,6 +120,15 @@ export class GameScene {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
 
+        const centralLight = new PointLight(0xffdd44, 0.5, WORLD_WIDTH / 4);
+        centralLight.position.set(0, 10, 0);
+        const lightSphere = new Mesh(new SphereBufferGeometry(1, 16, 16), new MeshBasicMaterial({ color: 0xffdd44 }));
+        lightSphere.position.copy(centralLight.position);
+        lightSphere.material.fog = false;
+
+        this.scene.add(...this.wrap(centralLight));
+        this.scene.add(...this.wrap(lightSphere));
+
         this.scene.add(new AmbientLight(this.scene.background, 3));
         this.scene.add(new AmbientLight(0x112255, 1));
         this.scene.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
@@ -133,13 +145,14 @@ export class GameScene {
         shadowDummyBox.receiveShadow = true;
         shadowDummyBox.castShadow = true;
         shadowDummyBox.position.set(30, 50, -10);
+        shadowDummyBox.rotateY(Math.PI * 0.2);
         shadowDummyBox.updateMatrixWorld();
         this.scene.add(...this.wrap(shadowDummyBox));
 
         this.scene.add(...this.wrap(new AxisHelper()));
         this.cameraControls.intersectionObjects = [ground, shadowDummyBox];
 
-        const moon = new Moon(50);
+        const moon = new Moon(100);
         moon.target = this.character;
         this.scene.add(moon);
 
@@ -166,8 +179,8 @@ export class GameScene {
         this.character.visible = false;
     }
 
-    wrap(object: Object3D): Object3D[] {
-        const result: Object3D[] = [object];
+    wrap<T extends Object3D>(object: T): T[] {
+        const result: T[] = [object];
         for (const offset of NONZERO_WRAP_OFFSETS) {
             const cloned = object.clone(false);
             cloned.position.add(offset);
