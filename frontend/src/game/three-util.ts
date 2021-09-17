@@ -4,6 +4,7 @@ import {
     Camera,
     CubeTexture,
     CubeTextureLoader,
+    FrontSide,
     LinearMipMapLinearFilter,
     Material,
     Mesh,
@@ -50,6 +51,7 @@ function shouldMaterialCastShadow(material: THREE.Material): boolean {
 export function makeGround(): Object3D {
     const groundMaterial = new MeshStandardMaterial();
     groundMaterial.name = 'GroundMaterial';
+    groundMaterial.side = FrontSide;
 
     const targetMeshSize = new Vector2(2000, 2000);
     const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
@@ -93,7 +95,9 @@ export function makeGround(): Object3D {
     })();
 
     groundMesh.name = 'Ground';
-    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.rotateX(-Math.PI / 2);
+    groundMesh.updateMatrix();
+    groundMesh.updateMatrixWorld();
     groundMesh.receiveShadow = true;
     return groundMesh;
 }

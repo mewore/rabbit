@@ -124,6 +124,7 @@ export class GameScene {
         shadowDummyBox.receiveShadow = true;
         shadowDummyBox.castShadow = true;
         shadowDummyBox.position.set(30, 50, -10);
+        shadowDummyBox.updateMatrixWorld();
         this.scene.add(shadowDummyBox, new AxisHelper());
 
         this.cameraControls.intersectionObjects = [ground, shadowDummyBox];

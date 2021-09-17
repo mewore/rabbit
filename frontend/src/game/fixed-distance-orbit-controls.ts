@@ -2,6 +2,7 @@ import { Object3D, Raycaster, Spherical, Vector3 } from 'three';
 import { Input } from './input';
 import { Updatable } from './updatable';
 
+const normal = new Vector3();
 const rayDirection = new Vector3();
 const newTargetWorldPosition = new Vector3();
 const raycaster = new Raycaster();
@@ -58,18 +59,42 @@ export class FixedDistanceOrbitControls implements Updatable {
             newTargetWorldPosition.z
         );
 
-        if (this.intersectionObjects && this.intersectionObjects.length && this.spherical.radius > -this.padding) {
-            rayDirection.copy(this.object.position).normalize();
-            raycaster.set(this.targetWorldPosition, rayDirection);
-            raycaster.far = this.spherical.radius + this.padding;
-            const intersection = raycaster.intersectObjects(this.intersectionObjects, true)[0];
-            if (intersection) {
-                this.object.position.copy(intersection.point).addScaledVector(rayDirection, -this.padding);
-            } else {
-                this.object.position.add(this.targetWorldPosition);
-            }
-        } else {
+        if (!this.tryToIntersect()) {
             this.object.position.add(this.targetWorldPosition);
         }
+    }
+
+    /**
+     * Check for intersections from the target to the wanted object position. If there are any,
+     * the object is moved in front of the first such intersection so that there is nothing between it and its target.
+     * @returns Whether there are any intersections.
+     */
+    private tryToIntersect(): boolean {
+        if (!this.intersectionObjects?.length) {
+            return false;
+        }
+        rayDirection.copy(this.object.position).normalize();
+        raycaster.set(this.targetWorldPosition, rayDirection);
+        raycaster.far = this.spherical.radius + this.padding;
+        const intersection = raycaster.intersectObjects(this.intersectionObjects, true)[0];
+        if (!intersection) {
+            return false;
+        }
+        let distanceOffset = -this.padding;
+        if (intersection.face) {
+            const dot = Math.abs(
+                normal
+                    .copy(intersection.face.normal)
+                    .applyMatrix4(intersection.object.matrixWorld)
+                    .normalize()
+                    .dot(rayDirection)
+            );
+            distanceOffset *= 1 - dot;
+        }
+        if (intersection.distance + distanceOffset > this.spherical.radius) {
+            return false;
+        }
+        this.object.position.copy(intersection.point).addScaledVector(rayDirection, distanceOffset);
+        return true;
     }
 }
