@@ -40,8 +40,7 @@ const WALK_STOP_TIME = 0.1;
 const AIRBORNE_START_TIME = 0.3;
 const AIRBORNE_STOP_TIME = 0.2;
 
-const Y_OFFSET = 7.5;
-const MIN_Y = Y_OFFSET;
+const MIN_Y = 0;
 
 const MAX_SPEED = 40;
 const ACCELERATION = 100;
@@ -74,7 +73,6 @@ export class Character extends Object3D implements Updatable {
     constructor(readonly username: string, isReisen: boolean | undefined) {
         super();
         this.name = username ? 'Character:' + username : 'Character';
-        this.translateY(Y_OFFSET);
 
         const dummyBox = new Mesh(new BoxBufferGeometry(10, 10, 10), new MeshBasicMaterial());
         dummyBox.name = 'CharacterDummyBox';
@@ -164,7 +162,6 @@ export class Character extends Object3D implements Updatable {
         this.currentMesh = newMesh;
         newMesh.rotation.set(0, 0, 0);
         newMesh.position.set(0, 0, 0);
-        newMesh.translateY(-Y_OFFSET);
     }
 
     setState(newState: PlayerState): void {

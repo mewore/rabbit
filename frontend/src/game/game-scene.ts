@@ -99,6 +99,7 @@ export class GameScene {
         this.cameraControls = new FixedDistanceOrbitControls(this.input, this.camera, this.character);
         this.camera.rotation.reorder('YXZ');
         this.forest.camera = this.camera;
+        this.cameraControls.offset = new Vector3(0, 20, 0);
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
 

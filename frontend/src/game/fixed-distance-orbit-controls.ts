@@ -27,6 +27,8 @@ export class FixedDistanceOrbitControls implements Updatable {
 
     padding = 5;
 
+    offset = new Vector3();
+
     private readonly targetWorldPosition = new Vector3();
 
     constructor(private readonly input: Input, private readonly object: Object3D, private readonly target: Object3D) {
@@ -46,6 +48,7 @@ export class FixedDistanceOrbitControls implements Updatable {
         this.object.position.setFromSpherical(this.spherical);
         this.object.lookAt(0, 0, 0);
         this.target.getWorldPosition(newTargetWorldPosition);
+        newTargetWorldPosition.add(this.offset);
 
         const targetYPositionDistance = Math.pow(1 - this.yPositionChangeSpeed, delta);
         this.targetWorldPosition.set(
