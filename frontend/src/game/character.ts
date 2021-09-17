@@ -9,12 +9,12 @@ import {
     Vector2,
     Vector3,
 } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PlayerState } from './entities/player-state';
 import { Updatable } from './updatable';
 import { Vector2Entity } from './entities/vector2-entity';
 import { Vector3Entity } from './entities/vector3-entity';
 import { addCredit } from '@/temp-util';
+import { loadGltfWithCaching } from './util/gltf-util';
 import { makeAllCastAndReceiveShadow } from './three-util';
 
 interface AnimationInfo {
@@ -94,63 +94,57 @@ export class Character extends Object3D implements Updatable {
         this.hasBeenSetUp = true;
         this.visible = true;
         if (isReisen) {
-            new GLTFLoader()
-                .setPath('/assets/reisen/')
-                .loadAsync('reisen.glb')
-                .then((gltf) => {
-                    addCredit({
-                        thing: { text: 'Fumo', url: 'https://fumo.website/' },
-                        author: { text: 'ROYALCAT', url: 'https://royalcat.xyz/' },
-                    });
-
-                    const reisen = gltf.scene;
-                    reisen.name = 'Reisen';
-                    reisen.position.set(this.position.x, this.position.y, this.position.z);
-                    makeAllCastAndReceiveShadow(reisen);
-                    this.mesh = reisen;
-                    reisen.updateMatrix();
-                    reisen.rotation.y = 0;
-
-                    const mixer = new AnimationMixer(reisen);
-                    const idleAnimation = gltf.animations.find((animation) => animation.name === 'T-Pose');
-                    const walkAnimation = gltf.animations.find((animation) => animation.name === 'Walk');
-                    const runAnimation = gltf.animations.find((animation) => animation.name === 'Run');
-                    const riseAnimation = gltf.animations.find((animation) => animation.name === 'Rise');
-                    const fallAnimation = gltf.animations.find((animation) => animation.name === 'Fall');
-                    if (!idleAnimation || !walkAnimation || !runAnimation || !riseAnimation || !fallAnimation) {
-                        return;
-                    }
-                    this.animationInfo = {
-                        mixer,
-                        walkAction: mixer.clipAction(walkAnimation),
-                        runAction: mixer.clipAction(runAnimation),
-                        idleAction: mixer.clipAction(idleAnimation),
-                        riseAction: mixer.clipAction(riseAnimation),
-                        fallAction: mixer.clipAction(fallAnimation),
-                    };
-                    this.animationInfo.idleAction.play();
+            loadGltfWithCaching('/assets/reisen/reisen.glb').then((gltf) => {
+                addCredit({
+                    thing: { text: 'Fumo', url: 'https://fumo.website/' },
+                    author: { text: 'ROYALCAT', url: 'https://royalcat.xyz/' },
                 });
+
+                const reisen = gltf.scene;
+                reisen.name = 'Reisen';
+                reisen.position.set(this.position.x, this.position.y, this.position.z);
+                makeAllCastAndReceiveShadow(reisen);
+                this.mesh = reisen;
+                reisen.updateMatrix();
+                reisen.rotation.y = 0;
+
+                const mixer = new AnimationMixer(reisen);
+                const idleAnimation = gltf.animations.find((animation) => animation.name === 'T-Pose');
+                const walkAnimation = gltf.animations.find((animation) => animation.name === 'Walk');
+                const runAnimation = gltf.animations.find((animation) => animation.name === 'Run');
+                const riseAnimation = gltf.animations.find((animation) => animation.name === 'Rise');
+                const fallAnimation = gltf.animations.find((animation) => animation.name === 'Fall');
+                if (!idleAnimation || !walkAnimation || !runAnimation || !riseAnimation || !fallAnimation) {
+                    return;
+                }
+                this.animationInfo = {
+                    mixer,
+                    walkAction: mixer.clipAction(walkAnimation),
+                    runAction: mixer.clipAction(runAnimation),
+                    idleAction: mixer.clipAction(idleAnimation),
+                    riseAction: mixer.clipAction(riseAnimation),
+                    fallAction: mixer.clipAction(fallAnimation),
+                };
+                this.animationInfo.idleAction.play();
+            });
         } else {
-            new GLTFLoader()
-                .setPath('/assets/carrot/')
-                .loadAsync('scene.gltf')
-                .then((gltf) => {
-                    addCredit({
-                        thing: {
-                            text: 'Carrot model',
-                            url: 'https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d',
-                        },
-                        author: { text: 'thepianomonster', url: 'https://sketchfab.com/thepianomonster' },
-                    });
-                    const carrotSize = 5;
-                    const carrot = gltf.scene;
-                    carrot.name = 'Carrot';
-                    carrot.scale.set(carrotSize, carrotSize, carrotSize);
-
-                    makeAllCastAndReceiveShadow(carrot);
-                    this.mesh = carrot;
-                    this.animationInfo = undefined;
+            loadGltfWithCaching('/assets/carrot/scene.gltf').then((gltf) => {
+                addCredit({
+                    thing: {
+                        text: 'Carrot model',
+                        url: 'https://sketchfab.com/3d-models/low-poly-carrot-31df366e091a4e64b9b0cfc1afc0145d',
+                    },
+                    author: { text: 'thepianomonster', url: 'https://sketchfab.com/thepianomonster' },
                 });
+                const carrotSize = 5;
+                const carrot = gltf.scene;
+                carrot.name = 'Carrot';
+                carrot.scale.set(carrotSize, carrotSize, carrotSize);
+
+                makeAllCastAndReceiveShadow(carrot);
+                this.mesh = carrot;
+                this.animationInfo = undefined;
+            });
         }
     }
 
