@@ -13,6 +13,7 @@ import { PlayerState } from './entities/player-state';
 import { Updatable } from './util/updatable';
 import { Vector2Entity } from './entities/vector2-entity';
 import { Vector3Entity } from './entities/vector3-entity';
+import { Wrappable } from './util/wrappable';
 import { addCredit } from '@/temp-util';
 import { loadGltfWithCaching } from './util/gltf-util';
 import { makeAllCastAndReceiveShadow } from './util/three-util';
@@ -56,7 +57,9 @@ const tmpVector2 = new Vector2();
 
 const TARGET_MOTION_CHANGE_THRESHOLD = 0.05;
 
-export class Character extends Object3D implements Updatable {
+export class Character extends Object3D implements Updatable, Wrappable {
+    readonly isWrappable = true;
+
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
@@ -70,7 +73,7 @@ export class Character extends Object3D implements Updatable {
 
     private hasBeenSetUp = false;
 
-    constructor(readonly username: string, isReisen: boolean | undefined) {
+    constructor(readonly username: string, isReisen: boolean | undefined, readonly offset = new Vector3()) {
         super();
         this.name = username ? 'Character:' + username : 'Character';
 
@@ -232,7 +235,7 @@ export class Character extends Object3D implements Updatable {
         this.setTargetMotion(0, 0);
     }
 
-    move(viewpoint: Object3D, forward: number, right: number): void {
+    requestMovement(viewpoint: Object3D, forward: number, right: number): void {
         const angle = viewpoint.rotation.y + tmpVector2.set(forward, right).angle();
         this.setTargetMotion(Math.cos(angle) * MAX_SPEED, Math.sin(angle) * MAX_SPEED);
     }
