@@ -12,6 +12,8 @@ import {
     MeshStandardMaterial,
     MirroredRepeatWrapping,
     Object3D,
+    OrthographicCamera,
+    PerspectiveCamera,
     PlaneBufferGeometry,
     PlaneGeometry,
     TextureLoader,
@@ -158,7 +160,10 @@ export function globalVector(from: Object3D, to: Object3D): Vector3 {
 }
 
 export function projectOntoCamera(worldPosition: Vector3, camera: Camera): Vector3 | undefined {
-    const distance = camera.worldToLocal(tmpVector3.copy(worldPosition)).length();
+    const distance =
+        camera instanceof PerspectiveCamera || camera instanceof OrthographicCamera
+            ? camera.worldToLocal(tmpVector3.copy(worldPosition)).length() / camera.far
+            : 0;
     const vector = tmpVector3.copy(worldPosition).project(camera);
     if (vector.z > 1.0) {
         // The point is behind the camera

@@ -240,7 +240,7 @@ export default class ReisenGame extends Vue {
         const height = this.scene.getHeight();
         let labelIndex = 0;
         this.scene.forEveryPlayerLabel((position, username) => {
-            const closenessCoefficient = 1.0 - position.z / 3000.0;
+            const closenessCoefficient = 1.0 - position.z;
             if (closenessCoefficient < 0.0) {
                 return;
             }
