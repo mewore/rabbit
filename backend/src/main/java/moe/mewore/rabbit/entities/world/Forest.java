@@ -26,7 +26,7 @@ public class Forest extends BinaryEntity {
      */
     private static final int SAMPLE_COUNT_PER_PLANT = 2;
 
-    private static final int PLANT_COUNT = 1024;
+    private static final int PLANT_COUNT = 4096;
 
     private static final double TINY_CHANCE = 0.2;
 

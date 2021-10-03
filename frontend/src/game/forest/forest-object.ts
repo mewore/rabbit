@@ -3,6 +3,7 @@ import { BambooModel } from './bamboo-model';
 import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
 import { ForestData } from '../entities/world/forest-data';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { Input } from '../util/input';
 import { Updatable } from '../util/updatable';
 import { addCredit } from '@/temp-util';
 import { createToast } from 'mosha-vue-toastify';
@@ -11,6 +12,11 @@ const matrix4 = new Matrix4();
 const frustum = new Frustum();
 const tmpOrthographicCamera = new OrthographicCamera(0, 0, 0, 0);
 const tmpPerspectiveCamera = new PerspectiveCamera();
+const oldCameraPosition = new Vector3();
+
+const BASE_FOREST_UPDATE_RATE = 1;
+const FOREST_UPDATE_PER_ROTATION = 0.3;
+const FOREST_UPDATE_PER_MOVEMENT = 0.3;
 
 export class ForestObject extends Object3D implements Updatable {
     private bambooModels?: BambooModel[];
@@ -18,6 +24,9 @@ export class ForestObject extends Object3D implements Updatable {
     private forestData?: ForestData;
     private readonly meshes: CullableInstancedMesh[] = [];
     private readonly dummyMeshes: CullableInstancedMesh[] = [];
+
+    private forestUpdateTimeout = 0;
+    private readonly oldCameraPosition = new Vector3();
     camera?: Camera;
 
     private currentTotalPlants = 0;
@@ -27,7 +36,8 @@ export class ForestObject extends Object3D implements Updatable {
     constructor(
         private readonly worldWidth: number,
         private readonly worldDepth: number,
-        private readonly offsets: Vector3[] = [new Vector3()]
+        private readonly offsets: Vector3[] = [new Vector3()],
+        private readonly input: Input
     ) {
         super();
 
@@ -99,10 +109,27 @@ export class ForestObject extends Object3D implements Updatable {
         this.generateIfPossible();
     }
 
-    update(): void {
+    beforePhysics(): void {}
+
+    afterPhysics(): void {}
+
+    update(): void {}
+
+    beforeRender(delta: number): void {
         if (!this.camera || !this.meshes.length) {
             return;
         }
+
+        this.forestUpdateTimeout -=
+            delta * BASE_FOREST_UPDATE_RATE +
+            (Math.abs(this.input.lookRight) + Math.abs(this.input.lookDown)) * FOREST_UPDATE_PER_ROTATION +
+            oldCameraPosition.distanceToSquared(this.camera.position) * FOREST_UPDATE_PER_MOVEMENT;
+        this.oldCameraPosition.copy(this.camera.position);
+        if (this.forestUpdateTimeout > 0) {
+            return;
+        }
+
+        this.forestUpdateTimeout = 1;
 
         if (!(this.camera instanceof OrthographicCamera || this.camera instanceof PerspectiveCamera)) {
             throw new Error(

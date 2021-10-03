@@ -132,6 +132,22 @@ export function wrapAngle(angle: number): number {
     return angle;
 }
 
+export function getAngleDifference(from: number, to: number): number {
+    return from > to ? Math.min(from - to, to + TAU - from) : Math.min(to - from, from + TAU - to);
+}
+
+export function moveAngle(from: number, to: number, maxMovement: number): number {
+    from = wrapAngle(from);
+    to = wrapAngle(to);
+
+    const positiveDifference = wrapAngle(to > from ? to - from : to - from + TAU);
+    const negativeDifference = -wrapAngle(from > to ? from - to : from - to + TAU);
+
+    const bestDifference = positiveDifference < -negativeDifference ? positiveDifference : -negativeDifference;
+    const sign = positiveDifference < -negativeDifference ? 1 : -1;
+    return wrapAngle(from + Math.min(bestDifference, maxMovement) * sign);
+}
+
 export class AxisHelper extends Object3D {
     constructor() {
         super();

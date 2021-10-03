@@ -1,7 +1,7 @@
 import {
     AnimationAction,
     AnimationMixer,
-    BoxBufferGeometry,
+    CylinderBufferGeometry,
     LoopOnce,
     Mesh,
     MeshBasicMaterial,
@@ -9,14 +9,16 @@ import {
     Vector2,
     Vector3,
 } from 'three';
+import { Body, Cylinder, Material, Ray, RayOptions, RaycastResult, Vec3, World } from 'cannon-es';
+import { getAngleDifference, makeAllCastAndReceiveShadow, moveAngle } from './util/three-util';
 import { PlayerState } from './entities/player-state';
 import { Updatable } from './util/updatable';
 import { Vector2Entity } from './entities/vector2-entity';
 import { Vector3Entity } from './entities/vector3-entity';
 import { Wrappable } from './util/wrappable';
 import { addCredit } from '@/temp-util';
+import { lerp } from 'three/src/math/MathUtils';
 import { loadGltfWithCaching } from './util/gltf-util';
-import { makeAllCastAndReceiveShadow } from './util/three-util';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
@@ -35,7 +37,7 @@ enum CharacterState {
 }
 
 const WALK_START_TIME = 0.2;
-const RUN_START_TIME = 1.0;
+const RUN_START_TIME = 0.5;
 const RUN_STOP_TIME = 0.3;
 const WALK_STOP_TIME = 0.1;
 const AIRBORNE_START_TIME = 0.3;
@@ -43,19 +45,32 @@ const AIRBORNE_STOP_TIME = 0.2;
 
 const MIN_Y = 0;
 
-const MAX_SPEED = 40;
-const ACCELERATION = 100;
+const MAX_SPEED = 50;
+const ACCELERATION = 200;
 const JUMP_CONTROL_LENIENCY = 0.1;
-const JUMP_SPEED = 80;
+const JUMP_SPEED = 100;
 const MIN_Y_SPEED = -JUMP_SPEED * 2;
-const GRAVITY = 200;
 
-const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 5];
+const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 20];
 
 const tmpVector3 = new Vector3();
+const horizontalMotion = new Vector2();
 const tmpVector2 = new Vector2();
 
 const TARGET_MOTION_CHANGE_THRESHOLD = 0.05;
+
+const RADIUS = 3;
+const HEIGHT = 10;
+const MIN_ROTATION_SPEED = Math.PI * 0.1;
+const MAX_ROTATION_SPEED = Math.PI * 3;
+
+const MAX_ON_GROUND_VELOCITY = 1.0;
+const GROUND_CHECK_PADDING = HEIGHT / 5;
+const ray = new Ray();
+const rayResult = new RaycastResult();
+const groundRayOptions: RayOptions = { skipBackfaces: true };
+const GROUND_CHECK_DX = [-RADIUS / 2, 0, RADIUS / 2];
+const GROUND_CHECK_DZ = [-RADIUS / 2, 0, RADIUS / 2];
 
 export class Character extends Object3D implements Updatable, Wrappable {
     readonly isWrappable = true;
@@ -66,22 +81,28 @@ export class Character extends Object3D implements Updatable, Wrappable {
     private state = CharacterState.IDLE;
 
     private readonly targetHorizontalMotion = new Vector2();
-    private readonly horizontalMotion = new Vector2();
     private jumpWantedAt = -Infinity;
-    private ySpeed = 0;
     private hasChangedSinceLastQuery = true;
 
     private hasBeenSetUp = false;
+
+    readonly body = new Body({
+        fixedRotation: true,
+        position: new Vec3(0, HEIGHT / 2, 0),
+        mass: 1,
+        material: new Material({ friction: 0, restitution: 0 }),
+    });
 
     constructor(readonly username: string, isReisen: boolean | undefined, readonly offset = new Vector3()) {
         super();
         this.name = username ? 'Character:' + username : 'Character';
 
-        const dummyBox = new Mesh(new BoxBufferGeometry(10, 10, 10), new MeshBasicMaterial());
+        this.body.addShape(new Cylinder(RADIUS, RADIUS, HEIGHT, 16), new Vec3(0, HEIGHT / 2, 0));
+        const dummyBox = new Mesh(new CylinderBufferGeometry(RADIUS, RADIUS, HEIGHT, 16), new MeshBasicMaterial());
         dummyBox.name = 'CharacterDummyBox';
         dummyBox.receiveShadow = true;
         dummyBox.castShadow = true;
-        dummyBox.position.set(1, 10, 5);
+        dummyBox.position.set(0, HEIGHT / 2, 0);
         this.mesh = dummyBox;
 
         this.visible = false;
@@ -90,7 +111,7 @@ export class Character extends Object3D implements Updatable, Wrappable {
         }
     }
 
-    public setUpMesh(isReisen: boolean): void {
+    setUpMesh(isReisen: boolean): void {
         if (this.hasBeenSetUp) {
             return;
         }
@@ -158,58 +179,70 @@ export class Character extends Object3D implements Updatable, Wrappable {
         this.attach(newMesh);
         this.currentMesh = newMesh;
         newMesh.rotation.set(0, 0, 0);
-        newMesh.position.set(0, 0, 0);
     }
 
     setState(newState: PlayerState): void {
+        this.body.wakeUp();
         this.position.set(newState.position.x, newState.position.y, newState.position.z);
-        this.horizontalMotion.set(newState.motion.x, newState.motion.z);
-        this.ySpeed = newState.motion.y;
+        this.body.position.set(newState.position.x, newState.position.y, newState.position.z);
+        this.body.velocity.set(newState.motion.x, newState.motion.y, newState.motion.z);
         this.targetHorizontalMotion.set(newState.targetMotion.x, newState.targetMotion.y);
         this.hasChangedSinceLastQuery = true;
     }
 
-    update(delta: number, now: number): void {
+    beforePhysics(delta: number, now: number): void {
         const maxFrameAcceleration = ACCELERATION * delta;
-        const motionToTargetMotionDistanceSquared = this.horizontalMotion.distanceToSquared(
-            this.targetHorizontalMotion
-        );
+        horizontalMotion.set(this.body.velocity.x, this.body.velocity.z);
+        const motionToTargetMotionDistanceSquared = horizontalMotion.distanceToSquared(this.targetHorizontalMotion);
         if (motionToTargetMotionDistanceSquared < maxFrameAcceleration * maxFrameAcceleration) {
-            this.horizontalMotion.copy(this.targetHorizontalMotion);
+            horizontalMotion.copy(this.targetHorizontalMotion);
         } else {
-            this.horizontalMotion.add(
-                tmpVector2
-                    .subVectors(this.targetHorizontalMotion, this.horizontalMotion)
-                    .setLength(maxFrameAcceleration)
+            horizontalMotion.add(
+                tmpVector2.subVectors(this.targetHorizontalMotion, horizontalMotion).setLength(maxFrameAcceleration)
             );
         }
 
-        if (this.horizontalMotion.lengthSq() > 0.0) {
-            this.rotation.y = this.horizontalMotion.angle();
-            this.translateZ(this.horizontalMotion.length() * delta);
-        }
+        this.body.velocity.x = horizontalMotion.x;
+        this.body.velocity.z = horizontalMotion.y;
 
-        if (this.position.y > MIN_Y) {
-            this.ySpeed -= GRAVITY * delta;
-            if (this.ySpeed < MIN_Y_SPEED) {
-                this.ySpeed = MIN_Y_SPEED;
+        if (this.isOnGround()) {
+            this.body.velocity.y = 0;
+            this.position.y = rayResult.hitPointWorld.y;
+            if (now - this.jumpWantedAt < JUMP_CONTROL_LENIENCY) {
+                this.jumpWantedAt = -Infinity;
+                this.body.velocity.y = JUMP_SPEED;
+                this.hasChangedSinceLastQuery = true;
             }
-        } else if (now - this.jumpWantedAt < JUMP_CONTROL_LENIENCY) {
-            this.jumpWantedAt = -Infinity;
-            this.ySpeed = JUMP_SPEED;
-            this.hasChangedSinceLastQuery = true;
         }
-        this.position.y += this.ySpeed * delta;
-        if (this.position.y < MIN_Y) {
-            this.position.y = MIN_Y;
-            this.ySpeed = 0;
-        }
+        this.body.position.set(this.position.x, this.position.y, this.position.z);
+    }
 
-        const currentSpeedSquared = this.horizontalMotion.lengthSq();
-        if (this.position.y > MIN_Y) {
+    afterPhysics(): void {
+        if (this.body.position.y < MIN_Y) {
+            this.body.position.y = MIN_Y;
+            this.body.velocity.y = 0;
+        } else if (this.body.velocity.y < MIN_Y_SPEED) {
+            this.body.velocity.y = MIN_Y_SPEED;
+        }
+        this.position.set(this.body.position.x, this.body.position.y, this.body.position.z);
+    }
+
+    update(): void {}
+
+    beforeRender(delta: number): void {
+        const currentSpeedSquared = horizontalMotion.set(this.body.velocity.x, this.body.velocity.z).lengthSq();
+        if (this.targetHorizontalMotion.lengthSq() > 0.0) {
+            // The angles in Three.js are clockwise instead of counter-clockwise so the trigonometry is different
+            const targetAngle = Math.atan2(this.targetHorizontalMotion.x, this.targetHorizontalMotion.y);
+            const angleDifference = getAngleDifference(this.rotation.y, targetAngle);
+            const rotationSpeed = lerp(MIN_ROTATION_SPEED, MAX_ROTATION_SPEED, angleDifference / Math.PI);
+            this.rotation.y = moveAngle(this.rotation.y, targetAngle, rotationSpeed * delta);
+        }
+        if (!this.isOnGround()) {
             this.transitionIntoState(CharacterState.AIRBORNE);
             if (this.animationInfo) {
-                const riseCoefficient = this.ySpeed >= 0 ? this.ySpeed / JUMP_SPEED : -this.ySpeed / MIN_Y_SPEED;
+                const ySpeed = this.body.velocity.y;
+                const riseCoefficient = ySpeed >= 0 ? ySpeed / JUMP_SPEED : -ySpeed / MIN_Y_SPEED;
                 const riseActionWeight = 0.5 + riseCoefficient * 0.5;
                 this.animationInfo.riseAction.setEffectiveWeight(riseActionWeight);
                 this.animationInfo.fallAction.setEffectiveWeight(1 - riseActionWeight);
@@ -237,14 +270,44 @@ export class Character extends Object3D implements Updatable, Wrappable {
 
     requestMovement(viewpoint: Object3D, forward: number, right: number): void {
         const angle = viewpoint.rotation.y + tmpVector2.set(forward, right).angle();
-        this.setTargetMotion(Math.cos(angle) * MAX_SPEED, Math.sin(angle) * MAX_SPEED);
+        // The angles in Three.js are clockwise instead of counter-clockwise so the trigonometry is different
+        this.setTargetMotion(Math.sin(angle) * MAX_SPEED, Math.cos(angle) * MAX_SPEED);
     }
 
-    jump(now: number): void {
+    requestJump(now: number): void {
+        this.body.wakeUp();
         this.jumpWantedAt = now;
     }
 
+    private isOnGround(): boolean {
+        if (!this.body.world || this.body.velocity.y > MAX_ON_GROUND_VELOCITY) {
+            return false;
+        }
+        for (const dx of GROUND_CHECK_DX) {
+            for (const dz of GROUND_CHECK_DZ) {
+                if (this.tryGroundRay(dx, dz, this.body.world)) {
+                    return true;
+                }
+            }
+        }
+        for (const offset of [-RADIUS, RADIUS]) {
+            if (this.tryGroundRay(offset, 0, this.body.world) || this.tryGroundRay(0, offset, this.body.world)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private tryGroundRay(offsetX: number, offsetZ: number, world: World): boolean {
+        this.localToWorld(tmpVector3.set(offsetX, 0, offsetZ));
+        ray.from.set(tmpVector3.x, tmpVector3.y + GROUND_CHECK_PADDING, tmpVector3.z);
+        ray.to.set(tmpVector3.x, tmpVector3.y - GROUND_CHECK_PADDING, tmpVector3.z);
+        world.raycastAny(ray.from, ray.to, groundRayOptions, rayResult);
+        return rayResult.hasHit;
+    }
+
     private setTargetMotion(x: number, z: number): void {
+        this.body.wakeUp();
         if (
             tmpVector2.set(x, z).sub(this.targetHorizontalMotion).lengthSq() / (MAX_SPEED * MAX_SPEED) >
             TARGET_MOTION_CHANGE_THRESHOLD
@@ -263,7 +326,7 @@ export class Character extends Object3D implements Updatable, Wrappable {
     getState(): PlayerState {
         return new PlayerState(
             Vector3Entity.fromVector3(this.position),
-            new Vector3Entity(this.horizontalMotion.x, this.ySpeed, this.horizontalMotion.y),
+            Vector3Entity.fromVector3(this.body.velocity),
             Vector2Entity.fromVector2(this.targetHorizontalMotion)
         );
     }

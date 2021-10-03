@@ -12,6 +12,7 @@
         "ecmaVersion": 2020
     },
     "rules": {
+        "@typescript-eslint/no-empty-function": "off",
         "no-console": "error",
         "no-debugger": "error",
         "comma-dangle": [

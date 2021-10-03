@@ -12,11 +12,15 @@ const MIN_PHI = EPSILON;
 const MAX_PHI = Math.PI - EPSILON;
 
 export class FixedDistanceOrbitControls implements Updatable {
+    static lastId = 0;
+
     private readonly spherical = new Spherical();
 
     intersectionObjects?: Object3D[];
 
     zoomMultiplier = 1.2;
+
+    readonly id = 'FixedDistanceOrbitControls:' + ++FixedDistanceOrbitControls.lastId;
 
     /**
      * From 0 to 1, with 0 meaning it never reaches its target Y position and 1 meaning it immediately teleports there.
@@ -37,6 +41,10 @@ export class FixedDistanceOrbitControls implements Updatable {
         this.spherical.setFromVector3(object.getWorldPosition(new Vector3()).sub(this.targetWorldPosition));
         object.lookAt(this.targetWorldPosition);
     }
+
+    beforePhysics(): void {}
+
+    afterPhysics(): void {}
 
     update(delta: number): void {
         if (this.input.zoom) {
@@ -63,6 +71,8 @@ export class FixedDistanceOrbitControls implements Updatable {
             this.object.position.add(this.targetWorldPosition);
         }
     }
+
+    beforeRender(): void {}
 
     /**
      * Check for intersections from the target to the wanted object position. If there are any,

@@ -1,13 +1,11 @@
 import {
     AmbientLight,
-    BoxBufferGeometry,
     Clock,
     Color,
     Fog,
     HemisphereLight,
     Mesh,
     MeshBasicMaterial,
-    MeshLambertMaterial,
     Object3D,
     PerspectiveCamera,
     PointLight,
@@ -17,12 +15,14 @@ import {
     WebGLRenderer,
 } from 'three';
 import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './util/three-util';
+import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
 import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './util/auto-follow';
 import { Character } from './character';
 import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
 import { ForestDataMessage } from './entities/messages/forest-data-message';
 import { ForestObject } from './forest/forest-object';
+import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
 import { Moon } from './moon';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
@@ -47,10 +47,15 @@ addCredit({
     author: { text: 'Mr.doob', url: 'https://github.com/mrdoob' },
 });
 
+addCredit({
+    thing: { text: 'cannon-es', url: 'https://github.com/pmndrs/cannon-es' },
+    author: { text: 'Stefan Hedman (and Poimandres)', url: 'https://github.com/schteppe' },
+});
+
 const GROUND_TEXTURE_SCALE = 1 / 64;
 const ASSUMED_GROUND_TEXTURE_WIDTH = 512 * 2 * GROUND_TEXTURE_SCALE;
 const ASSUMED_GROUND_TEXTURE_HEIGHT = 880 * 2 * GROUND_TEXTURE_SCALE;
-const DESIRED_WORLD_SIZE = 500;
+const DESIRED_WORLD_SIZE = 1000;
 const WORLD_WIDTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_WIDTH) * ASSUMED_GROUND_TEXTURE_WIDTH;
 const WORLD_DEPTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_HEIGHT) * ASSUMED_GROUND_TEXTURE_HEIGHT;
 
@@ -59,11 +64,6 @@ const MAX_X = WORLD_WIDTH / 2;
 const MIN_Z = -WORLD_DEPTH / 2;
 const MAX_Z = WORLD_DEPTH / 2;
 
-const oldCameraPosition = new Vector3();
-const BASE_FOREST_UPDATE_RATE = 1;
-const FOREST_UPDATE_PER_ROTATION = 0.3;
-const FOREST_UPDATE_PER_MOVEMENT = 0.3;
-
 const WRAP_X_OFFSETS = [-WORLD_WIDTH, 0, WORLD_WIDTH];
 const WRAP_Z_OFFSETS = [-WORLD_DEPTH, 0, WORLD_DEPTH];
 
@@ -71,6 +71,8 @@ const WRAP_OFFSETS: Vector3[] = WRAP_X_OFFSETS.flatMap((xOffset) =>
     WRAP_Z_OFFSETS.map((zOffset) => new Vector3(xOffset, 0, zOffset))
 );
 const NONZERO_WRAP_OFFSETS: Vector3[] = WRAP_OFFSETS.filter((offset) => offset.lengthSq() > 0);
+
+const PHYSICS_TIME_STEP_SIZE = 1 / 60;
 
 const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
@@ -98,10 +100,9 @@ export class GameScene {
 
     private readonly cameraControls: FixedDistanceOrbitControls;
 
-    private readonly moonCharacterFollow: Updatable;
+    private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0), allowSleep: false });
 
-    private forestUpdateTimeout = 0;
-    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH, WRAP_OFFSETS);
+    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH, WRAP_OFFSETS, this.input);
 
     private width = 0;
     private height = 0;
@@ -118,48 +119,59 @@ export class GameScene {
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
 
-        this.scene.add(this.character);
+        this.add(this.character);
         this.wrapperElement.appendChild(this.renderer.domElement);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
 
-        const centralLight = new PointLight(0xffdd44, 0.5, WORLD_WIDTH / 4);
+        const centralLight = new PointLight(0xffdd44, 1, WORLD_WIDTH / 4, 0.9);
         centralLight.position.set(0, 10, 0);
+        centralLight.castShadow = true;
         const lightSphere = new Mesh(new SphereBufferGeometry(1, 16, 16), new MeshBasicMaterial({ color: 0xffdd44 }));
         lightSphere.position.copy(centralLight.position);
         lightSphere.material.fog = false;
 
-        this.scene.add(...this.cloneWithOffset(centralLight));
-        this.scene.add(...this.cloneWithOffset(lightSphere));
+        this.add(centralLight);
+        this.add(...this.cloneWithOffset(lightSphere));
 
-        this.scene.add(new AmbientLight(this.scene.background, 3));
-        this.scene.add(new AmbientLight(0x112255, 1));
-        this.scene.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
+        this.add(new AmbientLight(this.scene.background, 3));
+        this.add(new AmbientLight(0x112255, 1));
+        this.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
         const ground = makeGround();
-        this.scene.add(ground);
-
-        this.scene.add(this.forest);
-
-        const shadowDummyBox = new Mesh(
-            new BoxBufferGeometry(20, 100, 20),
-            new MeshLambertMaterial({ color: 0x666666 })
+        this.add(ground);
+        this.physicsWorld.addBody(
+            new Body({
+                shape: new Plane(),
+                quaternion: new Quaternion().setFromEuler(-Math.PI / 2, 0, 0),
+                material: new Material({ friction: 0, restitution: 0 }),
+            })
         );
-        shadowDummyBox.name = 'ShadowDummyBox';
-        shadowDummyBox.receiveShadow = true;
-        shadowDummyBox.castShadow = true;
-        shadowDummyBox.position.set(30, 50, -10);
-        shadowDummyBox.rotateY(Math.PI * 0.2);
-        shadowDummyBox.updateMatrixWorld();
-        this.scene.add(...this.cloneWithOffset(shadowDummyBox));
 
-        this.scene.add(...this.cloneWithOffset(new AxisHelper()));
-        this.cameraControls.intersectionObjects = [ground, shadowDummyBox];
+        this.add(this.forest);
+
+        const shadowDummyBox = new GroundBox(20, 100, 30, -10, Math.PI * 0.2);
+        shadowDummyBox.name = 'ShadowDummyBox';
+        this.add(...this.cloneWithOffset(shadowDummyBox));
+
+        const cameraIntersectionObjects = [ground, shadowDummyBox];
+
+        for (let i = 0; i < 10; i++) {
+            const physicsDummyBox = new GroundBox(20, 10 + i * 10, -30 - i * 20 - i * i, -30);
+            physicsDummyBox.name = 'PhysicsDummyBox' + i;
+            this.add(...this.cloneWithOffset(physicsDummyBox));
+            cameraIntersectionObjects.push(physicsDummyBox);
+        }
+
+        this.cameraControls.intersectionObjects = cameraIntersectionObjects;
+
+        this.add(...this.cloneWithOffset(new AxisHelper()));
 
         const moon = new Moon(100);
         moon.target = this.character;
-        this.scene.add(moon);
+        this.add(moon);
 
-        this.moonCharacterFollow = new AutoFollow(moon, this.character);
+        this.add(new AutoFollow(moon, this.character));
+        this.add(this.cameraControls);
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             const reader = new SignedBinaryReader(message.data);
@@ -241,11 +253,8 @@ export class GameScene {
         if (!characters) {
             return;
         }
-        this.scene.remove(...characters);
+        this.remove(...characters);
         this.charactersById.delete(message.playerId);
-        for (const character of characters) {
-            this.updatableById.delete(character.id);
-        }
     }
 
     private onForestData(reader: SignedBinaryReader): void {
@@ -265,8 +274,7 @@ export class GameScene {
         const characters: Character[] = [];
         for (const offset of WRAP_OFFSETS) {
             const newCharacter = new Character(username, isReisen, offset);
-            this.scene.add(newCharacter);
-            this.updatableById.set(newCharacter.id, newCharacter);
+            this.add(newCharacter);
             characters.push(newCharacter);
         }
         this.charactersById.set(playerId, characters);
@@ -278,42 +286,45 @@ export class GameScene {
         const now = this.time;
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
         if (this.character.visible && this.input.wantsToJump) {
-            this.character.jump(now);
+            this.character.requestJump(now);
         }
-        for (const updatable of this.updatableById.values()) {
-            updatable.update(delta, now);
-            if (this.isWrappable(updatable)) {
-                const position = updatable.position;
-                const offset = updatable.offset;
-                if (position.x < MIN_X + offset.x || position.x > MAX_X + offset.x) {
-                    position.setX(wrap(position.x, MIN_X + offset.x, MAX_X + offset.x));
-                }
-                if (position.z < MIN_Z + offset.z || position.z > MAX_Z + offset.z) {
-                    position.setZ(wrap(position.z, MIN_Z + offset.z, MAX_Z + offset.z));
+
+        if (delta > 0) {
+            for (const updatable of this.updatableById.values()) {
+                updatable.beforePhysics(delta, now);
+            }
+
+            this.physicsWorld.step(PHYSICS_TIME_STEP_SIZE, delta);
+            for (const updatable of this.updatableById.values()) {
+                updatable.afterPhysics(delta, now);
+                if (this.isWrappable(updatable)) {
+                    const position = updatable.position;
+                    const offset = updatable.offset;
+                    if (position.x < MIN_X + offset.x || position.x > MAX_X + offset.x) {
+                        position.setX(wrap(position.x, MIN_X + offset.x, MAX_X + offset.x));
+                    }
+                    if (position.z < MIN_Z + offset.z || position.z > MAX_Z + offset.z) {
+                        position.setZ(wrap(position.z, MIN_Z + offset.z, MAX_Z + offset.z));
+                    }
                 }
             }
         }
+
+        for (const updatable of this.updatableById.values()) {
+            updatable.update(delta, now);
+        }
+
+        for (const updatable of this.updatableById.values()) {
+            updatable.beforeRender(delta, now);
+        }
+        this.render();
+
+        this.input.clearMouseDelta();
         if (this.character.visible) {
             if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
                 this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
             }
         }
-        oldCameraPosition.copy(this.camera.position);
-        this.cameraControls.update(delta);
-
-        this.forestUpdateTimeout -=
-            delta * BASE_FOREST_UPDATE_RATE +
-            (Math.abs(this.input.lookRight) + Math.abs(this.input.lookDown)) * FOREST_UPDATE_PER_ROTATION +
-            oldCameraPosition.distanceToSquared(this.camera.position) * FOREST_UPDATE_PER_MOVEMENT;
-        if (this.forestUpdateTimeout <= 0) {
-            this.forest.update();
-            this.forestUpdateTimeout = 1;
-        }
-
-        this.input.clearMouseDelta();
-
-        this.moonCharacterFollow.update(delta, now);
-        this.render();
     }
 
     private isWrappable(object: unknown): object is Wrappable {
@@ -360,5 +371,37 @@ export class GameScene {
 
     getHeight(): number {
         return this.height;
+    }
+
+    private add(...objects: ((Object3D | Updatable) & { readonly body?: Body })[]): void {
+        for (const object of objects) {
+            if (object instanceof Object3D) {
+                this.scene.add(object);
+            }
+            if (this.isUpdatable(object)) {
+                this.updatableById.set(object.id, object);
+            }
+            if (object.body) {
+                this.physicsWorld.addBody(object.body);
+            }
+        }
+    }
+
+    private remove(...objects: ((Object3D | Updatable) & { readonly body?: Body })[]): void {
+        for (const object of objects) {
+            if (object instanceof Object3D) {
+                this.scene.remove(object);
+            }
+            if (this.isUpdatable(object)) {
+                this.updatableById.delete(object.id);
+            }
+            if (object.body) {
+                this.physicsWorld.removeBody(object.body);
+            }
+        }
+    }
+
+    private isUpdatable(object: unknown): object is Updatable {
+        return !!(object as Updatable).beforePhysics;
     }
 }

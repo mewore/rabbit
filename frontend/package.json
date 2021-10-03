@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@three-ts/orbit-controls": "^1.4.7",
+        "cannon-es": "^0.18.0",
         "core-js": "^3.6.5",
         "mosha-vue-toastify": "^1.0.21",
         "three": "^0.132.2",
