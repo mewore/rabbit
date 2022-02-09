@@ -7,33 +7,34 @@
             <q-space />
         </q-bar>
 
-        <template v-if="currentMenu === 'MAIN_MENU'">
-            <q-btn-group class="button-group" spread>
-                <q-btn
-                    :disable="playing && !canResume"
-                    color="purple"
-                    @click="onResumeOrPlayClicked($event)"
-                    tabindex="2"
-                    size="lg"
-                    :label="playing ? 'Resume' : 'Play'"
-                >
-                    <div class="button-sublabel" v-if="playing">
-                        {{
-                            canResume
-                                ? resumeButtonTip
-                                : 'Waiting for the Pointer Lock API to chill out...'
-                        }}
-                    </div></q-btn
-                >
+        <q-btn-group
+            class="button-group"
+            spread
+            v-if="currentMenu !== 'SETTINGS'"
+        >
+            <q-btn
+                :disable="playing && !canResume"
+                color="purple"
+                @click="onResumeOrPlayClicked($event)"
+                tabindex="2"
+                size="lg"
+                :label="playing ? 'Resume' : 'Play'"
+            >
+                <div class="button-sublabel" v-if="playing">
+                    {{
+                        canResume
+                            ? resumeButtonTip
+                            : 'Waiting for the Pointer Lock API to chill out...'
+                    }}
+                </div></q-btn
+            >
 
+            <template v-if="currentMenu === 'MAIN_MENU'">
                 <q-btn
-                    @click="onTogglePerformanceDisplayClicked($event)"
-                    tabindex="3"
+                    @click="goTo('SETTINGS')"
+                    tabindex="4"
                     size="lg"
-                    :label="
-                        (showingPerformance ? 'Hide' : 'Show') +
-                        ' performance info'
-                    "
+                    label="Settings"
                 />
                 <q-btn
                     @click="goTo('CREDITS')"
@@ -41,56 +42,47 @@
                     size="lg"
                     label="Credits"
                 />
-            </q-btn-group>
-        </template>
-        <template v-if="currentMenu === 'CREDITS'">
-            <q-btn-group class="button-group" spread>
-                <q-btn
-                    :disable="playing && !canResume"
-                    color="purple"
-                    @click="onResumeOrPlayClicked($event)"
-                    tabindex="2"
-                    size="lg"
-                    :label="playing ? 'Resume' : 'Play'"
-                >
-                    <div class="button-sublabel" v-if="playing">
-                        {{
-                            canResume
-                                ? resumeButtonTip
-                                : 'Waiting for the Pointer Lock API to chill out...'
-                        }}
-                    </div></q-btn
-                >
+            </template>
+            <template v-else>
                 <q-btn
                     @click="goTo('MAIN_MENU')"
                     tabindex="4"
                     size="lg"
                     label="Back"
                 />
-            </q-btn-group>
+            </template>
+        </q-btn-group>
+
+        <template v-if="currentMenu === 'CREDITS'">
             <q-card-section>
                 <Credits />
             </q-card-section>
+        </template>
+        <template v-if="currentMenu === 'SETTINGS'">
+            <SettingsMenu
+                v-on:close="goTo('MAIN_MENU')"
+                v-on:settingsChange="onSettingsChanged"
+            />
         </template>
     </q-card>
 </template>
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
+import { Settings, getTitle } from '@/temp-util';
 import Credits from '@/components/menu/Credits.vue';
-import Separator from '@/components/menu/Separator.vue';
-import { getTitle } from '@/temp-util';
+import SettingsMenu from '@/components/menu/SettingsMenu.vue';
 
 @Options({
     components: {
         Credits,
-        Separator,
+        SettingsMenu,
     },
     props: {
         playing: Boolean,
         showingPerformance: Boolean,
     },
-    emits: ['close', 'performanceDisplayToggled'],
+    emits: ['close', 'settingsChange'],
 })
 export default class Menu extends Vue {
     title = getTitle();
@@ -98,7 +90,6 @@ export default class Menu extends Vue {
     menuName = 'Main Menu';
 
     playing!: boolean;
-    showingPerformance!: boolean;
     canResume = false;
 
     resumeButtonTip = 'or press [Escape]';
@@ -106,6 +97,10 @@ export default class Menu extends Vue {
         this.resumeButtonTip =
             "The Pointer Lock API doesn't want you to use [Escape] this time. Try clicking instead.";
     };
+
+    onSettingsChanged(newSettings: Settings): void {
+        this.$emit('settingsChange', newSettings);
+    }
 
     mounted(): void {
         (this.$refs.menu as { $el: HTMLElement }).$el.focus();
@@ -130,10 +125,6 @@ export default class Menu extends Vue {
         if (this.canResume) {
             this.$emit('close');
         }
-    }
-
-    onTogglePerformanceDisplayClicked(): void {
-        this.$emit('performanceDisplayToggled');
     }
 
     onKeyUp(event: KeyboardEvent): void {

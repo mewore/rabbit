@@ -78,3 +78,51 @@ export function getTitle(): string {
     }
     return '';
 }
+
+const SETTINGS_KEY = 'rabbit-reisen:settings';
+
+const initialSettingsRaw = window.localStorage?.getItem(SETTINGS_KEY) || window.sessionStorage?.getItem(SETTINGS_KEY);
+const initialSettings = initialSettingsRaw ? JSON.parse(initialSettingsRaw) : {};
+
+export enum SaveLocation {
+    NOWHERE,
+    SESSION,
+    STORAGE,
+}
+
+export interface Settings {
+    showPerformance: boolean;
+    saveTo: SaveLocation;
+}
+
+let currentSettings: Settings = {
+    showPerformance: false,
+    saveTo: SaveLocation.NOWHERE,
+    ...initialSettings,
+};
+
+export function getSettings(): Settings {
+    return JSON.parse(JSON.stringify(currentSettings));
+}
+
+export function setSettings(newSettings: Settings): void {
+    if (currentSettings.saveTo !== newSettings.saveTo) {
+        switch (currentSettings.saveTo) {
+            case SaveLocation.SESSION:
+                sessionStorage.removeItem(SETTINGS_KEY);
+                break;
+            case SaveLocation.STORAGE:
+                localStorage.removeItem(SETTINGS_KEY);
+                break;
+        }
+    }
+    currentSettings = JSON.parse(JSON.stringify(newSettings));
+    switch (currentSettings.saveTo) {
+        case SaveLocation.SESSION:
+            sessionStorage.setItem(SETTINGS_KEY, JSON.stringify(currentSettings));
+            break;
+        case SaveLocation.STORAGE:
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(currentSettings));
+            break;
+    }
+}

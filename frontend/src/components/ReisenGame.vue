@@ -44,9 +44,8 @@
             <Menu
                 ref="menu"
                 :playing="playing"
-                :showingPerformance="showingPerformance"
                 v-on:close="onMenuClosed()"
-                v-on:performanceDisplayToggled="onPerformanceDisplayToggled()"
+                v-on:settingsChange="onSettingsChanged($event)"
             />
         </q-dialog>
     </div>
@@ -54,6 +53,7 @@
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
+import { Settings, getSettings } from '@/temp-util';
 import { GameScene } from '../game/game-scene';
 import Menu from '@/components/menu/Menu.vue';
 import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
@@ -161,6 +161,7 @@ export default class ReisenGame extends Vue {
                 }
             })
         );
+        this.onSettingsChanged(getSettings());
     }
 
     private addEvent<T extends Event>(
@@ -180,10 +181,8 @@ export default class ReisenGame extends Vue {
         this.lockMouse();
     }
 
-    onPerformanceDisplayToggled(): void {
-        if (this.scene) {
-            this.showingPerformance = !this.showingPerformance;
-        }
+    onSettingsChanged(newSettings: Settings): void {
+        this.showingPerformance = newSettings.showPerformance;
     }
 
     private getCanvasWrapper(): HTMLElement {
