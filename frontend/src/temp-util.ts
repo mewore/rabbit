@@ -37,6 +37,14 @@ const zunLink: LinkInfo = { text: 'ZUN', url: 'https://en.touhouwiki.net/wiki/ZU
 
 const credits: Credit[] = [
     {
+        thing: { text: 'Vue.js', url: 'https://vuejs.org/' },
+        author: { text: 'Evan You', url: 'https://evanyou.me/' },
+    },
+    {
+        thing: { text: 'Quasar framework', url: 'https://quasar.dev/' },
+        author: { text: 'Razvan Stoenescu', url: 'https://github.com/rstoenescu' },
+    },
+    {
         thing: { text: 'Reisen', url: 'https://en.touhouwiki.net/wiki/Reisen_Udongein_Inaba' },
         author: zunLink,
     },

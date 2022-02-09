@@ -7,48 +7,83 @@
             <q-space />
         </q-bar>
 
-        <q-btn-group class="button-group" spread>
-            <q-btn
-                :disable="playing && !canResume"
-                color="purple"
-                @click="onResumeOrPlayClicked($event)"
-                tabindex="2"
-                size="lg"
-                :label="playing ? 'Resume' : 'Play'"
-            >
-                <div class="button-sublabel" v-if="playing">
-                    {{
-                        canResume
-                            ? resumeButtonTip
-                            : 'Waiting for the Pointer Lock API to chill out...'
-                    }}
-                </div></q-btn
-            >
+        <template v-if="currentMenu === 'MAIN_MENU'">
+            <q-btn-group class="button-group" spread>
+                <q-btn
+                    :disable="playing && !canResume"
+                    color="purple"
+                    @click="onResumeOrPlayClicked($event)"
+                    tabindex="2"
+                    size="lg"
+                    :label="playing ? 'Resume' : 'Play'"
+                >
+                    <div class="button-sublabel" v-if="playing">
+                        {{
+                            canResume
+                                ? resumeButtonTip
+                                : 'Waiting for the Pointer Lock API to chill out...'
+                        }}
+                    </div></q-btn
+                >
 
-            <q-btn
-                @click="onTogglePerformanceDisplayClicked($event)"
-                tabindex="3"
-                size="lg"
-                :label="
-                    (showingPerformance ? 'Hide' : 'Show') + ' performance info'
-                "
-            />
-        </q-btn-group>
-        <q-card-section>
-            <Footer />
-        </q-card-section>
+                <q-btn
+                    @click="onTogglePerformanceDisplayClicked($event)"
+                    tabindex="3"
+                    size="lg"
+                    :label="
+                        (showingPerformance ? 'Hide' : 'Show') +
+                        ' performance info'
+                    "
+                />
+                <q-btn
+                    @click="goTo('CREDITS')"
+                    tabindex="4"
+                    size="lg"
+                    label="Credits"
+                />
+            </q-btn-group>
+        </template>
+        <template v-if="currentMenu === 'CREDITS'">
+            <q-btn-group class="button-group" spread>
+                <q-btn
+                    :disable="playing && !canResume"
+                    color="purple"
+                    @click="onResumeOrPlayClicked($event)"
+                    tabindex="2"
+                    size="lg"
+                    :label="playing ? 'Resume' : 'Play'"
+                >
+                    <div class="button-sublabel" v-if="playing">
+                        {{
+                            canResume
+                                ? resumeButtonTip
+                                : 'Waiting for the Pointer Lock API to chill out...'
+                        }}
+                    </div></q-btn
+                >
+                <q-btn
+                    @click="goTo('MAIN_MENU')"
+                    tabindex="4"
+                    size="lg"
+                    label="Back"
+                />
+            </q-btn-group>
+            <q-card-section>
+                <Credits />
+            </q-card-section>
+        </template>
     </q-card>
 </template>
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
-import Footer from '@/components/menu/Footer.vue';
+import Credits from '@/components/menu/Credits.vue';
 import Separator from '@/components/menu/Separator.vue';
 import { getTitle } from '@/temp-util';
 
 @Options({
     components: {
-        Footer,
+        Credits,
         Separator,
     },
     props: {
@@ -59,7 +94,9 @@ import { getTitle } from '@/temp-util';
 })
 export default class Menu extends Vue {
     title = getTitle();
+    currentMenu = 'MAIN_MENU';
     menuName = 'Main Menu';
+
     playing!: boolean;
     showingPerformance!: boolean;
     canResume = false;
@@ -104,6 +141,21 @@ export default class Menu extends Vue {
             this.$emit('close');
         }
     }
+
+    goTo(menu: string): void {
+        this.currentMenu = menu;
+        switch (menu) {
+            case 'MAIN_MENU':
+                this.menuName = 'Main Menu';
+                break;
+            case 'SETTINGS':
+                this.menuName = 'Settings';
+                break;
+            case 'CREDITS':
+                this.menuName = 'Credits';
+                break;
+        }
+    }
 }
 </script>
 
@@ -131,13 +183,15 @@ export default class Menu extends Vue {
     .button-group {
         user-select: none;
         flex-direction: column;
-        border-bottom: rgba(125, 125, 125, 0.4) 1px dashed;
         .button-sublabel {
             padding-top: 0.4em;
             font-size: 60%;
             width: 100%;
             line-height: 100%;
             opacity: 0.8;
+        }
+        &:not(:last-child) {
+            border-bottom: rgba(125, 125, 125, 0.4) 1px dashed;
         }
     }
 }

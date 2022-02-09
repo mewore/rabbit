@@ -18,6 +18,9 @@ const BASE_FOREST_UPDATE_RATE = 1;
 const FOREST_UPDATE_PER_ROTATION = 0.3;
 const FOREST_UPDATE_PER_MOVEMENT = 0.3;
 
+const BAMBOO_MODEL_LOCATION = '/assets/bamboo/';
+const BAMBOO_MODEL_FILENAME = 'bamburro.glb';
+
 export class ForestObject extends Object3D implements Updatable {
     private bambooModels?: BambooModel[];
     private dummyBambooModels: BambooModel[] = [];
@@ -44,12 +47,13 @@ export class ForestObject extends Object3D implements Updatable {
         this.name = 'Forest';
 
         new GLTFLoader()
-            .setPath('/assets/bamboo/')
-            .loadAsync('bamburro.glb')
+            .setPath(BAMBOO_MODEL_LOCATION)
+            .loadAsync(BAMBOO_MODEL_FILENAME)
             .then((gltf) => {
                 addCredit({
                     thing: {
                         text: 'Bamboo model',
+                        url: BAMBOO_MODEL_LOCATION + BAMBOO_MODEL_FILENAME,
                     },
                     author: { text: 'Sleepy Fox', url: 'https://the-sleepy-fox.itch.io/' },
                 });
