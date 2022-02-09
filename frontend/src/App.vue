@@ -5,13 +5,18 @@
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
 import ReisenGame from './components/ReisenGame.vue';
+import { useQuasar } from 'quasar';
 
 @Options({
     components: {
         ReisenGame,
     },
 })
-export default class App extends Vue {}
+export default class App extends Vue {
+    mounted(): void {
+        useQuasar().dark.set(true);
+    }
+}
 </script>
 
 <style lang="scss">

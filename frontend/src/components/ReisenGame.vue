@@ -35,13 +35,20 @@
             :style="{ display: showingPerformance ? 'block' : 'none' }"
             ref="performanceDisplay"
         />
-        <Menu
-            v-if="menuIsVisible"
-            :playing="playing"
-            :showingPerformance="showingPerformance"
-            v-on:close="onMenuClosed()"
-            v-on:performanceDisplayToggled="onPerformanceDisplayToggled()"
-        />
+        <q-dialog
+            v-model="menuIsVisible"
+            persistent
+            @keyup="onDialogKeyUp($event)"
+            transition-hide="fade"
+        >
+            <Menu
+                ref="menu"
+                :playing="playing"
+                :showingPerformance="showingPerformance"
+                v-on:close="onMenuClosed()"
+                v-on:performanceDisplayToggled="onPerformanceDisplayToggled()"
+            />
+        </q-dialog>
     </div>
 </template>
 
@@ -134,18 +141,22 @@ export default class ReisenGame extends Vue {
         document.addEventListener(
             'pointerlockchange',
             this.addEvent(document, 'pointerlockchange', () => {
-                if (this.scene) {
-                    this.menuIsVisible = !document.pointerLockElement;
-                    this.scene.input.active = !this.menuIsVisible;
-                    if (this.menuIsVisible) {
-                        this.scene.input.clear();
-                    } else {
-                        this.requestAnimationFrame();
+                if (!this.scene) {
+                    return;
+                }
+                this.menuIsVisible = !document.pointerLockElement;
+                this.scene.input.active = !this.menuIsVisible;
+                if (this.menuIsVisible) {
+                    this.scene.input.clear();
+                } else {
+                    this.requestAnimationFrame();
+                    canvasWrapper.focus();
+                    setTimeout(() => {
                         canvasWrapper.focus();
-                        if (!this.playing) {
-                            this.playing = true;
-                            this.scene.start();
-                        }
+                    });
+                    if (!this.playing) {
+                        this.playing = true;
+                        this.scene.start();
                     }
                 }
             })
@@ -290,6 +301,12 @@ export default class ReisenGame extends Vue {
 
     onKeyUp(event: KeyboardEvent): void {
         this.setKeyValue(event.code, false);
+    }
+
+    onDialogKeyUp(event: KeyboardEvent): void {
+        if (this.menuIsVisible) {
+            (this.$refs.menu as Menu).onKeyUp(event);
+        }
     }
 
     onCanvasKeyUp(event: KeyboardEvent): void {

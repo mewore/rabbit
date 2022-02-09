@@ -1,41 +1,43 @@
 <template>
-    <div
-        ref="menuWrapper"
-        class="menu-wrapper"
-        tabindex="1"
-        @keyup="onKeyUp($event)"
-    >
-        <div class="menu">
-            <h1 class="title">{{ title }}</h1>
-            <Separator />
-            <div
-                class="menu-button"
+    <h1 class="title">{{ title }}</h1>
+    <q-card class="menu" tabindex="1" ref="menu">
+        <q-bar>
+            <q-space />
+            <div class="menu-name">{{ menuName }}</div>
+            <q-space />
+        </q-bar>
+
+        <q-btn-group class="button-group" spread>
+            <q-btn
+                :disable="playing && !canResume"
+                color="purple"
                 @click="onResumeOrPlayClicked($event)"
                 tabindex="2"
-                :class="{ disabled: playing && !canResume }"
+                size="lg"
+                :label="playing ? 'Resume' : 'Play'"
             >
-                {{ playing ? 'Resume' : 'Play' }}
                 <div class="button-sublabel" v-if="playing">
                     {{
                         canResume
                             ? resumeButtonTip
                             : 'Waiting for the Pointer Lock API to chill out...'
                     }}
-                </div>
-            </div>
-            <div
-                class="menu-button"
+                </div></q-btn
+            >
+
+            <q-btn
                 @click="onTogglePerformanceDisplayClicked($event)"
                 tabindex="3"
-            >
-                {{
+                size="lg"
+                :label="
                     (showingPerformance ? 'Hide' : 'Show') + ' performance info'
-                }}
-            </div>
-            <Separator />
+                "
+            />
+        </q-btn-group>
+        <q-card-section>
             <Footer />
-        </div>
-    </div>
+        </q-card-section>
+    </q-card>
 </template>
 
 <script lang="ts">
@@ -53,9 +55,11 @@ import { getTitle } from '@/temp-util';
         playing: Boolean,
         showingPerformance: Boolean,
     },
+    emits: ['close', 'performanceDisplayToggled'],
 })
 export default class Menu extends Vue {
     title = getTitle();
+    menuName = 'Main Menu';
     playing!: boolean;
     showingPerformance!: boolean;
     canResume = false;
@@ -67,7 +71,7 @@ export default class Menu extends Vue {
     };
 
     mounted(): void {
-        (this.$refs.menuWrapper as HTMLElement).focus();
+        (this.$refs.menu as { $el: HTMLElement }).$el.focus();
         this.canResume = !this.playing;
         if (!this.canResume) {
             setTimeout(() => (this.canResume = true), 1500);
@@ -96,63 +100,44 @@ export default class Menu extends Vue {
     }
 
     onKeyUp(event: KeyboardEvent): void {
-        if (this.canResume) {
-            if (this.playing && event.code === 'Escape') {
-                this.$emit('close');
-            }
+        if (this.canResume && event.code === 'Escape' && this.playing) {
+            this.$emit('close');
         }
     }
 }
 </script>
 
 <style scoped lang="scss">
-.menu-wrapper {
-    z-index: 1000;
+.title {
+    text-align: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    user-select: none;
+    pointer-events: none;
+    color: #eaf;
+    opacity: 0.8;
+    font-weight: bold;
     position: absolute;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    top: 0;
+}
+.menu {
+    text-align: center;
+    width: 80%;
+    max-width: 45em;
     outline: none;
-    .menu {
-        text-align: center;
-        width: 80%;
-        max-width: 40em;
-        min-height: 2em;
-        border-radius: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 5px 20px;
-        display: flex;
+    .menu-name {
+        user-select: none;
+        pointer-events: none;
+    }
+    .button-group {
+        user-select: none;
         flex-direction: column;
-        .title {
-            text-align: center;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none;
-            pointer-events: none;
-            color: #eaf;
-        }
-        .menu-button {
-            color: #aaa;
-            font-family: sans-serif;
-            font-size: 2em;
-            cursor: pointer;
-            text-align: center;
-            user-select: none;
-            padding: 0.5em 0;
-            &.disabled {
-                color: orangered;
-                cursor: default;
-            }
-            &:not(.disabled):hover {
-                color: #fff;
-                background: rgba(255, 255, 255, 0.2);
-            }
-            .button-sublabel {
-                padding-top: 0.5em;
-                font-size: 50%;
-            }
+        border-bottom: rgba(125, 125, 125, 0.4) 1px dashed;
+        .button-sublabel {
+            padding-top: 0.4em;
+            font-size: 60%;
+            width: 100%;
+            line-height: 100%;
+            opacity: 0.8;
         }
     }
 }
