@@ -150,7 +150,7 @@ export class GameScene {
             })
         );
 
-        // this.add(this.forest);
+        this.add(this.forest);
 
         const shadowDummyBox = new GroundBox(20, 100, 30, -10, Math.PI * 0.2);
         shadowDummyBox.name = 'ShadowDummyBox';
