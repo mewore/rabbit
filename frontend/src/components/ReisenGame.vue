@@ -36,6 +36,7 @@
             ref="performanceDisplay"
         />
         <q-dialog
+            ref="menuDialog"
             v-model="menuIsVisible"
             persistent
             @keyup="onDialogKeyUp($event)"
@@ -46,6 +47,7 @@
                 :playing="playing"
                 v-on:close="onMenuClosed()"
                 v-on:settingsChange="onSettingsChanged($event)"
+                v-on:menuChange="onMenuChanged()"
             />
         </q-dialog>
     </div>
@@ -183,6 +185,10 @@ export default class ReisenGame extends Vue {
 
     onSettingsChanged(newSettings: Settings): void {
         this.showingPerformance = newSettings.showPerformance;
+    }
+
+    onMenuChanged(): void {
+        (this.$refs.menuDialog as { shake: () => void }).shake();
     }
 
     private getCanvasWrapper(): HTMLElement {

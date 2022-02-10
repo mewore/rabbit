@@ -55,11 +55,12 @@
 
         <template v-if="currentMenu === 'CREDITS'">
             <q-card-section>
-                <Credits />
+                <Credits ref="creditsMenu" />
             </q-card-section>
         </template>
         <template v-if="currentMenu === 'SETTINGS'">
             <SettingsMenu
+                ref="settingsMenu"
                 v-on:close="goTo('MAIN_MENU')"
                 v-on:settingsChange="onSettingsChanged"
             />
@@ -82,7 +83,7 @@ import SettingsMenu from '@/components/menu/SettingsMenu.vue';
         playing: Boolean,
         showingPerformance: Boolean,
     },
-    emits: ['close', 'settingsChange'],
+    emits: ['close', 'settingsChange', 'menuChange'],
 })
 export default class Menu extends Vue {
     title = getTitle();
@@ -128,12 +129,28 @@ export default class Menu extends Vue {
     }
 
     onKeyUp(event: KeyboardEvent): void {
-        if (this.canResume && event.code === 'Escape' && this.playing) {
-            this.$emit('close');
+        if (event.code === 'Escape') {
+            switch (this.currentMenu) {
+                case 'MAIN_MENU':
+                    if (this.canResume && this.playing) {
+                        this.$emit('close');
+                    }
+                    break;
+                case 'SETTINGS':
+                    (this.$refs.settingsMenu as SettingsMenu).onCancelClicked();
+                    break;
+                case 'CREDITS':
+                    this.goTo('MAIN_MENU');
+                    break;
+            }
         }
     }
 
     goTo(menu: string): void {
+        if (menu === this.currentMenu) {
+            return;
+        }
+        this.$emit('menuChange');
         this.currentMenu = menu;
         switch (menu) {
             case 'MAIN_MENU':
@@ -146,6 +163,7 @@ export default class Menu extends Vue {
                 this.menuName = 'Credits';
                 break;
         }
+        (this.$refs.menu as { $el: HTMLElement }).$el.focus();
     }
 }
 </script>
