@@ -99,6 +99,13 @@ export default class Menu extends Vue {
             "The Pointer Lock API doesn't want you to use [Escape] this time. Try clicking instead.";
     };
 
+    isEditingGraphics(): boolean {
+        return (
+            this.currentMenu === 'SETTINGS' &&
+            (this.$refs.settingsMenu as SettingsMenu).tab === 'graphics'
+        );
+    }
+
     onSettingsChanged(newSettings: Settings): void {
         this.$emit('settingsChange', newSettings);
     }

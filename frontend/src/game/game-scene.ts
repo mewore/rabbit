@@ -86,7 +86,10 @@ export class GameScene {
 
     private readonly scene: THREE.Scene = new Scene();
     private readonly camera = new PerspectiveCamera(FOV, 1, 1, 1000);
-    readonly renderer: WebGLRenderer = new WebGLRenderer({ antialias: true });
+    private currentRenderer: WebGLRenderer = new WebGLRenderer({ antialias: true });
+    get renderer(): WebGLRenderer {
+        return this.currentRenderer;
+    }
 
     private readonly updatableById = new Map<number | string, Updatable>();
     private readonly character = new Character('', isReisen());
@@ -120,9 +123,9 @@ export class GameScene {
         makeSkybox().then((skybox) => (this.scene.background = skybox));
 
         this.add(this.character);
-        this.wrapperElement.appendChild(this.renderer.domElement);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
+        this.wrapperElement.appendChild(this.currentRenderer.domElement);
+        this.currentRenderer.setPixelRatio(window.devicePixelRatio * 0.5);
+        this.currentRenderer.shadowMap.enabled = true;
 
         const centralLight = new PointLight(0xffdd44, 1, WORLD_WIDTH / 4, 0.9);
         centralLight.position.set(0, 10, 0);
@@ -147,7 +150,7 @@ export class GameScene {
             })
         );
 
-        this.add(this.forest);
+        // this.add(this.forest);
 
         const shadowDummyBox = new GroundBox(20, 100, 30, -10, Math.PI * 0.2);
         shadowDummyBox.name = 'ShadowDummyBox';
@@ -192,6 +195,20 @@ export class GameScene {
 
         this.refreshSize();
         this.character.visible = false;
+    }
+
+    recreateRenderer(quality: number, shadows: boolean): void {
+        if (shadows !== this.currentRenderer.shadowMap.enabled) {
+            this.wrapperElement.removeChild(this.currentRenderer.domElement);
+            this.currentRenderer.forceContextLoss();
+            this.currentRenderer.dispose();
+
+            this.currentRenderer = new WebGLRenderer({ antialias: true });
+            this.wrapperElement.appendChild(this.currentRenderer.domElement);
+            this.currentRenderer.shadowMap.enabled = shadows;
+        }
+        this.currentRenderer.setPixelRatio(window.devicePixelRatio * quality);
+        this.refreshSize();
     }
 
     cloneWithOffset<T extends Object3D>(object: T): T[] {
@@ -332,7 +349,7 @@ export class GameScene {
     }
 
     private render() {
-        this.renderer.render(this.scene, this.camera);
+        this.currentRenderer.render(this.scene, this.camera);
     }
 
     private requestMovement(side: number, forwards: number): void {
@@ -362,7 +379,7 @@ export class GameScene {
         this.height = this.wrapperElement.clientHeight;
         this.camera.aspect = this.width / this.height;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(this.width, this.height);
+        this.currentRenderer.setSize(this.width, this.height);
     }
 
     getWidth(): number {

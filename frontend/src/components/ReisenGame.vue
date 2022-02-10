@@ -83,6 +83,7 @@ const INACTIVE_FRAME_DELTA = 1 / INACTIVE_FPS;
         Menu,
         PerformanceDisplay,
     },
+    emits: ['darkUiSetting'],
 })
 export default class ReisenGame extends Vue {
     private webSocket?: WebSocket;
@@ -185,6 +186,8 @@ export default class ReisenGame extends Vue {
 
     onSettingsChanged(newSettings: Settings): void {
         this.showingPerformance = newSettings.showPerformance;
+        this.scene?.recreateRenderer(newSettings.quality, newSettings.shadows);
+        this.$emit('darkUiSetting', newSettings.darkUi);
     }
 
     onMenuChanged(): void {
@@ -232,7 +235,10 @@ export default class ReisenGame extends Vue {
             this.scene.forest.renderedDetailedPlants,
             this.scene.forest.renderedDummyPlants
         );
-        if (this.menuIsVisible) {
+        if (
+            this.menuIsVisible &&
+            !(this.$refs.menu as Menu).isEditingGraphics()
+        ) {
             if (this.inactivity < 1.0) {
                 this.inactivity =
                     this.inactivity > INACTIVITY_THRESHOLD

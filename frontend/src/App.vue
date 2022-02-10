@@ -1,5 +1,5 @@
 <template>
-    <ReisenGame />
+    <ReisenGame @darkUiSetting="onDarkUiSetting" />
 </template>
 
 <script lang="ts">
@@ -13,8 +13,14 @@ import { useQuasar } from 'quasar';
     },
 })
 export default class App extends Vue {
+    readonly quasar = useQuasar();
+
     mounted(): void {
-        useQuasar().dark.set(true);
+        this.quasar.dark.set(true);
+    }
+
+    onDarkUiSetting(newSetting: boolean): void {
+        this.quasar.dark.set(newSetting);
     }
 }
 </script>

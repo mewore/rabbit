@@ -91,13 +91,19 @@ export enum SaveLocation {
 }
 
 export interface Settings {
-    showPerformance: boolean;
     saveTo: SaveLocation;
+    showPerformance: boolean;
+    quality: number;
+    shadows: boolean;
+    darkUi: boolean;
 }
 
 let currentSettings: Settings = {
-    showPerformance: false,
     saveTo: SaveLocation.NOWHERE,
+    showPerformance: false,
+    quality: 1.0,
+    shadows: true,
+    darkUi: true,
     ...initialSettings,
 };
 
