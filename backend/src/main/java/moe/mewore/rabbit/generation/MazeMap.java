@@ -104,17 +104,11 @@ public class MazeMap extends BinaryEntity {
 
     private static List<ConvexPolygon> generatePolygonsFromMap(final int width, final int height,
         final boolean[][] map) {
-        final int[][] wallSums = new int[height][width];
-        wallSums[0][0] = map[0][0] ? 0 : 1;
-        for (int i = 1; i < height; i++) {
-            wallSums[i][0] = wallSums[i - 1][0] + (map[i][0] ? 0 : 1);
-        }
-        for (int j = 1; j < width; j++) {
-            wallSums[0][j] = wallSums[0][j - 1] + (map[0][j] ? 0 : 1);
-        }
-        for (int i = 1; i < height; i++) {
+        final int[][] rowSums = new int[height][width];
+        for (int i = 0; i < height; i++) {
+            rowSums[i][0] = map[i][0] ? 0 : 1;
             for (int j = 1; j < width; j++) {
-                wallSums[i][j] = wallSums[i][j - 1] + wallSums[i - 1][j] - wallSums[i - 1][j - 1] + (map[i][j] ? 0 : 1);
+                rowSums[i][j] = rowSums[i][j - 1] + (map[i][j] ? 0 : 1);
             }
         }
 
@@ -138,7 +132,8 @@ public class MazeMap extends BinaryEntity {
                     right++;
                 }
                 bottom = top;
-                while (bottom + 1 < height && wallSums[bottom + 1][right] == wallSums[bottom][right]) {
+                while (bottom + 1 < height &&
+                    rowSums[bottom + 1][right] - (left == 0 ? 0 : rowSums[bottom + 1][left - 1]) == right - left + 1) {
                     bottom++;
                 }
                 for (int i = top; i <= bottom; i++) {
