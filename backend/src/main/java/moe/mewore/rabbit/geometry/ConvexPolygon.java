@@ -1,13 +1,16 @@
 package moe.mewore.rabbit.geometry;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+import lombok.Getter;
 import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.entities.BinaryEntity;
 
 public class ConvexPolygon extends BinaryEntity {
 
+    @Getter
     private final List<Vector2> points;
 
     private final List<Segment2D> segments;
@@ -15,7 +18,7 @@ public class ConvexPolygon extends BinaryEntity {
     private final AxisAlignedRectangle aabb;
 
     public ConvexPolygon(final List<Vector2> points) {
-        this.points = points;
+        this.points = Collections.unmodifiableList(points);
         segments = new ArrayList<>(points.size());
         for (int i = 0; i < points.size(); i++) {
             segments.add(new Segment2D(points.get(i), points.get((i + 1) % points.size())));

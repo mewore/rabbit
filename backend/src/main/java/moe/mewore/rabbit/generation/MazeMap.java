@@ -1,6 +1,7 @@
 package moe.mewore.rabbit.generation;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -222,8 +224,13 @@ public class MazeMap extends BinaryEntity {
     }
 
     public static void main(final String[] args) {
-        final MazeMap maze = MazeMap.createSeamless(30, 30, new Random(11L), Integer.parseInt(args[0]));
-        maze.generatePreview(1024, 1024);
+        final int from = Integer.parseInt(args[0]);
+        final int to = args.length < 2 ? from : Integer.parseInt(args[1]);
+        for (int smoothingIterations = from; smoothingIterations <= to; smoothingIterations++) {
+            System.out.printf("Generating a maze with %d smoothing iterations...%n", smoothingIterations);
+            final MazeMap maze = MazeMap.createSeamless(30, 30, new Random(11L), smoothingIterations);
+            maze.render(1024, 1024, "maze" + smoothingIterations);
+        }
     }
 
     private static void shuffle(final int[] values, final Random random) {
@@ -264,21 +271,75 @@ public class MazeMap extends BinaryEntity {
         return maxFertility / requiredDistanceSquared;
     }
 
-    public void generatePreview(final int width, final int height) {
-        final BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+    public void render(final int width, final int height, final String name) {
+        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", map[0].length,
+            map.length, polygons.size(), width, height);
 
-        final int walkable = (50 << 16) | (200 << 8) | 100;
-        final int solid = (255 << 24) | (200 << 16) | (100 << 8);
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                final double fertility = get((double) (x) / width, (double) (y) / height);
-                final int p = fertility < 0 ? solid : (((int) (fertility * 255) << 24) | walkable);
-                img.setRGB(x, y, p);
+        final BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = img.createGraphics();
+        graphics.setColor(Color.BLACK);
+
+        final int walkableCenter = (125 << 24) | (25 << 16) | (150 << 8) | 100;
+        final int solidCenter = (255 << 24) | (255 << 16) | (100 << 8);
+        final int solid = (200 << 24) | (200 << 16) | (100 << 8);
+
+        final List<Polygon> polygonsToDraw = polygons.stream()
+            .map(polygon -> new Polygon(
+                polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getX() * width))).toArray(),
+                polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getY() * height))).toArray(),
+                polygon.getPoints().size()))
+            .collect(Collectors.toUnmodifiableList());
+
+        graphics.setColor(new Color(solid, true));
+        polygonsToDraw.forEach(graphics::fillPolygon);
+
+        graphics.setColor(new Color(solidCenter));
+        polygonsToDraw.forEach(graphics::drawPolygon);
+
+        final double centerHorizontalSize = .25 * width / (map[0].length * 2);
+        final double centerVerticalSize = .25 * height / (map.length * 2);
+        final double centerYStep = (double) (height) / map.length;
+        double centerY = 0.5 * centerYStep;
+        for (int i = 0; i < map.length; i++, centerY += centerYStep) {
+            final double centerXStep = (double) (width) / map[i].length;
+            double centerX = 0.5 * centerXStep;
+            for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
+                graphics.setColor(new Color(map[i][j] ? walkableCenter : solidCenter));
+                graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
+                        centerHorizontalSize), (int) centerX},
+                    new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
+                        centerVerticalSize)}, 4);
+            }
+        }
+
+        final float[] walkableWithTrees = new float[3];
+        new Color(50, 200, 100).getRGBColorComponents(walkableWithTrees);
+        final float[] walkable = new float[3];
+        Color.WHITE.getRGBColorComponents(walkable);
+        final float[] currentColor = new float[3];
+        final double xStep = 1.0 / width;
+        final double yStep = 1.0 / height;
+        double normalizedY = 0.0;
+        double normalizedX;
+        double fertility;
+        for (int y = 0; y < height; y++, normalizedY += yStep) {
+            normalizedX = 0.0;
+            for (int x = 0; x < width; x++, normalizedX += xStep) {
+                if (img.getRGB(x, y) == 0) {
+                    fertility = get(normalizedX, normalizedY);
+                    if (fertility > -0.00001) {
+                        for (int c = 0; c < 3; c++) {
+                            currentColor[c] = (float) (walkableWithTrees[c] * fertility +
+                                walkable[c] * (1.0 - fertility));
+                        }
+                        img.setRGB(x, y, new Color(currentColor[0], currentColor[1], currentColor[2]).getRGB());
+                    }
+                }
             }
         }
 
         try {
-            ImageIO.write(img, "png", new File("maze.png"));
+            ImageIO.write(img, "png", new File(name + ".png"));
         } catch (final IOException e) {
             System.out.println("Error while creating maze preview: " + e);
         }
