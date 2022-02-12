@@ -6,6 +6,9 @@ import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
 
+import moe.mewore.rabbit.geometry.Vector2;
+import moe.mewore.rabbit.geometry.Vector3;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

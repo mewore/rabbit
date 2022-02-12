@@ -9,8 +9,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.entities.BinaryEntity;
-import moe.mewore.rabbit.noise.DiamondSquareNoise;
-import moe.mewore.rabbit.noise.Noise;
+import moe.mewore.rabbit.generation.MazeMap;
 
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class Forest extends BinaryEntity {
@@ -24,7 +23,7 @@ public class Forest extends BinaryEntity {
      * grows very quickly, even a few samples are enough to make the trees bunch up into the regions with a higher
      * fertility.
      */
-    private static final int SAMPLE_COUNT_PER_PLANT = 2;
+    private static final int SAMPLE_COUNT_PER_PLANT = 4;
 
     private static final int PLANT_COUNT = 4096;
 
@@ -32,9 +31,7 @@ public class Forest extends BinaryEntity {
 
     private final @NonNull Plant @NonNull [] plants;
 
-    public static Forest generate(final Random random) {
-        final Noise fertilityNoise = DiamondSquareNoise.createSeamless(6, random, true);
-
+    public static Forest generate(final MazeMap map, final Random random) {
         final List<@NonNull Plant> plants = new ArrayList<>(PLANT_COUNT);
         double bestX = 0.0;
         double bestY = 0.0;
@@ -47,7 +44,7 @@ public class Forest extends BinaryEntity {
             for (int j = 0; j < SAMPLE_COUNT_PER_PLANT; j++) {
                 x = random.nextDouble();
                 y = random.nextDouble();
-                fertility = fertilityNoise.get(x, y);
+                fertility = map.get(x, y);
                 if (fertility >= bestFertility) {
                     bestX = x;
                     bestY = y;
@@ -55,11 +52,14 @@ public class Forest extends BinaryEntity {
                 }
             }
 
-            // Using smoothstep, make medium-height plants rarer, and short and tall plants - more common
-            final double baseHeight = bestFertility + 0.2;
-            final double height =
-                baseHeight > 1 ? 1 : baseHeight * baseHeight * baseHeight * (10 + baseHeight * (6 * baseHeight - 15));
-            plants.add(new Plant(bestX, bestY, random.nextDouble() < TINY_CHANCE ? 0.0 : height));
+            if (bestFertility > 0.0) {
+                // Using smoothstep, make medium-height plants rarer, and short and tall plants - more common
+                final double baseHeight = bestFertility + 0.2;
+                final double height = baseHeight > 1
+                    ? 1
+                    : baseHeight * baseHeight * baseHeight * (10 + baseHeight * (6 * baseHeight - 15));
+                plants.add(new Plant(bestX, bestY, random.nextDouble() < TINY_CHANCE ? 0.0 : height));
+            }
         }
         return new Forest(plants.toArray(new Plant[0]));
     }

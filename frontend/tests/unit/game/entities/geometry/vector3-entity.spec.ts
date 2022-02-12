@@ -1,13 +1,13 @@
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
-import { Vector2Entity } from '@/game/entities/vector2-entity';
+import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
 import { expect } from 'chai';
 
-describe('Vector2Entity', () => {
+describe('Vector3Entity', () => {
     describe('when encoded and decoded', () => {
         it('should retain its value', () => {
-            const original = new Vector2Entity(0.1, 0.2);
+            const original = new Vector3Entity(0.1, 0.2, 0.3);
             const encoded = original.encodeToBinary();
-            const decoded = Vector2Entity.decodeFromBinary(new SignedBinaryReader(encoded));
+            const decoded = Vector3Entity.decodeFromBinary(new SignedBinaryReader(encoded));
             expect(decoded).to.deep.equals(original);
         });
     });

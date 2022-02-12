@@ -6,6 +6,8 @@ import java.io.IOException;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.data.SafeDataOutput;
+import moe.mewore.rabbit.geometry.Vector2;
+import moe.mewore.rabbit.geometry.Vector3;
 
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class PlayerState extends BinaryEntity {

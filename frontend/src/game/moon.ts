@@ -1,7 +1,7 @@
 import { DirectionalLight } from 'three';
 
 export class Moon extends DirectionalLight {
-    private static readonly DISTANCE = 200;
+    private static readonly DISTANCE = 400;
 
     constructor(shadowSharpnessRatio?: number) {
         super(0xdfebff, 1);
@@ -17,7 +17,7 @@ export class Moon extends DirectionalLight {
             const shadowResolution = 4096;
             this.shadow.mapSize.width = this.shadow.mapSize.height = shadowResolution;
 
-            const shadowSideMultiplier = 10;
+            const shadowSideMultiplier = 20;
             const shadowSideHalfLength = (shadowResolution * shadowSideMultiplier) / shadowSharpnessRatio / 2.0;
             this.shadow.camera.left = this.shadow.camera.bottom = -shadowSideHalfLength;
             this.shadow.camera.right = this.shadow.camera.top = shadowSideHalfLength;

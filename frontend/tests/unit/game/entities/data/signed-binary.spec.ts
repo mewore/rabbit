@@ -1,5 +1,6 @@
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { SignedBinaryWriter } from '@/game/entities/data/signed-binary-writer';
+import { TestEntity } from './test-entity';
 import { expect } from 'chai';
 
 describe('SignedBinaryReader and SignedBinaryWriter', () => {
@@ -93,6 +94,18 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
         it('should retain its value', () => {
             writer.writeUtf16String('Warning: ⚠');
             expect(new SignedBinaryReader(writer.toArrayBuffer()).readUtf16String()).to.equal('Warning: ⚠');
+        });
+    });
+
+    describe('when encoding and decoding an array of entities', () => {
+        it('should retain its value', () => {
+            writer.writeEntityArray([new TestEntity(1), new TestEntity(2)]);
+            expect(
+                new SignedBinaryReader(writer.toArrayBuffer())
+                    .readEntityArray(TestEntity)
+                    .map((entity: TestEntity) => entity.data)
+                    .join(', ')
+            ).to.equal('1, 2');
         });
     });
 });

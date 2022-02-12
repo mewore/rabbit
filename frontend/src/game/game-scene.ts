@@ -18,12 +18,14 @@ import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './u
 import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
 import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './util/auto-follow';
+import { CannonDebugRenderer } from './util/cannon-debug-renderer';
 import { Character } from './character';
 import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
-import { ForestDataMessage } from './entities/messages/forest-data-message';
 import { ForestObject } from './forest/forest-object';
+import { ForestWall } from './forest/forest-wall';
 import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
+import { MapDataMessage } from './entities/messages/map-data-message';
 import { Moon } from './moon';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
 import { PlayerJoinMessage } from './entities/messages/player-join-message';
@@ -55,7 +57,7 @@ addCredit({
 const GROUND_TEXTURE_SCALE = 1 / 64;
 const ASSUMED_GROUND_TEXTURE_WIDTH = 512 * 2 * GROUND_TEXTURE_SCALE;
 const ASSUMED_GROUND_TEXTURE_HEIGHT = 880 * 2 * GROUND_TEXTURE_SCALE;
-const DESIRED_WORLD_SIZE = 1000;
+const DESIRED_WORLD_SIZE = 2000;
 const WORLD_WIDTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_WIDTH) * ASSUMED_GROUND_TEXTURE_WIDTH;
 const WORLD_DEPTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_HEIGHT) * ASSUMED_GROUND_TEXTURE_HEIGHT;
 
@@ -71,8 +73,6 @@ const WRAP_OFFSETS: Vector3[] = WRAP_X_OFFSETS.flatMap((xOffset) =>
     WRAP_Z_OFFSETS.map((zOffset) => new Vector3(xOffset, 0, zOffset))
 );
 const NONZERO_WRAP_OFFSETS: Vector3[] = WRAP_OFFSETS.filter((offset) => offset.lengthSq() > 0);
-
-const PHYSICS_TIME_STEP_SIZE = 1 / 60;
 
 const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
@@ -106,6 +106,8 @@ export class GameScene {
     private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0), allowSleep: false });
 
     readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH, WRAP_OFFSETS, this.input);
+    readonly forestWalls = new ForestWall();
+    readonly physicsDebugger = new CannonDebugRenderer(this.scene, this.physicsWorld);
 
     private width = 0;
     private height = 0;
@@ -116,6 +118,10 @@ export class GameScene {
         this.camera.position.set(-30, 10, -50);
         this.camera.far = FOG_END * 2;
         this.cameraControls = new FixedDistanceOrbitControls(this.input, this.camera, this.character);
+        this.cameraControls.minDistance = 10.0;
+        this.cameraControls.maxDistance = 100.0;
+        this.cameraControls.zoomMultiplier = 1.4;
+
         this.camera.rotation.reorder('YXZ');
         this.forest.camera = this.camera;
         this.cameraControls.offset = new Vector3(0, 20, 0);
@@ -175,6 +181,7 @@ export class GameScene {
 
         this.add(new AutoFollow(moon, this.character));
         this.add(this.cameraControls);
+        this.add(this.physicsDebugger);
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             const reader = new SignedBinaryReader(message.data);
@@ -197,7 +204,7 @@ export class GameScene {
         this.character.visible = false;
     }
 
-    recreateRenderer(quality: number, shadows: boolean): void {
+    recreateRenderer(quality: number, shadows: boolean, debugPhysics: boolean): void {
         if (shadows !== this.currentRenderer.shadowMap.enabled) {
             this.wrapperElement.removeChild(this.currentRenderer.domElement);
             this.currentRenderer.forceContextLoss();
@@ -207,6 +214,7 @@ export class GameScene {
             this.wrapperElement.appendChild(this.currentRenderer.domElement);
             this.currentRenderer.shadowMap.enabled = shadows;
         }
+        this.physicsDebugger.active = debugPhysics;
         this.currentRenderer.setPixelRatio(window.devicePixelRatio * quality);
         this.refreshSize();
     }
@@ -275,8 +283,11 @@ export class GameScene {
     }
 
     private onForestData(reader: SignedBinaryReader): void {
-        const message = ForestDataMessage.decodeFromBinary(reader);
+        const message = MapDataMessage.decodeFromBinary(reader);
         this.forest.setForestData(message.forest);
+        this.forestWalls.generate(WORLD_WIDTH, WORLD_DEPTH, message.map, WRAP_OFFSETS);
+        this.cameraControls.intersectionObjects.push(this.forestWalls);
+        this.add(this.forestWalls);
     }
 
     private getOrCreatePlayerCharacters(
@@ -311,7 +322,7 @@ export class GameScene {
                 updatable.beforePhysics(delta, now);
             }
 
-            this.physicsWorld.step(PHYSICS_TIME_STEP_SIZE, delta);
+            this.physicsWorld.step(delta, delta);
             for (const updatable of this.updatableById.values()) {
                 updatable.afterPhysics(delta, now);
                 if (this.isWrappable(updatable)) {
@@ -390,7 +401,9 @@ export class GameScene {
         return this.height;
     }
 
-    private add(...objects: ((Object3D | Updatable) & { readonly body?: Body })[]): void {
+    private add(
+        ...objects: ((Object3D | Updatable) & { readonly body?: Body; readonly bodies?: ReadonlyArray<Body> })[]
+    ): void {
         for (const object of objects) {
             if (object instanceof Object3D) {
                 this.scene.add(object);
@@ -400,6 +413,11 @@ export class GameScene {
             }
             if (object.body) {
                 this.physicsWorld.addBody(object.body);
+            }
+            if (object.bodies) {
+                for (const body of object.bodies) {
+                    this.physicsWorld.addBody(body);
+                }
             }
         }
     }

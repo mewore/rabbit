@@ -50,4 +50,13 @@ export class SignedBinaryReader {
         this.index += length;
         return String.fromCharCode(...new Uint16Array(buffer));
     }
+
+    readEntityArray<T>(type: { decodeFromBinary: (reader: SignedBinaryReader) => T }): T[] {
+        const count = this.readInt();
+        const result = [];
+        for (let i = 0; i < count; i++) {
+            result.push(type.decodeFromBinary(this));
+        }
+        return result;
+    }
 }

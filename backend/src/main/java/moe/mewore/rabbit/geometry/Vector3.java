@@ -1,10 +1,11 @@
-package moe.mewore.rabbit.entities;
+package moe.mewore.rabbit.geometry;
 
 import java.io.DataInput;
 import java.io.IOException;
 
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.data.SafeDataOutput;
+import moe.mewore.rabbit.entities.BinaryEntity;
 
 @RequiredArgsConstructor
 public class Vector3 extends BinaryEntity {

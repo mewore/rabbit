@@ -78,6 +78,11 @@
                     label="Show performance info"
                     @update:model-value="onUpdated()"
                 />
+                <q-toggle
+                    v-model="settings.debugPhysics"
+                    label="Debug physics"
+                    @update:model-value="onUpdated()"
+                />
             </q-tab-panel>
         </q-tab-panels>
     </q-card>

@@ -1,8 +1,8 @@
 import { BinaryEntity } from './binary-entity';
 import { SignedBinaryReader } from './data/signed-binary-reader';
 import { SignedBinaryWriter } from './data/signed-binary-writer';
-import { Vector2Entity } from './vector2-entity';
-import { Vector3Entity } from './vector3-entity';
+import { Vector2Entity } from './geometry/vector2-entity';
+import { Vector3Entity } from './geometry/vector3-entity';
 
 export class PlayerState extends BinaryEntity {
     constructor(

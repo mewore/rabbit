@@ -27,7 +27,7 @@ import io.javalin.websocket.WsContext;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.entities.BinaryEntity;
 import moe.mewore.rabbit.entities.Player;
-import moe.mewore.rabbit.entities.messages.ForestDataMessage;
+import moe.mewore.rabbit.entities.messages.MapDataMessage;
 import moe.mewore.rabbit.entities.messages.PlayerDisconnectMessage;
 import moe.mewore.rabbit.entities.messages.PlayerJoinMessage;
 import moe.mewore.rabbit.entities.messages.PlayerUpdateMessage;
@@ -35,6 +35,7 @@ import moe.mewore.rabbit.entities.mutations.MutationType;
 import moe.mewore.rabbit.entities.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.entities.mutations.PlayerUpdateMutation;
 import moe.mewore.rabbit.entities.world.Forest;
+import moe.mewore.rabbit.generation.MazeMap;
 
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
@@ -48,6 +49,8 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     private final ServerSettings serverSettings;
 
     private final Javalin javalin;
+
+    private final MazeMap map;
 
     private final Forest forest;
 
@@ -63,8 +66,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 config.addStaticFiles(settings.getExternalStaticLocation(), Location.EXTERNAL);
             }
         });
-        final Forest forest = Forest.generate(new Random());
-        return new Server(settings, javalin, forest).start();
+        final MazeMap map = MazeMap.createSeamless(30, 30, new Random(11L), 3);
+        final Forest forest = Forest.generate(map, new Random(11L));
+        return new Server(settings, javalin, map, forest).start();
     }
 
     private Javalin start() {
@@ -78,7 +82,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     @Override
     public void handleConnect(final @NonNull WsConnectContext sender) {
-        sender.send(ByteBuffer.wrap(new ForestDataMessage(forest).encodeToBinary()));
+        sender.send(ByteBuffer.wrap(new MapDataMessage(map, forest).encodeToBinary()));
         for (final Player player : playerBySessionId.values()) {
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player).encodeToBinary()));
         }

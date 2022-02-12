@@ -96,6 +96,7 @@ export interface Settings {
     quality: number;
     shadows: boolean;
     darkUi: boolean;
+    debugPhysics: boolean;
 }
 
 let currentSettings: Settings = {
@@ -104,6 +105,7 @@ let currentSettings: Settings = {
     quality: 1.0,
     shadows: true,
     darkUi: true,
+    debugPhysics: false,
     ...initialSettings,
 };
 

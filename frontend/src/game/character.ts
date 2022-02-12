@@ -13,8 +13,8 @@ import { Body, Cylinder, Material, Ray, RayOptions, RaycastResult, Vec3, World }
 import { getAngleDifference, makeAllCastAndReceiveShadow, moveAngle } from './util/three-util';
 import { PlayerState } from './entities/player-state';
 import { Updatable } from './util/updatable';
-import { Vector2Entity } from './entities/vector2-entity';
-import { Vector3Entity } from './entities/vector3-entity';
+import { Vector2Entity } from './entities/geometry/vector2-entity';
+import { Vector3Entity } from './entities/geometry/vector3-entity';
 import { Wrappable } from './util/wrappable';
 import { addCredit } from '@/temp-util';
 import { lerp } from 'three/src/math/MathUtils';
@@ -45,7 +45,7 @@ const AIRBORNE_STOP_TIME = 0.2;
 
 const MIN_Y = 0;
 
-const MAX_SPEED = 50;
+const MAX_SPEED = 80;
 const ACCELERATION = 200;
 const JUMP_CONTROL_LENIENCY = 0.1;
 const JUMP_SPEED = 100;

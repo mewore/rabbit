@@ -100,10 +100,11 @@ export default class Menu extends Vue {
     };
 
     isEditingGraphics(): boolean {
-        return (
-            this.currentMenu === 'SETTINGS' &&
-            (this.$refs.settingsMenu as SettingsMenu).tab === 'graphics'
-        );
+        if (this.currentMenu !== 'SETTINGS') {
+            return false;
+        }
+        const tab = (this.$refs.settingsMenu as SettingsMenu).tab;
+        return tab === 'graphics' || tab === 'debug';
     }
 
     onSettingsChanged(newSettings: Settings): void {

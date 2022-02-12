@@ -186,7 +186,11 @@ export default class ReisenGame extends Vue {
 
     onSettingsChanged(newSettings: Settings): void {
         this.showingPerformance = newSettings.showPerformance;
-        this.scene?.recreateRenderer(newSettings.quality, newSettings.shadows);
+        this.scene?.recreateRenderer(
+            newSettings.quality,
+            newSettings.shadows,
+            newSettings.debugPhysics
+        );
         this.$emit('darkUiSetting', newSettings.darkUi);
     }
 

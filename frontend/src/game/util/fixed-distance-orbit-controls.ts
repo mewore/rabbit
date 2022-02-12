@@ -16,7 +16,7 @@ export class FixedDistanceOrbitControls implements Updatable {
 
     private readonly spherical = new Spherical();
 
-    intersectionObjects?: Object3D[];
+    intersectionObjects: Object3D[] = [];
 
     zoomMultiplier = 1.2;
 
@@ -30,9 +30,12 @@ export class FixedDistanceOrbitControls implements Updatable {
      */
     yPositionChangeSpeed = 0.95;
 
-    padding = 5;
+    padding = 10;
 
     offset = new Vector3();
+
+    minDistance = 0.0;
+    maxDistance = Infinity;
 
     private readonly targetWorldPosition = new Vector3();
 
@@ -48,7 +51,10 @@ export class FixedDistanceOrbitControls implements Updatable {
 
     update(delta: number): void {
         if (this.input.zoom) {
-            this.spherical.radius /= Math.pow(this.zoomMultiplier, this.input.zoom);
+            this.spherical.radius = Math.min(
+                Math.max(this.spherical.radius / Math.pow(this.zoomMultiplier, this.input.zoom), this.minDistance),
+                this.maxDistance
+            );
         }
 
         this.spherical.theta -= this.input.lookRight;
@@ -80,7 +86,7 @@ export class FixedDistanceOrbitControls implements Updatable {
      * @returns Whether there are any intersections.
      */
     private tryToIntersect(): boolean {
-        if (!this.intersectionObjects?.length) {
+        if (!this.intersectionObjects.length) {
             return false;
         }
         rayDirection.copy(this.object.position).normalize();

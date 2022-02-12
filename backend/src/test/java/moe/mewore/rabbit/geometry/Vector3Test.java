@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.entities;
+package moe.mewore.rabbit.geometry;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;

@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public enum MessageType {
     JOIN((byte) 0),
-    FOREST_DATA((byte) 1),
+    MAP_DATA((byte) 1),
     UPDATE((byte) 2),
     DISCONNECT((byte) 3);
 

@@ -1,3 +1,5 @@
+import { BinaryEntity } from '../binary-entity';
+
 enum NumberBinaryType {
     BYTE,
     INTEGER,
@@ -55,6 +57,13 @@ export class SignedBinaryWriter {
     writeUtf16String(value: string): void {
         this.data.push([value.length * 2, NumberBinaryType.INTEGER]);
         this.data.push(SignedBinaryWriter.encodeString(value, StringBinaryType.UTF16));
+    }
+
+    writeEntityArray<T extends BinaryEntity>(entities: ReadonlyArray<T>): void {
+        this.writeInt(entities.length);
+        for (const entity of entities) {
+            entity.appendToBinaryOutput(this);
+        }
     }
 
     toArrayBuffer(): ArrayBuffer {
