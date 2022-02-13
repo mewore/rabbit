@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Stack;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,8 @@ public class MazeMap extends BinaryEntity {
     private final boolean[][] map;
 
     private final List<ConvexPolygon> polygons;
+
+    private final int[][][] relevantPolygonIndices;
 
     public static MazeMap createSeamless(final int width, final int height, final Random random,
         final int clearOutPasses) {
@@ -98,17 +101,26 @@ public class MazeMap extends BinaryEntity {
             }
         }
 
-        final List<ConvexPolygon> polygons = generatePolygonsFromMap(width, height, map);
-        return new MazeMap(map, polygons);
+        final int[][][] relevantPolygonIndices = new int[height][width][];
+        final List<ConvexPolygon> polygons = generatePolygonsFromMap(width, height, map, relevantPolygonIndices);
+        return new MazeMap(map, polygons, relevantPolygonIndices);
     }
 
-    private static List<ConvexPolygon> generatePolygonsFromMap(final int width, final int height,
-        final boolean[][] map) {
+    private static List<ConvexPolygon> generatePolygonsFromMap(final int width, final int height, final boolean[][] map,
+        final int[][][] relevantPolygonIndices) {
         final int[][] rowSums = new int[height][width];
         for (int i = 0; i < height; i++) {
             rowSums[i][0] = map[i][0] ? 0 : 1;
             for (int j = 1; j < width; j++) {
                 rowSums[i][j] = rowSums[i][j - 1] + (map[i][j] ? 0 : 1);
+            }
+        }
+
+        final List<List<List<Integer>>> relevantPolygonIndexLists = new ArrayList<>();
+        for (int i = 0; i < height; i++) {
+            relevantPolygonIndexLists.add(new ArrayList<>());
+            for (int j = 0; j < width; j++) {
+                relevantPolygonIndexLists.get(i).add(new ArrayList<>());
             }
         }
 
@@ -171,9 +183,27 @@ public class MazeMap extends BinaryEntity {
                     points.add(new Vector2(leftX / width, topY / height));
                 }
                 final ConvexPolygon polygon = new ConvexPolygon(points);
+                final int polygonIndex = polygons.size();
                 polygons.add(polygon);
+
+                for (int i = top - 1; i <= bottom + 1; i++) {
+                    for (int j = left - 1; j <= right + 1; j++) {
+                        relevantPolygonIndexLists.get(wrap(i, height)).get(wrap(j, width)).add(polygonIndex);
+                    }
+                }
             }
         }
+
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                relevantPolygonIndices[i][j] = relevantPolygonIndexLists.get(i)
+                    .get(j)
+                    .stream()
+                    .mapToInt(a -> a)
+                    .toArray();
+            }
+        }
+
         return polygons;
     }
 
@@ -219,6 +249,7 @@ public class MazeMap extends BinaryEntity {
     }
 
     public static void main(final String[] args) {
+        final long start = System.currentTimeMillis();
         final int from = Integer.parseInt(args[0]);
         final int to = args.length < 2 ? from : Integer.parseInt(args[1]);
         for (int smoothingIterations = from; smoothingIterations <= to; smoothingIterations++) {
@@ -226,6 +257,7 @@ public class MazeMap extends BinaryEntity {
             final MazeMap maze = MazeMap.createSeamless(30, 30, new Random(11L), smoothingIterations);
             maze.render(1024, 1024, "maze" + smoothingIterations);
         }
+        System.out.printf("Finished in %d seconds.", (System.currentTimeMillis() - start) / 1000);
     }
 
     private static void shuffle(final int[] values, final Random random) {
@@ -251,19 +283,38 @@ public class MazeMap extends BinaryEntity {
                 return -1.0;
             }
         }
-        final double requiredDistance = 0.3 / Math.max(map.length, map[0].length);
+        final double requiredDistance = .8 / Math.max(map.length, map[0].length);
         final double requiredDistanceSquared = requiredDistance * requiredDistance;
-        double maxFertility = 0.0;
-        for (final double offsetX : new double[]{0, -1, 1}) {
-            for (final double offsetY : new double[]{0, -1, 1}) {
+
+        final int row = Math.min((int) (y * map.length), map.length);
+        final int col = Math.min((int) (x * map[0].length), map[0].length);
+        final int[] polygonIndices = relevantPolygonIndices[row][col];
+
+        final double[] offsetsX = Stream.of(0, col == 0 ? 1 : -10, (col == map[0].length - 1) ? -1 : -10)
+            .filter(value -> value > -10)
+            .mapToDouble(a -> a)
+            .toArray();
+        final double[] offsetsY = Stream.of(0, row == 0 ? 1 : -10, (row == map.length - 1) ? -1 : -10)
+            .filter(value -> value > -10)
+            .mapToDouble(a -> a)
+            .toArray();
+
+        double minDistanceSquared = requiredDistanceSquared + 1.0;
+        for (final double offsetX : offsetsX) {
+            for (final double offsetY : offsetsY) {
                 final Vector2 point = new Vector2(x + offsetX, y + offsetY);
-                for (final ConvexPolygon polygon : polygons) {
-                    maxFertility = Math.max(maxFertility,
-                        requiredDistanceSquared - polygon.distanceToPointSquared(point));
+                for (final int polygonIndex : polygonIndices) {
+                    minDistanceSquared = Math.min(minDistanceSquared,
+                        polygons.get(polygonIndex).distanceToPointSquared(point));
                 }
             }
         }
-        return maxFertility / requiredDistanceSquared;
+        if (minDistanceSquared > requiredDistanceSquared) {
+            return 0.0;
+        }
+
+        final double maxFertility = 1.0 - Math.sqrt(minDistanceSquared / requiredDistanceSquared);
+        return maxFertility * maxFertility;
     }
 
     public void render(final int width, final int height, final String name) {
@@ -271,8 +322,6 @@ public class MazeMap extends BinaryEntity {
             map.length, polygons.size(), width, height);
 
         final BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        final Graphics2D graphics = img.createGraphics();
-        graphics.setColor(Color.BLACK);
 
         final Color walkableCenter = new Color((125 << 24) | (25 << 16) | (150 << 8) | 100);
         final Color solidCenter = new Color((255 << 24) | (255 << 16) | (100 << 8));
@@ -285,27 +334,10 @@ public class MazeMap extends BinaryEntity {
                 polygon.getPoints().size()))
             .collect(Collectors.toUnmodifiableList());
 
+        final Graphics2D graphics = img.createGraphics();
+
         graphics.setColor(new Color(solid, true));
         polygonsToDraw.forEach(graphics::fillPolygon);
-
-        graphics.setColor(solidCenter);
-        polygonsToDraw.forEach(graphics::drawPolygon);
-
-        final double centerHorizontalSize = .25 * width / (map[0].length * 2);
-        final double centerVerticalSize = .25 * height / (map.length * 2);
-        final double centerYStep = (double) (height) / map.length;
-        double centerY = 0.5 * centerYStep;
-        for (int i = 0; i < map.length; i++, centerY += centerYStep) {
-            final double centerXStep = (double) (width) / map[i].length;
-            double centerX = 0.5 * centerXStep;
-            for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
-                graphics.setColor(map[i][j] ? walkableCenter : solidCenter);
-                graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
-                        centerHorizontalSize), (int) centerX},
-                    new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
-                        centerVerticalSize)}, 4);
-            }
-        }
 
         final float[] walkableWithTrees = new float[3];
         new Color(50, 200, 100).getRGBColorComponents(walkableWithTrees);
@@ -332,6 +364,28 @@ public class MazeMap extends BinaryEntity {
                         img.setRGB(x, y, new Color(currentColor[0], currentColor[1], currentColor[2]).getRGB());
                     }
                 }
+            }
+        }
+
+        graphics.addRenderingHints(
+            new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON));
+
+        graphics.setColor(solidCenter);
+        polygonsToDraw.forEach(graphics::drawPolygon);
+
+        final double centerHorizontalSize = .25 * width / (map[0].length * 2);
+        final double centerVerticalSize = .25 * height / (map.length * 2);
+        final double centerYStep = (double) (height) / map.length;
+        double centerY = 0.5 * centerYStep;
+        for (int i = 0; i < map.length; i++, centerY += centerYStep) {
+            final double centerXStep = (double) (width) / map[i].length;
+            double centerX = 0.5 * centerXStep;
+            for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
+                graphics.setColor(map[i][j] ? walkableCenter : solidCenter);
+                graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
+                        centerHorizontalSize), (int) centerX},
+                    new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
+                        centerVerticalSize)}, 4);
             }
         }
 
