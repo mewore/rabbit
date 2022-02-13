@@ -8,8 +8,14 @@ export class GroundBox extends Mesh<BoxBufferGeometry> {
     readonly body: Body;
 
     constructor(width: number, height: number, x: number, z: number, rotationY?: number) {
+        let y = height / 2;
+        if (height > width * 3) {
+            y = height;
+            height = width * 0.25;
+            y -= height / 2;
+        }
         super(new BoxBufferGeometry(width, height, width), MATERIAL);
-        this.position.set(x, height / 2, z);
+        this.position.set(x, y, z);
         if (rotationY != null) {
             this.rotateY(rotationY);
         }
@@ -17,7 +23,7 @@ export class GroundBox extends Mesh<BoxBufferGeometry> {
         this.castShadow = true;
         this.body = new Body({
             shape: new Box(new Vec3(width / 2, height / 2, width / 2)),
-            position: new Vec3(x, height / 2, z),
+            position: new Vec3(x, y, z),
             quaternion: rotationY != null ? new Quaternion().setFromEuler(0, rotationY, 0) : undefined,
             material: PHYSICS_MATERIAL,
         });

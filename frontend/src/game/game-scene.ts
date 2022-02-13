@@ -4,6 +4,7 @@ import {
     Color,
     Fog,
     HemisphereLight,
+    Matrix4,
     Mesh,
     MeshBasicMaterial,
     Object3D,
@@ -158,17 +159,34 @@ export class GameScene {
 
         this.add(this.forest);
 
-        const shadowDummyBox = new GroundBox(20, 100, 30, -10, Math.PI * 0.2);
-        shadowDummyBox.name = 'ShadowDummyBox';
-        this.add(...this.cloneWithOffset(shadowDummyBox));
+        const cameraIntersectionObjects = [ground];
 
-        const cameraIntersectionObjects = [ground, shadowDummyBox];
-
+        const physicsDummyBoxRotation = Math.PI * 0.15;
+        const physicsDummyBoxRotationMatrix = new Matrix4().makeRotationY(physicsDummyBoxRotation);
+        const physicsDummyBoxAcceleration = -3;
+        let physicsDummyBoxSpeed = -25;
+        const physicsDummyBoxMovement = new Vector3(1, 0, 0);
+        const physicsDummyBoxPos = new Vector3(-30, 0, -30);
+        let dummyBoxHeight = 10;
+        const dummyBoxHeightAccelerations = [10, 15, 18, -20];
         for (let i = 0; i < 10; i++) {
-            const physicsDummyBox = new GroundBox(20, 10 + i * 10, -30 - i * 20 - i * i, -30);
+            const physicsDummyBox = new GroundBox(
+                15,
+                dummyBoxHeight,
+                physicsDummyBoxPos.x,
+                physicsDummyBoxPos.z,
+                (i - 0.5) * physicsDummyBoxRotation
+            );
             physicsDummyBox.name = 'PhysicsDummyBox' + i;
-            this.add(...this.cloneWithOffset(physicsDummyBox));
+            this.add(physicsDummyBox);
             cameraIntersectionObjects.push(physicsDummyBox);
+
+            physicsDummyBoxPos.add(physicsDummyBoxMovement.multiplyScalar(physicsDummyBoxSpeed));
+            physicsDummyBoxMovement
+                .multiplyScalar(1 / physicsDummyBoxSpeed)
+                .applyMatrix4(physicsDummyBoxRotationMatrix);
+            physicsDummyBoxSpeed += physicsDummyBoxAcceleration;
+            dummyBoxHeight += dummyBoxHeightAccelerations[i % dummyBoxHeightAccelerations.length];
         }
 
         this.cameraControls.intersectionObjects = cameraIntersectionObjects;
