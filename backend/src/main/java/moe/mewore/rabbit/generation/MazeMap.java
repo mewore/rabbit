@@ -247,7 +247,7 @@ public class MazeMap extends BinaryEntity {
 
     public double get(final double x, final double y) {
         for (final ConvexPolygon polygon : polygons) {
-            if (polygon.includesPoint(new Vector2(x, y))) {
+            if (polygon.containsPoint(new Vector2(x, y))) {
                 return -1.0;
             }
         }
@@ -274,8 +274,8 @@ public class MazeMap extends BinaryEntity {
         final Graphics2D graphics = img.createGraphics();
         graphics.setColor(Color.BLACK);
 
-        final int walkableCenter = (125 << 24) | (25 << 16) | (150 << 8) | 100;
-        final int solidCenter = (255 << 24) | (255 << 16) | (100 << 8);
+        final Color walkableCenter = new Color((125 << 24) | (25 << 16) | (150 << 8) | 100);
+        final Color solidCenter = new Color((255 << 24) | (255 << 16) | (100 << 8));
         final int solid = (200 << 24) | (200 << 16) | (100 << 8);
 
         final List<Polygon> polygonsToDraw = polygons.stream()
@@ -288,7 +288,7 @@ public class MazeMap extends BinaryEntity {
         graphics.setColor(new Color(solid, true));
         polygonsToDraw.forEach(graphics::fillPolygon);
 
-        graphics.setColor(new Color(solidCenter));
+        graphics.setColor(solidCenter);
         polygonsToDraw.forEach(graphics::drawPolygon);
 
         final double centerHorizontalSize = .25 * width / (map[0].length * 2);
@@ -299,7 +299,7 @@ public class MazeMap extends BinaryEntity {
             final double centerXStep = (double) (width) / map[i].length;
             double centerX = 0.5 * centerXStep;
             for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
-                graphics.setColor(new Color(map[i][j] ? walkableCenter : solidCenter));
+                graphics.setColor(map[i][j] ? walkableCenter : solidCenter);
                 graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
                         centerHorizontalSize), (int) centerX},
                     new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
@@ -322,7 +322,9 @@ public class MazeMap extends BinaryEntity {
             for (int x = 0; x < width; x++, normalizedX += xStep) {
                 if (img.getRGB(x, y) == 0) {
                     fertility = get(normalizedX, normalizedY);
-                    if (fertility > -0.00001) {
+                    if (fertility < 0) {
+                        img.setRGB(x, y, solidCenter.getRGB());
+                    } else {
                         for (int c = 0; c < 3; c++) {
                             currentColor[c] = (float) (walkableWithTrees[c] * fertility +
                                 walkable[c] * (1.0 - fertility));

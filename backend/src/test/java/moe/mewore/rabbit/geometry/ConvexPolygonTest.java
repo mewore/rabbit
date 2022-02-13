@@ -17,16 +17,21 @@ class ConvexPolygonTest {
     }
 
     @Test
-    void testIncludesPoint() {
+    void testContainsPoint() {
         final ConvexPolygon polygon = makePolygon();
-        assertTrue(polygon.includesPoint(new Vector2(1, 3)));
-        assertFalse(polygon.includesPoint(new Vector2(1, -1)));
+        assertTrue(polygon.containsPoint(new Vector2(1, 3)));
+        assertFalse(polygon.containsPoint(new Vector2(1, -1)));
     }
 
     @Test
-    void testIncludesPoint_withOffset() {
+    void testContainsPoint_onBoundary() {
+        assertFalse(makePolygon().containsPoint(new Vector2(3, 0)));
+    }
+
+    @Test
+    void testContainsPoint_withOffset() {
         final ConvexPolygon polygon = makePolygon().withOffset(new Vector2(0, 10));
-        assertFalse(polygon.includesPoint(new Vector2(1, 3)));
+        assertFalse(polygon.containsPoint(new Vector2(1, 3)));
     }
 
     @Test

@@ -36,9 +36,9 @@ public class ConvexPolygon extends BinaryEntity {
 
     /**
      * @param point The point to check
-     * @return Whether the point is inside the polygon or on its boundary.
+     * @return Whether the point is inside the polygon. `false` if the point is exactly on its boundary.
      */
-    public boolean includesPoint(final Vector2 point) {
+    public boolean containsPoint(final Vector2 point) {
         if (!aabb.containsPoint(point)) {
             return false;
         }
@@ -57,7 +57,7 @@ public class ConvexPolygon extends BinaryEntity {
                 }
                 clockwiseCount--;
             } else if (segment.distanceToPointSquared(point) < 0.00001) {
-                return true;
+                return false;
             }
         }
         return true;
