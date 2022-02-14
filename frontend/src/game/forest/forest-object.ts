@@ -1,17 +1,30 @@
-import { Camera, Frustum, Group, Matrix4, Object3D, OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
+import {
+    Camera,
+    Frustum,
+    Group,
+    InstancedMesh,
+    Matrix4,
+    Object3D,
+    OrthographicCamera,
+    PerspectiveCamera,
+    Vector2,
+    Vector3,
+} from 'three';
 import { BambooModel } from './bamboo-model';
-import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
-import { ForestData } from '../entities/world/forest-data';
+import { ForestCell } from './forest-cell';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Input } from '../util/input';
+import { MazeMap } from '../entities/world/maze-map';
 import { Updatable } from '../util/updatable';
 import { addCredit } from '@/temp-util';
 import { createToast } from 'mosha-vue-toastify';
 
 const matrix4 = new Matrix4();
 const frustum = new Frustum();
-const tmpOrthographicCamera = new OrthographicCamera(0, 0, 0, 0);
-const tmpPerspectiveCamera = new PerspectiveCamera();
+const tmpVector2 = new Vector2();
+const tmpVector3 = new Vector3();
+const min = new Vector2(Infinity, Infinity);
+const max = new Vector2(-Infinity, -Infinity);
 const oldCameraPosition = new Vector3();
 
 const BASE_FOREST_UPDATE_RATE = 1;
@@ -24,9 +37,10 @@ const BAMBOO_MODEL_FILENAME = 'bamburro.glb';
 export class ForestObject extends Object3D implements Updatable {
     private bambooModels?: BambooModel[];
     private dummyBambooModels: BambooModel[] = [];
-    private forestData?: ForestData;
-    private readonly meshes: CullableInstancedMesh[] = [];
-    private readonly dummyMeshes: CullableInstancedMesh[] = [];
+    private mapData?: MazeMap;
+    private readonly cells: ForestCell[] = [];
+
+    private cellGrid: (ForestCell | undefined)[][] | undefined;
 
     private forestUpdateTimeout = 0;
     private readonly oldCameraPosition = new Vector3();
@@ -36,10 +50,14 @@ export class ForestObject extends Object3D implements Updatable {
     private currentRenderedDetailedPlants = 0;
     private currentRenderedDummyPlants = 0;
 
+    private visibleCells: ForestCell[] = [];
+
+    private receivingShadows = false;
+    visiblePlants = 1.0;
+
     constructor(
         private readonly worldWidth: number,
         private readonly worldDepth: number,
-        private readonly offsets: Vector3[] = [new Vector3()],
         private readonly input: Input
     ) {
         super();
@@ -96,6 +114,16 @@ export class ForestObject extends Object3D implements Updatable {
             });
     }
 
+    setReceiveShadow(receiveShadow: boolean): void {
+        if (this.receivingShadows === receiveShadow) {
+            return;
+        }
+        this.receivingShadows = receiveShadow;
+        for (const cell of this.cells) {
+            cell.setReceiveShadow(receiveShadow);
+        }
+    }
+
     get totalPlants(): number {
         return this.currentTotalPlants;
     }
@@ -108,8 +136,8 @@ export class ForestObject extends Object3D implements Updatable {
         return this.currentRenderedDummyPlants;
     }
 
-    setForestData(forestData: ForestData): void {
-        this.forestData = forestData;
+    setMapData(mapData: MazeMap): void {
+        this.mapData = mapData;
         this.generateIfPossible();
     }
 
@@ -120,7 +148,11 @@ export class ForestObject extends Object3D implements Updatable {
     update(): void {}
 
     beforeRender(delta: number): void {
-        if (!this.camera || !this.meshes.length) {
+        if (!this.camera || !this.cells.length || !this.cellGrid || !this.mapData) {
+            return;
+        }
+
+        if (this.visiblePlants < 0.0001 && !this.visibleCells.length) {
             return;
         }
 
@@ -142,97 +174,100 @@ export class ForestObject extends Object3D implements Updatable {
             );
         }
 
-        const crossfadeRatio = 0.1;
-        const fadeOutRatio = 0.1;
-        const detailedRatio = 0.4;
+        const fadeOutPortion = 0.1;
+        const viewDistance = this.camera.far - this.camera.near;
 
         this.camera.updateMatrixWorld();
-        const tmpCamera =
-            this.camera instanceof OrthographicCamera
-                ? tmpOrthographicCamera.copy(this.camera)
-                : tmpPerspectiveCamera.copy(this.camera);
-        const splitDistance = this.camera.near * (1.0 - detailedRatio) + this.camera.far * detailedRatio;
-        const crossfadeDistance =
-            Math.min(splitDistance - tmpCamera.near, tmpCamera.far - splitDistance) * crossfadeRatio;
-        tmpCamera.far = splitDistance + crossfadeDistance / 2;
-        tmpCamera.updateProjectionMatrix();
         frustum.setFromProjectionMatrix(
-            matrix4.multiplyMatrices(tmpCamera.projectionMatrix, tmpCamera.matrixWorldInverse)
+            matrix4.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
         );
 
-        // The nearby ones are detailed
-        this.currentTotalPlants = 0;
         this.currentRenderedDetailedPlants = 0;
-        for (const mesh of this.meshes) {
-            this.currentRenderedDetailedPlants += mesh.cull(frustum, crossfadeDistance);
-            this.currentTotalPlants += mesh.count;
-        }
 
-        // The rest are dummies
-        const fadeOutDistance = (tmpCamera.far - tmpCamera.near) * fadeOutRatio;
-        tmpCamera.near = splitDistance - crossfadeDistance / 2;
-        tmpCamera.far = this.camera.far;
-        tmpCamera.updateProjectionMatrix();
-        tmpCamera.updateMatrixWorld();
-        frustum.setFromProjectionMatrix(
-            matrix4.multiplyMatrices(tmpCamera.projectionMatrix, tmpCamera.matrixWorldInverse)
-        );
-        this.currentRenderedDummyPlants = 0;
-        for (const mesh of this.dummyMeshes) {
-            this.currentRenderedDummyPlants += mesh.cull(frustum, crossfadeDistance, fadeOutDistance);
+        // Look only at the cells around the bounding box of the camera frustum.
+        const height = this.cellGrid.length;
+        const width = this.cellGrid[0].length;
+        min.set(Infinity, Infinity);
+        max.set(-Infinity, -Infinity);
+        const nearToFarScale = this.camera.far / this.camera.near;
+        for (const x of [-1, 1]) {
+            for (const y of [-1, 1]) {
+                tmpVector3.set(x, y, -1).unproject(this.camera);
+                tmpVector2.set(tmpVector3.x, tmpVector3.z);
+                min.min(tmpVector2);
+                max.max(tmpVector2);
+                tmpVector2
+                    .set(tmpVector2.x - this.camera.position.x, tmpVector2.y - this.camera.position.z)
+                    .multiplyScalar(nearToFarScale)
+                    .set(tmpVector2.x + this.camera.position.x, tmpVector2.y + this.camera.position.z);
+                min.min(tmpVector2);
+                max.max(tmpVector2);
+            }
+        }
+        const topRow = Math.floor((min.y / this.worldDepth + 0.5) * height) - 1;
+        const bottomRow = Math.ceil((max.y / this.worldDepth + 0.5) * height) + 1;
+        const leftColumn = Math.floor((min.x / this.worldWidth + 0.5) * width) - 1;
+        const rightColumn = Math.ceil((max.x / this.worldWidth + 0.5) * width) + 1;
+
+        for (const cell of this.visibleCells) {
+            if (cell.row < topRow || cell.row > bottomRow || cell.column < leftColumn || cell.column > rightColumn) {
+                cell.visible = false;
+            }
+        }
+        this.visibleCells = [];
+
+        let offsetX = 0;
+        let offsetZ = 0;
+        for (let i = topRow; i <= bottomRow; i++) {
+            offsetZ = (i < 0 ? -this.worldDepth : 0) + (i >= height ? this.worldDepth : 0);
+            for (let j = leftColumn; j <= rightColumn; j++) {
+                const cell = this.cellGrid[this.mapData.wrapRow(i)][this.mapData.wrapColumn(j)];
+                if (cell) {
+                    offsetX = (j < 0 ? -this.worldWidth : 0) + (j >= width ? this.worldWidth : 0);
+                    cell.reposition(offsetX, offsetZ);
+                    this.currentRenderedDetailedPlants += cell.cull(
+                        frustum,
+                        fadeOutPortion,
+                        viewDistance,
+                        this.visiblePlants
+                    );
+                    if (cell.visible) {
+                        this.visibleCells.push(cell);
+                    }
+                }
+            }
         }
     }
 
     private generateIfPossible(): void {
-        if (!this.bambooModels || !this.forestData || this.children.length > 0) {
+        if (!this.bambooModels || !this.mapData || this.children.length > 0) {
             return;
         }
 
-        const indicesPerModel: number[][] = this.bambooModels.map(() => []);
-        const indicesPerDummyModel: number[][] = this.dummyBambooModels.map(() => []);
-        for (let i = 0; i < this.forestData.length; i++) {
-            for (let j = 0; j < this.bambooModels.length; j++) {
-                if (this.bambooModels[j].maxHeight > this.forestData.plantHeight[i]) {
-                    indicesPerModel[j].push(i);
-                    break;
+        let totalPlantCount = 0;
+        const memorizedInstances: Map<number, InstancedMesh[]> = new Map();
+        this.cellGrid = [];
+        for (let i = 0; i < this.mapData.height; i++) {
+            this.cellGrid.push([]);
+            for (let j = 0; j < this.mapData.width; j++) {
+                const cell = ForestCell.fromMapData(
+                    this.mapData,
+                    i,
+                    j,
+                    memorizedInstances,
+                    this.worldWidth,
+                    this.worldDepth,
+                    this.bambooModels
+                );
+                if (cell) {
+                    this.cells.push(cell);
+                    totalPlantCount += cell.count;
+                    this.attach(cell);
+                    cell.setReceiveShadow(this.receivingShadows);
                 }
-            }
-            for (let j = 0; j < this.dummyBambooModels.length; j++) {
-                if (this.dummyBambooModels[j].maxHeight > this.forestData.plantHeight[i]) {
-                    indicesPerDummyModel[j].push(i);
-                    break;
-                }
+                this.cellGrid[i].push(cell);
             }
         }
-        for (let i = 0; i < this.bambooModels.length; i++) {
-            const instancedMesh = this.bambooModels[i].makeInstances(
-                this.forestData,
-                indicesPerModel[i],
-                this.offsets,
-                this.worldWidth,
-                this.worldDepth,
-                (i + 1) / this.bambooModels.length
-            );
-            if (instancedMesh.count > 0) {
-                this.attach(instancedMesh);
-                this.meshes.push(instancedMesh);
-                this.currentTotalPlants += instancedMesh.count;
-            }
-        }
-        for (let i = 0; i < this.dummyBambooModels.length; i++) {
-            const instancedDummyMesh = this.dummyBambooModels[i].makeInstances(
-                this.forestData,
-                indicesPerDummyModel[i],
-                this.offsets,
-                this.worldWidth,
-                this.worldDepth,
-                (i + 1) / this.dummyBambooModels.length
-            );
-            if (instancedDummyMesh.count > 0) {
-                this.attach(instancedDummyMesh);
-                this.dummyMeshes.push(instancedDummyMesh);
-            }
-        }
-        this.currentRenderedDetailedPlants = this.currentRenderedDummyPlants = this.currentTotalPlants;
+        this.currentTotalPlants = totalPlantCount;
     }
 }

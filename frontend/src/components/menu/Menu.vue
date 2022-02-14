@@ -190,7 +190,7 @@ export default class Menu extends Vue {
 }
 .menu {
     text-align: center;
-    width: 80%;
+    width: 90%;
     max-width: 45em;
     outline: none;
     .menu-name {

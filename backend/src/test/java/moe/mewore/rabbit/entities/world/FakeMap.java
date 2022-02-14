@@ -2,8 +2,6 @@ package moe.mewore.rabbit.entities.world;
 
 import java.util.ArrayList;
 
-import moe.mewore.rabbit.generation.MazeMap;
-
 public class FakeMap extends MazeMap {
 
     public FakeMap() {

@@ -34,8 +34,7 @@ import moe.mewore.rabbit.entities.messages.PlayerUpdateMessage;
 import moe.mewore.rabbit.entities.mutations.MutationType;
 import moe.mewore.rabbit.entities.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.entities.mutations.PlayerUpdateMutation;
-import moe.mewore.rabbit.entities.world.Forest;
-import moe.mewore.rabbit.generation.MazeMap;
+import moe.mewore.rabbit.entities.world.MazeMap;
 
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
@@ -52,8 +51,6 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final MazeMap map;
 
-    private final Forest forest;
-
     public static void main(final String[] args) {
         start(new ServerSettings(args, System.getenv()));
     }
@@ -67,8 +64,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             }
         });
         final MazeMap map = MazeMap.createSeamless(30, 30, new Random(11L), 3);
-        final Forest forest = Forest.generate(map, new Random(11L));
-        return new Server(settings, javalin, map, forest).start();
+        return new Server(settings, javalin, map).start();
     }
 
     private Javalin start() {
@@ -82,7 +78,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     @Override
     public void handleConnect(final @NonNull WsConnectContext sender) {
-        sender.send(ByteBuffer.wrap(new MapDataMessage(map, forest).encodeToBinary()));
+        sender.send(ByteBuffer.wrap(new MapDataMessage(map).encodeToBinary()));
         for (final Player player : playerBySessionId.values()) {
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player).encodeToBinary()));
         }

@@ -17,7 +17,7 @@ import {
 } from 'three';
 import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './util/three-util';
 import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
-import { addCredit, isReisen } from '../temp-util';
+import { Settings, addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './util/auto-follow';
 import { CannonDebugRenderer } from './util/cannon-debug-renderer';
 import { Character } from './character';
@@ -104,9 +104,9 @@ export class GameScene {
 
     private readonly cameraControls: FixedDistanceOrbitControls;
 
-    private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0), allowSleep: false });
+    private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0), allowSleep: true });
 
-    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH, WRAP_OFFSETS, this.input);
+    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH, this.input);
     readonly forestWalls = new ForestWall();
     readonly physicsDebugger = new CannonDebugRenderer(this.scene, this.physicsWorld);
 
@@ -222,18 +222,20 @@ export class GameScene {
         this.character.visible = false;
     }
 
-    recreateRenderer(quality: number, shadows: boolean, debugPhysics: boolean): void {
-        if (shadows !== this.currentRenderer.shadowMap.enabled) {
+    applySettings(newSettings: Settings): void {
+        if (newSettings.shadows !== this.currentRenderer.shadowMap.enabled) {
             this.wrapperElement.removeChild(this.currentRenderer.domElement);
             this.currentRenderer.forceContextLoss();
             this.currentRenderer.dispose();
 
             this.currentRenderer = new WebGLRenderer({ antialias: true });
             this.wrapperElement.appendChild(this.currentRenderer.domElement);
-            this.currentRenderer.shadowMap.enabled = shadows;
+            this.currentRenderer.shadowMap.enabled = newSettings.shadows;
         }
-        this.physicsDebugger.active = debugPhysics;
-        this.currentRenderer.setPixelRatio(window.devicePixelRatio * quality);
+        this.forest.setReceiveShadow(newSettings.plantsReceiveShadows);
+        this.forest.visiblePlants = newSettings.plantVisibility;
+        this.physicsDebugger.active = newSettings.debugPhysics;
+        this.currentRenderer.setPixelRatio(window.devicePixelRatio * newSettings.quality);
         this.refreshSize();
     }
 
@@ -302,7 +304,7 @@ export class GameScene {
 
     private onForestData(reader: SignedBinaryReader): void {
         const message = MapDataMessage.decodeFromBinary(reader);
-        this.forest.setForestData(message.forest);
+        this.forest.setMapData(message.map);
         this.forestWalls.generate(WORLD_WIDTH, WORLD_DEPTH, message.map, WRAP_OFFSETS);
         this.cameraControls.intersectionObjects.push(this.forestWalls);
         this.add(this.forestWalls);

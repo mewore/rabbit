@@ -52,17 +52,47 @@
                         "
                         :min="0.1"
                         :max="1.0"
-                        :step="0"
+                        :step="0.05"
+                        label
+                        :label-value="Math.round(settings.quality * 100) + '%'"
+                        switch-label-side
                         color="purple-4"
                     />
-                    <q-tooltip
-                        >A lower clarity results in a blurry/jagged
-                        appearance.</q-tooltip
+                    <div
+                        class="text-purple-4 right-icon"
+                        style="font-size: 2em"
                     >
+                        <q-icon name="info" />
+                        <q-tooltip>
+                            A lower clarity results in a blurry/jagged
+                            appearance.
+                        </q-tooltip>
+                    </div>
+                </div>
+                <div class="input-with-label">
+                    <div class="text-subtitle1">Visible plants</div>
+                    <q-slider
+                        v-model="settings.plantVisibility"
+                        :min="0"
+                        :max="1"
+                        :step="0.05"
+                        label
+                        :label-value="
+                            Math.round(settings.plantVisibility * 100) + '%'
+                        "
+                        @update:model-value="onUpdated()"
+                        color="purple-4"
+                    />
                 </div>
                 <q-toggle
                     v-model="settings.shadows"
                     label="Render shadows"
+                    @update:model-value="onUpdated()"
+                />
+                <q-toggle
+                    v-model="settings.plantsReceiveShadows"
+                    label="Plants receive shadows"
+                    :disable="!settings.shadows"
                     @update:model-value="onUpdated()"
                 />
                 <q-toggle
@@ -163,11 +193,19 @@ export default class SettingsMenu extends Vue {
         display: flex;
         flex-wrap: nowrap;
         margin-bottom: 0.5em;
+        align-items: center;
         .text-subtitle1 {
             padding: 0 1em;
             cursor: default;
+            min-width: min(50%, 10em);
+        }
+        .right-icon {
+            padding-left: 0.5em;
         }
     }
-    height: 10em;
+    height: 15em;
+}
+.q-tab-panel {
+    overflow-x: hidden;
 }
 </style>

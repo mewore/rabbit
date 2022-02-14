@@ -13,6 +13,12 @@ export class Vector2Entity extends BinaryEntity {
         writer.writeDouble(this.y);
     }
 
+    distanceToSquared(x: number, y: number): number {
+        const dx = this.x - x;
+        const dy = this.y - y;
+        return dx * dx + dy * dy;
+    }
+
     static decodeFromBinary(reader: SignedBinaryReader): Vector2Entity {
         return new Vector2Entity(reader.readDouble(), reader.readDouble());
     }

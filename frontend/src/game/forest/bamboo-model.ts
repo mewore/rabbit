@@ -13,21 +13,22 @@ import {
     Quaternion,
     Vector3,
 } from 'three';
-import { CullableInstancedMesh } from '../util/cullable-instanced-mesh';
-import { ForestData } from '../entities/world/forest-data';
 import { createToast } from 'mosha-vue-toastify';
-
-const PLANT_PADDING = 15;
-const PLANT_HEIGHT = 100;
 
 const MAX_LEANING_ANGLE = 0.05 * Math.PI;
 const DEFAULT_MAX_DEPTH = 5.0;
 
+const matrix = new Matrix4();
+const translation = new Vector3();
+const rotation = new Quaternion();
+const rotationEuler = new Euler();
+const scale = new Vector3(1, 1, 1);
+
 export class BambooModel {
     constructor(
         readonly maxHeight: number,
-        private readonly stemMesh: Mesh<BufferGeometry, Material>,
-        private readonly leafMesh: Mesh<BufferGeometry, Material>,
+        readonly stemMesh: Mesh<BufferGeometry, Material>,
+        readonly leafMesh: Mesh<BufferGeometry, Material>,
         public maxDepth: number = DEFAULT_MAX_DEPTH
     ) {}
 
@@ -82,49 +83,34 @@ export class BambooModel {
         return new BambooModel(parseInt(bambooObject.name.substring(firstDigitIndex)), stem, leaf);
     }
 
-    makeInstances(
-        forestData: ForestData,
-        indices: number[],
-        offsets: Vector3[],
-        worldWidth: number,
-        worldDepth: number,
-        tallness: number
-    ): CullableInstancedMesh {
-        const bambooCount = indices.length * offsets.length;
+    makeInstances(positions: number[], tallness: number): InstancedMesh[] {
+        const count = positions.length / 2;
+        if (!count) {
+            return [];
+        }
 
-        const stems = new InstancedMesh(this.stemMesh.geometry, this.stemMesh.material, bambooCount);
+        const stems = new InstancedMesh(this.stemMesh.geometry, this.stemMesh.material, count);
         stems.name = `Bamboo:${this.maxHeight}:Stems`;
         stems.material.side = FrontSide;
 
-        const leaves = new InstancedMesh(this.leafMesh.geometry, this.leafMesh.material, bambooCount);
+        const leaves = new InstancedMesh(this.leafMesh.geometry, this.leafMesh.material, count);
         leaves.name = `Bamboo:${this.maxHeight}:Leaves`;
 
-        const matrix = new Matrix4();
-        const translation = new Vector3();
-        const rotation = new Quaternion();
-        const rotationEuler = new Euler();
-        const scale = new Vector3(1, 1, 1);
+        let y: number;
 
-        let instanceIndex = 0;
-        for (const i of indices) {
+        for (let i = 0; i < count; i++) {
             rotationEuler.x = Math.random() * Math.random() * MAX_LEANING_ANGLE * tallness;
             rotationEuler.y = Math.random() * Math.PI * 2;
             rotationEuler.z = Math.random() * Math.random() * MAX_LEANING_ANGLE * tallness;
             rotation.setFromEuler(rotationEuler);
-            const y = -Math.random() * this.maxDepth;
-            for (const offset of offsets) {
-                translation
-                    .set((forestData.plantX[i] - 0.5) * worldWidth, y, (forestData.plantZ[i] - 0.5) * worldDepth)
-                    .add(offset);
-                matrix.compose(translation, rotation, scale);
-
-                for (const mesh of [stems, leaves]) {
-                    mesh.setMatrixAt(instanceIndex, matrix);
-                }
-                instanceIndex++;
+            y = -Math.random() * this.maxDepth;
+            translation.set(positions[i + i], y, positions[i + i + 1]);
+            matrix.compose(translation, rotation, scale);
+            for (const mesh of [stems, leaves]) {
+                mesh.setMatrixAt(i, matrix);
             }
         }
 
-        return new CullableInstancedMesh([stems, leaves], PLANT_PADDING, PLANT_HEIGHT);
+        return [stems, leaves];
     }
 }

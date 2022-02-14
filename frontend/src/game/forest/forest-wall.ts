@@ -1,7 +1,7 @@
-import { BackSide, BufferAttribute, BufferGeometry, FrontSide, Mesh, MeshStandardMaterial, Vector3 } from 'three';
+import { BackSide, BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, Vector3 } from 'three';
 import { Body, Box, ConvexPolyhedron, Material, Vec3 } from 'cannon-es';
 import { CannonDebugRenderer } from '../util/cannon-debug-renderer';
-import { MapData } from '../entities/world/map-data';
+import { MazeMap } from '../entities/world/maze-map';
 
 const HEIGHT = 100.0;
 const PHYSICS_MATERIAL = new Material({ friction: 0, restitution: 0 });
@@ -11,14 +11,15 @@ export class ForestWall extends Mesh {
     readonly bodies: Body[] = [];
 
     constructor() {
-        super(new BufferGeometry(), new MeshStandardMaterial({ side: FrontSide, shadowSide: BackSide }));
+        super(new BufferGeometry(), new MeshBasicMaterial({ side: DoubleSide, shadowSide: BackSide, color: 0 }));
         this.castShadow = true;
     }
 
-    generate(worldWidth: number, worldDepth: number, mapData: MapData, offsets: Vector3[]): void {
+    generate(worldWidth: number, worldDepth: number, mapData: MazeMap, offsets: Vector3[]): void {
         const positions: number[] = [];
         for (const offset of offsets) {
-            for (const polygon of mapData.polygons) {
+            for (const wall of mapData.walls) {
+                const polygon = wall.polygon;
                 const vertices: Vec3[] = [];
                 for (let i = 0; i < polygon.points.length; i++) {
                     const next = (i + 1) % polygon.points.length;
@@ -88,7 +89,10 @@ export class ForestWall extends Mesh {
         for (const body of this.bodies) {
             body.updateAABB();
             body.updateBoundingRadius();
+            body.allowSleep = true;
+            body.sleep();
         }
         this.geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
+        // this.visible = false;
     }
 }

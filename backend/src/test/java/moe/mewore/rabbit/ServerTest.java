@@ -19,7 +19,6 @@ import io.javalin.websocket.WsConnectContext;
 import moe.mewore.rabbit.data.ByteArrayDataOutput;
 import moe.mewore.rabbit.entities.messages.MessageType;
 import moe.mewore.rabbit.entities.mutations.MutationType;
-import moe.mewore.rabbit.entities.world.FakeForest;
 import moe.mewore.rabbit.entities.world.FakeMap;
 import moe.mewore.rabbit.mock.ws.FakeWsSession;
 
@@ -50,8 +49,7 @@ class ServerTest {
 
     @BeforeEach
     void setUp() {
-        server = new Server(new ServerSettings(new String[0], Map.of()), mock(Javalin.class), new FakeMap(),
-            new FakeForest());
+        server = new Server(new ServerSettings(new String[0], Map.of()), mock(Javalin.class), new FakeMap());
     }
 
     @Test

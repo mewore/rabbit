@@ -55,7 +55,7 @@ export function makeGround(): Object3D {
     groundMaterial.name = 'GroundMaterial';
     groundMaterial.side = FrontSide;
 
-    const targetMeshSize = new Vector2(10000, 10000);
+    const targetMeshSize = new Vector2(20000, 20000);
     const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
 
     (async (): Promise<void> => {

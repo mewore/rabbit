@@ -95,6 +95,8 @@ export interface Settings {
     showPerformance: boolean;
     quality: number;
     shadows: boolean;
+    plantsReceiveShadows: boolean;
+    plantVisibility: number;
     darkUi: boolean;
     debugPhysics: boolean;
 }
@@ -104,6 +106,8 @@ let currentSettings: Settings = {
     showPerformance: false,
     quality: 1.0,
     shadows: true,
+    plantsReceiveShadows: false,
+    plantVisibility: 0.5,
     darkUi: true,
     debugPhysics: false,
     ...initialSettings,

@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.generation;
+package moe.mewore.rabbit.entities.world;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -34,7 +34,7 @@ public class MazeMap extends BinaryEntity {
 
     private final boolean[][] map;
 
-    private final List<ConvexPolygon> polygons;
+    private final List<MazeWall> walls;
 
     private final int[][][] relevantPolygonIndices;
 
@@ -91,8 +91,7 @@ public class MazeMap extends BinaryEntity {
                             }
                         }
                         final double chanceToClearOut = neighbouringWalls + neighbouringDiagonalWalls == 0
-                            ? 0.0
-                            : Math.pow(MAX_CLEAR_OUT_CHANCE, neighbouringDiagonalWalls);
+                            ? 0.0 : Math.pow(MAX_CLEAR_OUT_CHANCE, neighbouringDiagonalWalls);
                         if (random.nextDouble() < chanceToClearOut) {
                             map[i][j] = true;
                         }
@@ -102,11 +101,11 @@ public class MazeMap extends BinaryEntity {
         }
 
         final int[][][] relevantPolygonIndices = new int[height][width][];
-        final List<ConvexPolygon> polygons = generatePolygonsFromMap(width, height, map, relevantPolygonIndices);
-        return new MazeMap(map, polygons, relevantPolygonIndices);
+        final List<MazeWall> walls = generateWallsFromMap(width, height, map, relevantPolygonIndices);
+        return new MazeMap(map, walls, relevantPolygonIndices);
     }
 
-    private static List<ConvexPolygon> generatePolygonsFromMap(final int width, final int height, final boolean[][] map,
+    private static List<MazeWall> generateWallsFromMap(final int width, final int height, final boolean[][] map,
         final int[][][] relevantPolygonIndices) {
         final int[][] rowSums = new int[height][width];
         for (int i = 0; i < height; i++) {
@@ -125,7 +124,7 @@ public class MazeMap extends BinaryEntity {
         }
 
         final boolean[][] occupiedByPolygons = new boolean[height][width];
-        final List<ConvexPolygon> polygons = new ArrayList<>();
+        final List<MazeWall> walls = new ArrayList<>();
 
         int right;
         int bottom;
@@ -182,9 +181,8 @@ public class MazeMap extends BinaryEntity {
                 } else {
                     points.add(new Vector2(leftX / width, topY / height));
                 }
-                final ConvexPolygon polygon = new ConvexPolygon(points);
-                final int polygonIndex = polygons.size();
-                polygons.add(polygon);
+                final int polygonIndex = walls.size();
+                walls.add(new MazeWall(top, left, bottom, right, new ConvexPolygon(points)));
 
                 for (int i = top - 1; i <= bottom + 1; i++) {
                     for (int j = left - 1; j <= right + 1; j++) {
@@ -204,7 +202,7 @@ public class MazeMap extends BinaryEntity {
             }
         }
 
-        return polygons;
+        return walls;
     }
 
     private static boolean[][] createSeamlessLabyrinth(final int width, final int height, final Random random) {
@@ -278,8 +276,8 @@ public class MazeMap extends BinaryEntity {
     }
 
     public double get(final double x, final double y) {
-        for (final ConvexPolygon polygon : polygons) {
-            if (polygon.containsPoint(new Vector2(x, y))) {
+        for (final MazeWall wall : walls) {
+            if (wall.getPolygon().containsPoint(new Vector2(x, y))) {
                 return -1.0;
             }
         }
@@ -288,7 +286,7 @@ public class MazeMap extends BinaryEntity {
 
         final int row = Math.min((int) (y * map.length), map.length);
         final int col = Math.min((int) (x * map[0].length), map[0].length);
-        final int[] polygonIndices = relevantPolygonIndices[row][col];
+        final int[] wallIndices = relevantPolygonIndices[row][col];
 
         final double[] offsetsX = Stream.of(0, col == 0 ? 1 : -10, (col == map[0].length - 1) ? -1 : -10)
             .filter(value -> value > -10)
@@ -303,9 +301,9 @@ public class MazeMap extends BinaryEntity {
         for (final double offsetX : offsetsX) {
             for (final double offsetY : offsetsY) {
                 final Vector2 point = new Vector2(x + offsetX, y + offsetY);
-                for (final int polygonIndex : polygonIndices) {
+                for (final int wallIndex : wallIndices) {
                     minDistanceSquared = Math.min(minDistanceSquared,
-                        polygons.get(polygonIndex).distanceToPointSquared(point));
+                        walls.get(wallIndex).getPolygon().distanceToPointSquared(point));
                 }
             }
         }
@@ -319,7 +317,7 @@ public class MazeMap extends BinaryEntity {
 
     public void render(final int width, final int height, final String name) {
         System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", map[0].length,
-            map.length, polygons.size(), width, height);
+            map.length, walls.size(), width, height);
 
         final BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 
@@ -327,7 +325,8 @@ public class MazeMap extends BinaryEntity {
         final Color solidCenter = new Color((255 << 24) | (255 << 16) | (100 << 8));
         final int solid = (200 << 24) | (200 << 16) | (100 << 8);
 
-        final List<Polygon> polygonsToDraw = polygons.stream()
+        final List<Polygon> polygonsToDraw = walls.stream()
+            .map(MazeWall::getPolygon)
             .map(polygon -> new Polygon(
                 polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getX() * width))).toArray(),
                 polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getY() * height))).toArray(),
@@ -405,6 +404,6 @@ public class MazeMap extends BinaryEntity {
                 output.writeBoolean(value);
             }
         }
-        appendCollectionToBinaryOutput(polygons, output);
+        appendCollectionToBinaryOutput(walls, output);
     }
 }
