@@ -1,4 +1,22 @@
-import { BackSide, BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, Vector3 } from 'three';
+import {
+    BackSide,
+    BoxBufferGeometry,
+    BufferAttribute,
+    BufferGeometry,
+    Color,
+    DoubleSide,
+    FrontSide,
+    LinearMipMapLinearFilter,
+    Mesh,
+    MeshBasicMaterial,
+    MeshStandardMaterial,
+    MeshToonMaterial,
+    MirroredRepeatWrapping,
+    TextureLoader,
+    Vector2,
+    Vector3,
+    sRGBEncoding,
+} from 'three';
 import { Body, Box, ConvexPolyhedron, Material, Vec3 } from 'cannon-es';
 import { CannonDebugRenderer } from '../util/cannon-debug-renderer';
 import { MazeMap } from '../entities/world/maze-map';
@@ -6,17 +24,43 @@ import { MazeMap } from '../entities/world/maze-map';
 const HEIGHT = 100.0;
 const PHYSICS_MATERIAL = new Material({ friction: 0, restitution: 0 });
 const PADDING_COEFFICIENT = 0.1;
+const DISTANCE_TO_UV_MULTIPLIER = 1 / HEIGHT;
 
-export class ForestWall extends Mesh {
+export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
     readonly bodies: Body[] = [];
 
     constructor() {
-        super(new BufferGeometry(), new MeshBasicMaterial({ side: DoubleSide, shadowSide: BackSide, color: 0 }));
+        super(
+            new BufferGeometry(),
+            new MeshStandardMaterial({
+                side: DoubleSide,
+                shadowSide: BackSide,
+                transparent: true,
+            })
+        );
         this.castShadow = true;
+
+        const textureLoader = new TextureLoader();
+        Promise.all([
+            textureLoader.loadAsync('./assets/bamboo/wall.png'),
+            textureLoader.loadAsync('./assets/bamboo/wall-normal.png'),
+        ]).then(([texture, normal]) => {
+            texture.wrapS = texture.wrapT = MirroredRepeatWrapping;
+            texture.encoding = sRGBEncoding;
+            texture.flipY = false;
+            normal.wrapS = normal.wrapT = MirroredRepeatWrapping;
+            normal.flipY = false;
+            this.material.map = texture;
+            this.material.normalMap = normal;
+            this.material.normalScale = new Vector2(25, 25);
+            this.receiveShadow = true;
+            this.material.needsUpdate = true;
+        });
     }
 
     generate(worldWidth: number, worldDepth: number, mapData: MazeMap, offsets: Vector3[]): void {
         const positions: number[] = [];
+        const uvPositions: number[] = [];
         for (const offset of offsets) {
             for (const wall of mapData.walls) {
                 const polygon = wall.polygon;
@@ -27,14 +71,28 @@ export class ForestWall extends Mesh {
                     const z1 = polygon.points[i].y * worldDepth - worldDepth / 2 + offset.z;
                     const x2 = polygon.points[next].x * worldWidth - worldWidth / 2 + offset.x;
                     const z2 = polygon.points[next].y * worldDepth - worldDepth / 2 + offset.z;
+                    const distance = Math.sqrt((x1 - x2) * (x1 - x2) + (z1 - z2) * (z1 - z2));
+                    const rightUvX = distance * DISTANCE_TO_UV_MULTIPLIER;
 
+                    // First triangle (bottom-left, bottom-right, top-right)
                     positions.push(x1, 0.0, z1);
+                    uvPositions.push(0, 1);
+
                     positions.push(x2, 0.0, z2);
-                    positions.push(x2, HEIGHT, z2);
+                    uvPositions.push(rightUvX, 1);
 
-                    positions.push(x1, 0.0, z1);
                     positions.push(x2, HEIGHT, z2);
+                    uvPositions.push(rightUvX, 0);
+
+                    // Second triangle (bottom-left, top-right, top-left)
+                    positions.push(x1, 0.0, z1);
+                    uvPositions.push(0, 1);
+
+                    positions.push(x2, HEIGHT, z2);
+                    uvPositions.push(rightUvX, 0);
+
                     positions.push(x1, HEIGHT, z1);
+                    uvPositions.push(0, 0);
 
                     vertices.push(new Vec3(x1, 0, z1), new Vec3(x1, HEIGHT, z1));
                 }
@@ -93,6 +151,7 @@ export class ForestWall extends Mesh {
             body.sleep();
         }
         this.geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
-        // this.visible = false;
+        this.geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvPositions), 2));
+        this.geometry.computeVertexNormals();
     }
 }

@@ -123,6 +123,8 @@ export class GameScene {
         this.cameraControls.maxDistance = 100.0;
         this.cameraControls.zoomMultiplier = 1.4;
 
+        // this.renderer.physicallyCorrectLights = true;
+
         this.camera.rotation.reorder('YXZ');
         this.forest.camera = this.camera;
         this.cameraControls.offset = new Vector3(0, 20, 0);
