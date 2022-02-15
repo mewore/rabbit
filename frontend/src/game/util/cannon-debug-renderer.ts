@@ -3,6 +3,7 @@ import {
     BoxGeometry,
     BufferAttribute,
     BufferGeometry,
+    Color,
     Mesh,
     MeshBasicMaterial,
     PlaneGeometry,
@@ -32,7 +33,11 @@ export class CannonDebugRenderer implements Updatable {
     active = false;
 
     private readonly meshes: (Mesh | undefined)[] = [];
-    private readonly defaultMaterial = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+    private readonly defaultMaterial = new MeshBasicMaterial({
+        color: new Color(0.5, 255, 0.5),
+        wireframe: true,
+        fog: false,
+    });
     private readonly sphereGeometry = new SphereGeometry(1);
     private readonly boxGeometry = new BoxGeometry(1, 1, 1);
     private readonly planeGeometry = new PlaneGeometry(10, 10, 10, 10);
@@ -259,7 +264,10 @@ export class CannonDebugRenderer implements Updatable {
 
     static setShapeColor(shape: Shape, color: number): void {
         if (!CannonDebugRenderer.materialByColor.has(color)) {
-            CannonDebugRenderer.materialByColor.set(color, new MeshBasicMaterial({ color: color, wireframe: true }));
+            CannonDebugRenderer.materialByColor.set(
+                color,
+                new MeshBasicMaterial({ color: color, wireframe: true, fog: false })
+            );
         }
         (shape as unknown as ShapeDebugData).debugColor = color;
     }
