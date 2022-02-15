@@ -173,7 +173,7 @@ export class GameScene {
         const dummyBoxHeightAccelerations = [10, 15, 18, -20];
         for (let i = 0; i < 10; i++) {
             const physicsDummyBox = new GroundBox(
-                15,
+                15 + (i === 9 ? 25 : 0),
                 dummyBoxHeight,
                 physicsDummyBoxPos.x,
                 physicsDummyBoxPos.z,
@@ -183,7 +183,9 @@ export class GameScene {
             this.add(physicsDummyBox);
             cameraIntersectionObjects.push(physicsDummyBox);
 
-            physicsDummyBoxPos.add(physicsDummyBoxMovement.multiplyScalar(physicsDummyBoxSpeed));
+            physicsDummyBoxPos.add(
+                physicsDummyBoxMovement.multiplyScalar(i === 8 ? physicsDummyBoxSpeed * 1.5 : physicsDummyBoxSpeed)
+            );
             physicsDummyBoxMovement
                 .multiplyScalar(1 / physicsDummyBoxSpeed)
                 .applyMatrix4(physicsDummyBoxRotationMatrix);
