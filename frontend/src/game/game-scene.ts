@@ -197,7 +197,7 @@ export class GameScene {
 
         this.add(...this.cloneWithOffset(new AxisHelper()));
 
-        const moon = new Moon(100);
+        const moon = new Moon(200);
         moon.target = this.character;
         this.add(moon);
 

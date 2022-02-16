@@ -30,6 +30,7 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
                 side: DoubleSide,
                 shadowSide: BackSide,
                 transparent: true,
+                alphaTest: 0.5,
             })
         );
         this.castShadow = true;
@@ -38,15 +39,17 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
         Promise.all([
             textureLoader.loadAsync('./assets/bamboo/wall.png'),
             textureLoader.loadAsync('./assets/bamboo/wall-normal.png'),
-        ]).then(([texture, normal]) => {
-            texture.wrapS = texture.wrapT = MirroredRepeatWrapping;
+            textureLoader.loadAsync('./assets/bamboo/wall-alpha.png'),
+        ]).then(([texture, normal, alpha]) => {
             texture.encoding = sRGBEncoding;
-            texture.flipY = false;
-            normal.wrapS = normal.wrapT = MirroredRepeatWrapping;
-            normal.flipY = false;
+            for (const currentTexture of [texture, normal, alpha]) {
+                currentTexture.wrapS = currentTexture.wrapT = MirroredRepeatWrapping;
+                currentTexture.flipY = false;
+            }
             this.material.map = texture;
             this.material.normalMap = normal;
             this.material.normalScale = new Vector2(25, 25);
+            this.material.alphaMap = alpha;
             this.receiveShadow = true;
             this.material.needsUpdate = true;
         });
