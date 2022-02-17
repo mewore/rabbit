@@ -21,7 +21,7 @@ dependencies {
     testAnnotationProcessor(lombokArtifact)
     testCompileOnly(lombokArtifact)
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
-    testImplementation("org.mockito:mockito-core:3.12.4")
+    testImplementation("org.mockito:mockito-core:4.3.1")
 }
 
 tasks.spotbugsMain {
