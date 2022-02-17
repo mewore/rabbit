@@ -22,6 +22,8 @@ import {
     sRGBEncoding,
 } from 'three';
 
+const GROUND_TEXTURE_SCALE = 1 / 64;
+
 const TAU = Math.PI * 2;
 const tmpVector3 = new Vector3();
 const otherTmpVector3 = new Vector3();
@@ -50,12 +52,12 @@ function shouldMaterialCastShadow(material: THREE.Material): boolean {
     return ['Outline', 'Iris', 'Gloss'].indexOf(material.name) === -1;
 }
 
-export function makeGround(): Object3D {
+export function makeGround(worldWidth: number, worldDepth: number): Object3D {
     const groundMaterial = new MeshStandardMaterial();
     groundMaterial.name = 'GroundMaterial';
     groundMaterial.side = FrontSide;
 
-    const targetMeshSize = new Vector2(20000, 20000);
+    const targetMeshSize = new Vector2(worldWidth * 3, worldDepth * 3);
     const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
 
     (async (): Promise<void> => {
@@ -65,10 +67,17 @@ export function makeGround(): Object3D {
             textureLoader.loadAsync('./assets/ground-roughness.png'),
             textureLoader.loadAsync('./assets/ground-bumpmap.png'),
         ]);
-        const textureScale = 1 / 64;
         const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
+        const heightToWidth = groundTexture.image.height / groundTexture.image.width;
+        const newMeshSize = new Vector2().copy(targetMeshSize);
+        if (heightToWidth > 1) {
+            newMeshSize.y *= heightToWidth;
+        } else {
+            newMeshSize.x /= heightToWidth;
+        }
+
         groundTexture.wrapS = groundTexture.wrapT = MirroredRepeatWrapping;
-        groundTexture.repeat.copy(targetMeshSize).divide(textureSize).divideScalar(textureScale).floor();
+        groundTexture.repeat.copy(newMeshSize).divide(textureSize).divideScalar(GROUND_TEXTURE_SCALE).ceil();
         groundTexture.anisotropy = 8;
         groundTexture.encoding = sRGBEncoding;
         groundTexture.minFilter = LinearMipMapLinearFilter;
@@ -91,8 +100,8 @@ export function makeGround(): Object3D {
 
         groundMesh.geometry.dispose();
         groundMesh.geometry = new PlaneBufferGeometry(
-            groundTexture.repeat.x * textureSize.x * textureScale,
-            groundTexture.repeat.y * textureSize.y * textureScale
+            groundTexture.repeat.x * textureSize.x * GROUND_TEXTURE_SCALE,
+            groundTexture.repeat.y * textureSize.y * GROUND_TEXTURE_SCALE
         );
     })();
 

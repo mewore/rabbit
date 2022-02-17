@@ -55,12 +55,8 @@ addCredit({
     author: { text: 'Stefan Hedman (and Poimandres)', url: 'https://github.com/schteppe' },
 });
 
-const GROUND_TEXTURE_SCALE = 1 / 64;
-const ASSUMED_GROUND_TEXTURE_WIDTH = 512 * 2 * GROUND_TEXTURE_SCALE;
-const ASSUMED_GROUND_TEXTURE_HEIGHT = 880 * 2 * GROUND_TEXTURE_SCALE;
-const DESIRED_WORLD_SIZE = 2000;
-const WORLD_WIDTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_WIDTH) * ASSUMED_GROUND_TEXTURE_WIDTH;
-const WORLD_DEPTH = Math.round(DESIRED_WORLD_SIZE / ASSUMED_GROUND_TEXTURE_HEIGHT) * ASSUMED_GROUND_TEXTURE_HEIGHT;
+const WORLD_WIDTH = 2000;
+const WORLD_DEPTH = WORLD_WIDTH;
 
 const MIN_X = -WORLD_WIDTH / 2;
 const MAX_X = WORLD_WIDTH / 2;
@@ -149,7 +145,7 @@ export class GameScene {
         this.add(new AmbientLight(this.scene.background, 3));
         this.add(new AmbientLight(0x112255, 1));
         this.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
-        const ground = makeGround();
+        const ground = makeGround(WORLD_WIDTH, WORLD_DEPTH);
         this.add(ground);
         this.physicsWorld.addBody(
             new Body({
