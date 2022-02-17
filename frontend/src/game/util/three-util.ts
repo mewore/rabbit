@@ -16,13 +16,14 @@ import {
     PerspectiveCamera,
     PlaneBufferGeometry,
     PlaneGeometry,
+    RepeatWrapping,
     TextureLoader,
     Vector2,
     Vector3,
     sRGBEncoding,
 } from 'three';
 
-const GROUND_TEXTURE_SCALE = 1 / 64;
+const GROUND_TEXTURE_SCALE = 1 / 16;
 
 const TAU = Math.PI * 2;
 const tmpVector3 = new Vector3();
@@ -60,13 +61,8 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
     const targetMeshSize = new Vector2(worldWidth * 3, worldDepth * 3);
     const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
 
-    (async (): Promise<void> => {
-        const textureLoader = new TextureLoader();
-        const [groundTexture, groundRoughnessTexture, groundBumpMap] = await Promise.all([
-            textureLoader.loadAsync('./assets/ground.png'),
-            textureLoader.loadAsync('./assets/ground-roughness.png'),
-            textureLoader.loadAsync('./assets/ground-bumpmap.png'),
-        ]);
+    const textureLoader = new TextureLoader();
+    textureLoader.loadAsync('./assets/ground.jpg').then((groundTexture) => {
         const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
         const heightToWidth = groundTexture.image.height / groundTexture.image.width;
         const newMeshSize = new Vector2().copy(targetMeshSize);
@@ -76,34 +72,21 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
             newMeshSize.x /= heightToWidth;
         }
 
-        groundTexture.wrapS = groundTexture.wrapT = MirroredRepeatWrapping;
+        groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
         groundTexture.repeat.copy(newMeshSize).divide(textureSize).divideScalar(GROUND_TEXTURE_SCALE).ceil();
         groundTexture.anisotropy = 8;
         groundTexture.encoding = sRGBEncoding;
         groundTexture.minFilter = LinearMipMapLinearFilter;
 
-        for (const otherTexture of [groundRoughnessTexture, groundBumpMap]) {
-            otherTexture.wrapS = otherTexture.wrapT = MirroredRepeatWrapping;
-            otherTexture.repeat.copy(groundTexture.repeat);
-            otherTexture.anisotropy = groundTexture.anisotropy = 8;
-            otherTexture.encoding = groundTexture.encoding = sRGBEncoding;
-            otherTexture.minFilter = groundTexture.minFilter;
-        }
-
         groundMaterial.map = groundTexture;
         groundMaterial.needsUpdate = true;
-
-        groundMaterial.metalness = 0.2;
-        groundMaterial.roughnessMap = groundRoughnessTexture;
-
-        groundMaterial.bumpMap = groundBumpMap;
 
         groundMesh.geometry.dispose();
         groundMesh.geometry = new PlaneBufferGeometry(
             groundTexture.repeat.x * textureSize.x * GROUND_TEXTURE_SCALE,
             groundTexture.repeat.y * textureSize.y * GROUND_TEXTURE_SCALE
         );
-    })();
+    });
 
     groundMesh.name = 'Ground';
     groundMesh.rotateX(-Math.PI / 2);
