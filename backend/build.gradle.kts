@@ -13,7 +13,7 @@ val lombokArtifact = "org.projectlombok:lombok:1.18.22"
 dependencies {
     annotationProcessor(lombokArtifact)
     compileOnly(lombokArtifact)
-    compileOnly("org.checkerframework:checker-qual:3.16.0")
+    compileOnly("org.checkerframework:checker-qual:3.21.2")
     implementation("io.javalin:javalin:3.13.11")
     runtimeOnly("org.slf4j:slf4j-api:1.7.32")
     runtimeOnly("org.slf4j:slf4j-simple:1.7.32")
