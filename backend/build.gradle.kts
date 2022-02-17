@@ -8,7 +8,7 @@ repositories {
     mavenCentral()
 }
 
-val lombokArtifact = "org.projectlombok:lombok:1.18.20"
+val lombokArtifact = "org.projectlombok:lombok:1.18.22"
 
 dependencies {
     annotationProcessor(lombokArtifact)
