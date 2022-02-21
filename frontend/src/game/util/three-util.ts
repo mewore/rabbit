@@ -10,7 +10,6 @@ import {
     Mesh,
     MeshLambertMaterial,
     MeshStandardMaterial,
-    MirroredRepeatWrapping,
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,

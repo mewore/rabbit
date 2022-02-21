@@ -3,10 +3,12 @@ import {
     Frustum,
     Group,
     InstancedMesh,
+    Material,
     Matrix4,
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,
+    TextureLoader,
     Vector2,
     Vector3,
 } from 'three';
@@ -244,8 +246,11 @@ export class ForestObject extends Object3D implements Updatable {
             return;
         }
 
+        const textureLoader = new TextureLoader();
+        const dirtTexturePromise = textureLoader.loadAsync('./assets/dirt.jpg');
+
         let totalPlantCount = 0;
-        const memorizedInstances: Map<number, InstancedMesh[]> = new Map();
+        const memorizedData: Map<number, [InstancedMesh[], Material]> = new Map();
         this.cellGrid = [];
         for (let i = 0; i < this.mapData.height; i++) {
             this.cellGrid.push([]);
@@ -254,10 +259,11 @@ export class ForestObject extends Object3D implements Updatable {
                     this.mapData,
                     i,
                     j,
-                    memorizedInstances,
+                    memorizedData,
                     this.worldWidth,
                     this.worldDepth,
-                    this.bambooModels
+                    this.bambooModels,
+                    dirtTexturePromise
                 );
                 if (cell) {
                     this.cells.push(cell);
