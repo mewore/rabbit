@@ -54,7 +54,10 @@ const tmpVector3 = new Vector3();
 
 export class ForestCell extends Object3D {
     debugData = '';
+
     private readonly boundingBox: Box3;
+    private readonly plantContainer: Object3D;
+
     readonly count: number;
 
     static spawnAttempts = 0;
@@ -78,8 +81,10 @@ export class ForestCell extends Object3D {
         dirtPlane.receiveShadow = true;
         this.attach(dirtPlane);
 
+        this.plantContainer = new Object3D();
+        this.attach(this.plantContainer);
         for (const mesh of instancedMeshes) {
-            this.attach(mesh);
+            this.plantContainer.attach(mesh);
             mesh.position.set(-cellWidth / 2, 0, -cellDepth / 2);
         }
         this.boundingBox = new Box3(
@@ -361,8 +366,8 @@ export class ForestCell extends Object3D {
         closeness *= closeness;
         closeness *= closeness;
         const visibility = Math.min(closeness / fadeOutPortion, 1) * visibilityCoefficient;
-        if (visibility < 0.001) {
-            this.visible = false;
+        this.plantContainer.visible = visibility > 0.001;
+        if (!this.plantContainer.visible) {
             return 0;
         }
 

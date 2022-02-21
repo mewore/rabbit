@@ -154,10 +154,6 @@ export class ForestObject extends Object3D implements Updatable {
             return;
         }
 
-        if (this.visiblePlants < 0.0001 && !this.visibleCells.length) {
-            return;
-        }
-
         this.forestUpdateTimeout -=
             delta * BASE_FOREST_UPDATE_RATE +
             (Math.abs(this.input.lookRight) + Math.abs(this.input.lookDown)) * FOREST_UPDATE_PER_ROTATION +
