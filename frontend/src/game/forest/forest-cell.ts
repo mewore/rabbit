@@ -6,13 +6,14 @@ import {
     LinearFilter,
     Material,
     Mesh,
-    MeshBasicMaterial,
+    MeshStandardMaterial,
     Object3D,
     PlaneBufferGeometry,
     RGBFormat,
     Texture,
     UnsignedByteType,
     Vector3,
+    sRGBEncoding,
 } from 'three';
 import { BambooModel } from './bamboo-model';
 import { ConvexPolygonEntity } from '../entities/geometry/convex-polygon-entity';
@@ -74,6 +75,7 @@ export class ForestCell extends Object3D {
         const dirtPlane = new Mesh(new PlaneBufferGeometry(cellWidth, cellDepth), dirtMaterial);
         dirtPlane.rotateX(-Math.PI / 2);
         dirtPlane.position.y = DIRT_PLANE_OFFSET;
+        dirtPlane.receiveShadow = true;
         this.attach(dirtPlane);
 
         for (const mesh of instancedMeshes) {
@@ -300,8 +302,9 @@ export class ForestCell extends Object3D {
             LinearFilter
         );
         dirtAlphaTexture.flipY = true;
-        const material = new MeshBasicMaterial({ wireframe: true, transparent: true });
+        const material = new MeshStandardMaterial({ wireframe: true, transparent: true });
         dirtTexturePromise.then((dirtTexture) => {
+            dirtTexture.encoding = sRGBEncoding;
             material.map = dirtTexture;
             material.alphaMap = dirtAlphaTexture;
             material.wireframe = false;

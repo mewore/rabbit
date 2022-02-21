@@ -14,7 +14,6 @@ import {
     OrthographicCamera,
     PerspectiveCamera,
     PlaneBufferGeometry,
-    PlaneGeometry,
     RepeatWrapping,
     TextureLoader,
     Vector2,
@@ -58,7 +57,7 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
     groundMaterial.side = FrontSide;
 
     const targetMeshSize = new Vector2(worldWidth * 3, worldDepth * 3);
-    const groundMesh = new Mesh(new PlaneGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
+    const groundMesh = new Mesh(new PlaneBufferGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
 
     const textureLoader = new TextureLoader();
     textureLoader.loadAsync('./assets/ground.jpg').then((groundTexture) => {
