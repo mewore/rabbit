@@ -28,13 +28,7 @@ const PLANT_ATTEMPTS_PER_CELL = MAX_PLANTS_PER_CELL * 2;
 
 const INFERTILITY_TEXTURE_WIDTH = 4;
 const INFERTILITY_TEXTURE_HEIGHT = INFERTILITY_TEXTURE_WIDTH;
-const fertilityMap: number[][] = [];
-for (let i = 0; i < INFERTILITY_TEXTURE_HEIGHT; i++) {
-    fertilityMap.push([]);
-    for (let j = 0; j < INFERTILITY_TEXTURE_WIDTH; j++) {
-        fertilityMap[i].push(0);
-    }
-}
+
 const DIRT_PLANE_OFFSET = 0.1;
 
 const PLANT_PADDING = 15;
@@ -44,6 +38,19 @@ const MAX_DISTANCE_FROM_WALL = 0.7;
 
 const HEIGHT_VARIATION = 0.4;
 const ZERO_HEIGHT_CHANCE = 0.2;
+
+const dy = [-1, 1, 0, 0];
+const dx = [0, 0, -1, 1];
+
+// To get this array, draw a 3x3 square with 8, 7, ..., 0 written in its cells and flip it.
+const X_FLIP_BIT_INDICES = [6, 7, 8, 3, 4, 5, 0, 1, 2];
+function flipHorizontally(kind: number): number {
+    return X_FLIP_BIT_INDICES.reduce((previous, bitIndex) => (previous << 1) | ((kind >> bitIndex) & 1), 0);
+}
+const Y_FLIP_BIT_INDICES = [2, 1, 0, 5, 4, 3, 8, 7, 6];
+function flipVertically(kind: number): number {
+    return Y_FLIP_BIT_INDICES.reduce((previous, bitIndex) => (previous << 1) | ((kind >> bitIndex) & 1), 0);
+}
 
 // Discovered through trial and error
 // const FRUSTUM_FAR_PLANE_INDEX = 4;
@@ -67,13 +74,14 @@ export class ForestCell extends Object3D {
         dirtMaterial: Material,
         private readonly x: number,
         private readonly z: number,
-        angleY: number,
+        plantScale: Vector3,
         cellWidth: number,
         cellDepth: number,
         readonly row: number,
         readonly column: number
     ) {
         super();
+        this.name = `ForestCell(${row},${column})`;
 
         const dirtPlane = new Mesh(new PlaneBufferGeometry(cellWidth, cellDepth), dirtMaterial);
         dirtPlane.rotateX(-Math.PI / 2);
@@ -82,11 +90,12 @@ export class ForestCell extends Object3D {
         this.attach(dirtPlane);
 
         this.plantContainer = new Object3D();
-        this.attach(this.plantContainer);
         for (const mesh of instancedMeshes) {
-            this.plantContainer.attach(mesh);
             mesh.position.set(-cellWidth / 2, 0, -cellDepth / 2);
+            this.plantContainer.attach(mesh);
         }
+        this.plantContainer.scale.copy(plantScale);
+        this.attach(this.plantContainer);
         this.boundingBox = new Box3(
             new Vector3(x - cellWidth / 2 - PLANT_PADDING, 0, z - cellDepth / 2 - PLANT_PADDING),
             new Vector3(x + cellWidth / 2 + PLANT_PADDING, PLANT_HEIGHT, z + cellDepth / 2 + PLANT_PADDING)
@@ -98,7 +107,6 @@ export class ForestCell extends Object3D {
         }
         this.count = count;
 
-        this.rotateY(angleY);
         this.position.set(x, 0, z);
 
         this.visible = false;
@@ -120,7 +128,8 @@ export class ForestCell extends Object3D {
         mapData: MazeMap,
         row: number,
         column: number,
-        memorizedData: Map<number, [InstancedMesh[], Material]>,
+        memorizedPlants: Map<number, InstancedMesh[]>,
+        memorizedDirtMaterials: Map<number, Material>,
         worldWidth: number,
         worldDepth: number,
         bambooModels: BambooModel[],
@@ -128,8 +137,6 @@ export class ForestCell extends Object3D {
     ): ForestCell | undefined {
         if (!mapData.getCell(row, column)) {
             let neighbouringWalls = 0;
-            const dy = [-1, 1, 0, 0];
-            const dx = [0, 0, -1, 1];
             for (let i = 0; i < 4; i++) {
                 neighbouringWalls += mapData.getCell(row + dy[i], column + dx[i]) ? 0 : 1;
             }
@@ -145,64 +152,56 @@ export class ForestCell extends Object3D {
             }
         }
         const originalCellKind = cellKind;
-        if (cellKind === (1 << 10) - 1) {
-            // Empty space surrounded by empty space - no need for a cell here
-            return undefined;
+
+        let reusedInstances = memorizedPlants.get(cellKind);
+
+        const scale = new Vector3(1, 1, 1);
+        for (let scaleX = 1; scaleX >= -1 && !reusedInstances; scaleX -= 2, cellKind = flipHorizontally(cellKind)) {
+            for (let scaleZ = 1; scaleZ >= -1 && !reusedInstances; scaleZ -= 2, cellKind = flipVertically(cellKind)) {
+                reusedInstances = memorizedPlants.get(cellKind);
+                if (reusedInstances) {
+                    scale.set(scaleX, 1, scaleZ);
+                }
+            }
         }
 
-        let reusedData = memorizedData.get(cellKind);
-
-        // TODO: Fix the rotation of remembered cells
-        // To get this array, draw a 3x3 square with 8, 7, ..., 0 written in its cells and rotate it.
-        const rotationBitIndices = [2, 5, 8, 1, 4, 7, 0, 3, 6];
-        function rotateBy90DegreesClockwise(kind: number): number {
-            return rotationBitIndices.reduce((previous, bitIndex) => (previous << 1) | ((kind >> bitIndex) & 1), 0);
-        }
-        let currentAngle = 0;
-        for (let i = 0; i < 3 && !reusedData; i++) {
-            currentAngle += Math.PI / 2;
-            cellKind = rotateBy90DegreesClockwise(cellKind);
-            reusedData = memorizedData.get(cellKind);
-        }
-
-        // TODO: Fix the bug where some cells have no plants or less plants than they should have
         let instancesToUse: InstancedMesh[];
-        let dirtMaterialToUse: Material;
+
         const cellWidth = worldWidth / mapData.width;
         const cellDepth = worldDepth / mapData.height;
         const x = (column / mapData.width - 0.5) * worldWidth;
         const z = (row / mapData.height - 0.5) * worldDepth;
-        // reusedInstances = undefined;
-        if (reusedData) {
+        if (reusedInstances) {
             // Attaching meshes to multiple parents doesn't work so they must be copied/
             // However, reusing matrices between instanced meshes *is* allowed.
-            [instancesToUse, dirtMaterialToUse] = [ForestCell.copyInstances(reusedData[0]), reusedData[1]];
+            instancesToUse = ForestCell.copyInstances(reusedInstances);
         } else {
-            currentAngle = 0;
-            [instancesToUse, dirtMaterialToUse] = ForestCell.generate(
-                mapData,
-                row,
-                column,
-                worldWidth,
-                worldDepth,
-                bambooModels,
-                dirtTexturePromise
-            );
-            memorizedData.set(originalCellKind, [instancesToUse, dirtMaterialToUse]);
+            instancesToUse = ForestCell.generatePlants(mapData, row, column, worldWidth, worldDepth, bambooModels);
+            memorizedPlants.set(originalCellKind, instancesToUse);
         }
+
+        let dirtMaterialToUse: Material;
+        const reusedDirtMaterial = memorizedDirtMaterials.get(originalCellKind);
+        if (!reusedDirtMaterial) {
+            dirtMaterialToUse = ForestCell.generateMaterial(mapData, row, column, dirtTexturePromise);
+            memorizedDirtMaterials.set(originalCellKind, dirtMaterialToUse);
+        } else {
+            dirtMaterialToUse = reusedDirtMaterial;
+        }
+
         const cell = new ForestCell(
             instancesToUse,
             dirtMaterialToUse,
             x + cellWidth / 2,
             z + cellDepth / 2,
-            currentAngle,
+            scale,
             cellWidth,
             cellDepth,
             row,
             column
         );
-        cell.debugData = reusedData
-            ? `Reused(${cellKind} -(${currentAngle / (Math.PI / 2)})-> ${originalCellKind})`
+        cell.debugData = reusedInstances
+            ? `Reused(${originalCellKind} -(${scale.x}, ${scale.z})-> ${cellKind})`
             : 'Original';
         return cell;
     }
@@ -216,15 +215,14 @@ export class ForestCell extends Object3D {
         });
     }
 
-    static generate(
+    static generatePlants(
         mapData: MazeMap,
         row: number,
         column: number,
         worldWidth: number,
         worldDepth: number,
-        bambooModels: BambooModel[],
-        dirtTexturePromise: Promise<Texture>
-    ): [InstancedMesh[], Material] {
+        bambooModels: BambooModel[]
+    ): InstancedMesh[] {
         // Normalized
         const minX = column / mapData.width;
         const rangeX = 1 / mapData.width;
@@ -244,27 +242,7 @@ export class ForestCell extends Object3D {
 
         const relevantPolygons: ReadonlyArray<ConvexPolygonEntity> = mapData.getRelevantPolygons(row, column);
 
-        // The inside of the loops here may become a performance bottleneck!
-        const alphaData = new Uint8Array(INFERTILITY_TEXTURE_WIDTH * INFERTILITY_TEXTURE_HEIGHT * 4);
-
         let index = 0;
-        let x = minX;
-        let z = minZ;
-        const xStep = rangeX / (INFERTILITY_TEXTURE_WIDTH - 1);
-        const zStep = rangeZ / (INFERTILITY_TEXTURE_HEIGHT - 1);
-        let infertility: number;
-        for (let i = 0; i < INFERTILITY_TEXTURE_HEIGHT; i++, z += zStep) {
-            x = minX;
-            for (let j = 0; j < INFERTILITY_TEXTURE_WIDTH; j++, x += xStep) {
-                fertility = ForestCell.getFertility(x, z, offsetsX, offsetsZ, relevantPolygons, distanceDivisorSquared);
-                infertility = Math.floor((1 - fertility) * (1 - fertility) * 255.9);
-                alphaData[index++] = infertility;
-                alphaData[index++] = infertility;
-                alphaData[index++] = infertility;
-                fertilityMap[i][j] = fertility;
-            }
-        }
-
         for (let i = 0; i < PLANT_ATTEMPTS_PER_CELL && plants.length < MAX_PLANTS_PER_CELL * 2; i++) {
             plantX = minX + Math.random() * rangeX;
             plantZ = minZ + Math.random() * rangeZ;
@@ -295,6 +273,48 @@ export class ForestCell extends Object3D {
         const instances = plants.flatMap((plantPositions, index): InstancedMesh[] =>
             bambooModels[index].makeInstances(plantPositions, (index + 1) / bambooModels.length)
         );
+        return instances;
+    }
+
+    static generateMaterial(
+        mapData: MazeMap,
+        row: number,
+        column: number,
+        dirtTexturePromise: Promise<Texture>
+    ): Material {
+        // Normalized
+        const minX = column / mapData.width;
+        const rangeX = 1 / mapData.width;
+        const minZ = row / mapData.height;
+        const rangeZ = 1 / mapData.height;
+
+        let fertility: number;
+        const offsetsX = [0, column === 0 ? 1 : NaN, column === mapData.width - 1 ? -1 : NaN].filter((a) => !isNaN(a));
+        const offsetsZ = [0, row === 0 ? 1 : NaN, row === mapData.height - 1 ? -1 : NaN].filter((a) => !isNaN(a));
+        const distanceDivisor = MAX_DISTANCE_FROM_WALL / Math.max(mapData.width, mapData.height);
+        const distanceDivisorSquared = distanceDivisor * distanceDivisor;
+
+        const relevantPolygons: ReadonlyArray<ConvexPolygonEntity> = mapData.getRelevantPolygons(row, column);
+
+        // The inside of the loops here may become a performance bottleneck!
+        const alphaData = new Uint8Array(INFERTILITY_TEXTURE_WIDTH * INFERTILITY_TEXTURE_HEIGHT * 4);
+
+        let index = 0;
+        let x = minX;
+        let z = minZ;
+        const xStep = rangeX / (INFERTILITY_TEXTURE_WIDTH - 1);
+        const zStep = rangeZ / (INFERTILITY_TEXTURE_HEIGHT - 1);
+        let infertility: number;
+        for (let i = 0; i < INFERTILITY_TEXTURE_HEIGHT; i++, z += zStep) {
+            x = minX;
+            for (let j = 0; j < INFERTILITY_TEXTURE_WIDTH; j++, x += xStep) {
+                fertility = ForestCell.getFertility(x, z, offsetsX, offsetsZ, relevantPolygons, distanceDivisorSquared);
+                infertility = Math.floor((1 - fertility) * (1 - fertility) * 255.9);
+                alphaData[index++] = infertility;
+                alphaData[index++] = infertility;
+                alphaData[index++] = infertility;
+            }
+        }
         const dirtAlphaTexture = new DataTexture(
             alphaData,
             INFERTILITY_TEXTURE_WIDTH,
@@ -315,7 +335,7 @@ export class ForestCell extends Object3D {
             material.wireframe = false;
             material.needsUpdate = true;
         });
-        return [instances, material];
+        return material;
     }
 
     private static getFertility(

@@ -246,7 +246,8 @@ export class ForestObject extends Object3D implements Updatable {
         const dirtTexturePromise = textureLoader.loadAsync('./assets/dirt.jpg');
 
         let totalPlantCount = 0;
-        const memorizedData: Map<number, [InstancedMesh[], Material]> = new Map();
+        const memorizedPlants: Map<number, InstancedMesh[]> = new Map();
+        const memorizedDirtMaterials: Map<number, Material> = new Map();
         this.cellGrid = [];
         for (let i = 0; i < this.mapData.height; i++) {
             this.cellGrid.push([]);
@@ -255,7 +256,8 @@ export class ForestObject extends Object3D implements Updatable {
                     this.mapData,
                     i,
                     j,
-                    memorizedData,
+                    memorizedPlants,
+                    memorizedDirtMaterials,
                     this.worldWidth,
                     this.worldDepth,
                     this.bambooModels,
