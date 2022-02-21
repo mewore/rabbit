@@ -56,34 +56,21 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
     groundMaterial.name = 'GroundMaterial';
     groundMaterial.side = FrontSide;
 
-    const targetMeshSize = new Vector2(worldWidth * 3, worldDepth * 3);
-    const groundMesh = new Mesh(new PlaneBufferGeometry(targetMeshSize.x, targetMeshSize.y), groundMaterial);
+    const meshSize = new Vector2(worldWidth * 3, worldDepth * 3);
+    const groundMesh = new Mesh(new PlaneBufferGeometry(meshSize.x, meshSize.y), groundMaterial);
 
     const textureLoader = new TextureLoader();
     textureLoader.loadAsync('./assets/ground.jpg').then((groundTexture) => {
         const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
-        const heightToWidth = groundTexture.image.height / groundTexture.image.width;
-        const newMeshSize = new Vector2().copy(targetMeshSize);
-        if (heightToWidth > 1) {
-            newMeshSize.y *= heightToWidth;
-        } else {
-            newMeshSize.x /= heightToWidth;
-        }
+        const scaledTextureSize = new Vector2().copy(textureSize).multiplyScalar(GROUND_TEXTURE_SCALE);
 
         groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
-        groundTexture.repeat.copy(newMeshSize).divide(textureSize).divideScalar(GROUND_TEXTURE_SCALE).ceil();
+        groundTexture.repeat.copy(meshSize).divide(scaledTextureSize).divideScalar(3).round().multiplyScalar(3);
         groundTexture.anisotropy = 8;
         groundTexture.encoding = sRGBEncoding;
         groundTexture.minFilter = LinearMipMapLinearFilter;
-
         groundMaterial.map = groundTexture;
         groundMaterial.needsUpdate = true;
-
-        groundMesh.geometry.dispose();
-        groundMesh.geometry = new PlaneBufferGeometry(
-            groundTexture.repeat.x * textureSize.x * GROUND_TEXTURE_SCALE,
-            groundTexture.repeat.y * textureSize.y * GROUND_TEXTURE_SCALE
-        );
     });
 
     groundMesh.name = 'Ground';
