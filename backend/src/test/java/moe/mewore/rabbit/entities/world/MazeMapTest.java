@@ -5,15 +5,23 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
+import moe.mewore.rabbit.noise.Noise;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class MazeMapTest {
 
     @Test
     void testGenerate() {
         final Random random = new Random(11L);
-        // ~15KB
-        assertEquals(15628, MazeMap.createSeamless(30, 30, random, 3).encodeToBinary().length);
+        final Noise opennessNoise = mock(Noise.class);
+        when(opennessNoise.get(anyDouble(), anyDouble())).thenReturn(.5);
+
+        // ~12KB
+        assertEquals(12712, MazeMap.createSeamless(30, 30, random, 3, opennessNoise).encodeToBinary().length);
     }
 
     @Test

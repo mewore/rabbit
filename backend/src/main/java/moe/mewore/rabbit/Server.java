@@ -35,6 +35,9 @@ import moe.mewore.rabbit.entities.mutations.MutationType;
 import moe.mewore.rabbit.entities.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.entities.mutations.PlayerUpdateMutation;
 import moe.mewore.rabbit.entities.world.MazeMap;
+import moe.mewore.rabbit.noise.DiamondSquareNoise;
+import moe.mewore.rabbit.noise.Noise;
+import moe.mewore.rabbit.noise.composite.CompositeNoise;
 
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
@@ -63,7 +66,10 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 config.addStaticFiles(settings.getExternalStaticLocation(), Location.EXTERNAL);
             }
         });
-        final MazeMap map = MazeMap.createSeamless(30, 30, new Random(11L), 3);
+        final long seed = 11L;
+        final Noise opennessNoise = new CompositeNoise(DiamondSquareNoise.createSeamless(7, new Random(seed), 1.0, .5),
+            DiamondSquareNoise.createSeamless(7, new Random(seed + 1), 1.0, .7), CompositeNoise.XNOR_BLENDING);
+        final MazeMap map = MazeMap.createSeamless(50, 50, new Random(seed), 1, opennessNoise);
         return new Server(settings, javalin, map).start();
     }
 

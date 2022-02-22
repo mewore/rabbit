@@ -2,7 +2,9 @@ package moe.mewore.rabbit.noise;
 
 import java.util.Random;
 
-public class DiamondSquareNoise implements Noise {
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+public class DiamondSquareNoise extends NoiseBase {
 
     private static final int MAX_SAFE_RESOLUTION = 12;
 
@@ -17,13 +19,13 @@ public class DiamondSquareNoise implements Noise {
      * Create a seamless diamond square noise pattern. It takes up 2^(2R + 3) bytes (2^(2R - 17) MB) for a resolution
      * R. A resolution of 10 results in 8 MB being taken up.
      *
-     * @param resolution   The noise resolution.
-     * @param random       The random number generator to use for the noise generation.
-     * @param zeroAtCenter Whether to make the central point have a value of zero.
+     * @param resolution    The noise resolution.
+     * @param random        The random number generator to use for the noise generation.
+     * @param valueAtCenter The value of the central point.
      * @return The generated noise.
      */
     public static DiamondSquareNoise createSeamless(final int resolution, final Random random,
-        final boolean zeroAtCenter) {
+        final @Nullable Double valueAtCenter, final double sharpness) {
         if (resolution < 0) {
             throw new IllegalArgumentException(
                 "A resolution of " + resolution + " is not allowed; the resolution should be non-negative");
@@ -34,7 +36,7 @@ public class DiamondSquareNoise implements Noise {
                     " is the largest allowed one)");
         }
         final DiamondSquareNoise result = new DiamondSquareNoise(resolution);
-        result.generateSeamless(random, zeroAtCenter);
+        result.generateSeamless(random, valueAtCenter, sharpness);
         return result;
     }
 
@@ -44,7 +46,7 @@ public class DiamondSquareNoise implements Noise {
 
     // Sadly, I have no idea how to make this messy code any better.
     @SuppressWarnings("OverlyComplexMethod")
-    private void generateSeamless(final Random random, final boolean zeroAtCenter) {
+    private void generateSeamless(final Random random, final @Nullable Double valueAtCenter, final double sharpness) {
         final int lastIndex = grid.length - 1;
         grid[0][0] = grid[0][lastIndex] = grid[lastIndex][0] = grid[lastIndex][lastIndex] = random.nextDouble();
         int size = grid.length - 1;
@@ -67,8 +69,8 @@ public class DiamondSquareNoise implements Noise {
                             (random.nextDouble() - 0.5) * magnitude);
                 }
             }
-            if (subSquares == 1 && zeroAtCenter) {
-                grid[halfSize][halfSize] = 0.0;
+            if (subSquares == 1 && valueAtCenter != null) {
+                grid[halfSize][halfSize] = valueAtCenter;
             }
 
             // Square
@@ -116,7 +118,7 @@ public class DiamondSquareNoise implements Noise {
             subSquares *= 2;
             size >>= 1;
             halfSize >>= 1;
-            magnitude /= 2;
+            magnitude *= sharpness;
         }
 
         normalize();

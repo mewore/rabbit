@@ -5,12 +5,16 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -18,19 +22,20 @@ import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.entities.BinaryEntity;
 import moe.mewore.rabbit.geometry.ConvexPolygon;
 import moe.mewore.rabbit.geometry.Vector2;
+import moe.mewore.rabbit.noise.DiamondSquareNoise;
+import moe.mewore.rabbit.noise.Noise;
+import moe.mewore.rabbit.noise.composite.CompositeNoise;
 
 // I'm too retarded to make an algorithmic/geometric class which isn't complex.
 @SuppressWarnings({"OverlyComplexMethod", "OverlyComplexClass"})
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class MazeMap extends BinaryEntity {
 
-    private static final int[] dx = {-1, 1, 0, 0};
+    private static final int[] dx = {-1, 1, 0, 0, -1, -1, 1, 1};
 
-    private static final int[] dy = {0, 0, -1, 1};
+    private static final int[] dy = {0, 0, -1, 1, -1, 1, -1, 1};
 
     private static final double SMOOTHING = 0.3;
-
-    private static final double MAX_CLEAR_OUT_CHANCE = 0.3;
 
     private final boolean[][] map;
 
@@ -39,7 +44,7 @@ public class MazeMap extends BinaryEntity {
     private final int[][][] relevantPolygonIndices;
 
     public static MazeMap createSeamless(final int width, final int height, final Random random,
-        final int clearOutPasses) {
+        final int clearOutPasses, final Noise opennessNoise) {
         final boolean[][] map = createSeamlessLabyrinth(width, height, random);
 
         for (int i = -1; i <= 1; i++) {
@@ -51,9 +56,38 @@ public class MazeMap extends BinaryEntity {
         for (int i = 0; i < height; i++) {
             System.arraycopy(map, 0, oldMap, 0, map[i].length);
         }
+        for (int pass = 0; pass < clearOutPasses; pass++) {
+            for (int i = 0; i < height; i++) {
+                System.arraycopy(map, 0, oldMap, 0, map[i].length);
+            }
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    final double openness = opennessNoise.get((double) (j) / width, (double) (i) / height);
+                    if (map[i][j] == openness > 0.5) {
+                        continue;
+                    }
+                    final double baseFlipChance = Math.abs(openness - 0.5) * 2;
+                    int neighbouringWalls = 0;
+                    for (int d = 0; d < 8; d++) {
+                        if (!oldMap[wrap(i + dy[d], height)][wrap(j + dx[d], width)]) {
+                            neighbouringWalls += Math.abs(dy[d]) + Math.abs(dx[d]);
+                        }
+                    }
+
+                    final double flipChance = Math.pow(baseFlipChance,
+                        map[i][j] ? (12 - neighbouringWalls) : neighbouringWalls);
+
+                    if (random.nextDouble() < flipChance) {
+                        map[i][j] = !map[i][j];
+                    }
+                }
+            }
+        }
+
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 if (map[i][j]) {
+                    // Smooth walls out
                     int neighbouringWalls = 0;
                     for (int d = 0; d < 4; d++) {
                         if (!oldMap[wrap(i + dy[d], height)][wrap(j + dx[d], width)]) {
@@ -63,40 +97,29 @@ public class MazeMap extends BinaryEntity {
                     if (neighbouringWalls >= 3) {
                         map[i][j] = false;
                     }
-                }
-            }
-        }
-        for (int pass = 0; pass < clearOutPasses; pass++) {
-            for (int i = 0; i < height; i++) {
-                System.arraycopy(map, 0, oldMap, 0, map[i].length);
-            }
-            for (int i = 0; i < height; i++) {
-                for (int j = 0; j < width; j++) {
-                    if (map[i][j]) {
-                        continue;
-                    }
+                } else if ((oldMap[wrap(i - 1, height)][wrap(j - 1, width)] &&
+                    oldMap[wrap(i + 1, height)][wrap(j + 1, width)]) ||
+                    oldMap[wrap(i - 1, height)][wrap(j + 1, width)] &&
+                        oldMap[wrap(i + 1, height)][wrap(j - 1, width)]) {
+                    // Add a small diagonal passage
                     int neighbouringWalls = 0;
-                    for (int d = 0; d < 4; d++) {
+                    for (int d = 0; d < 8; d++) {
                         if (!oldMap[wrap(i + dy[d], height)][wrap(j + dx[d], width)]) {
                             neighbouringWalls++;
                         }
                     }
-                    if (neighbouringWalls < 4) {
-                        int neighbouringDiagonalWalls = 0;
-                        for (int dx = -1; dx <= 1; dx += 2) {
-                            for (int dy = -1; dy <= 1; dy += 2) {
-                                if (!oldMap[wrap(i + dy, height)][wrap(j + dx, width)]) {
-                                    neighbouringDiagonalWalls++;
-                                }
-                            }
-                        }
-                        final double chanceToClearOut = neighbouringWalls + neighbouringDiagonalWalls == 0
-                            ? 0.0 : Math.pow(MAX_CLEAR_OUT_CHANCE, neighbouringDiagonalWalls);
-                        if (random.nextDouble() < chanceToClearOut) {
-                            map[i][j] = true;
-                        }
+                    if (neighbouringWalls >= 5) {
+                        map[i][j] = true;
                     }
                 }
+            }
+        }
+
+
+        final CellTraversal[][] traversals = traverse(map, height / 2, width / 2);
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                map[i][j] = traversals[i][j] != null;
             }
         }
 
@@ -227,10 +250,10 @@ public class MazeMap extends BinaryEntity {
                 final int nextCol = wrap(col + dx[dIndices[i]], width);
                 if (!tried[nextRow][nextCol]) {
                     boolean isValid = true;
-                    for (int j = 0; j < 4; j++) {
+                    for (int j = 0; j < 8; j++) {
                         final int otherRow = wrap(nextRow + dy[j], height);
                         final int otherCol = wrap(nextCol + dx[j], width);
-                        if (map[otherRow][otherCol] && (otherRow != row || otherCol != col)) {
+                        if (map[otherRow][otherCol] && (Math.abs(otherRow - row) + Math.abs(otherCol - col) >= 2)) {
                             isValid = false;
                             break;
                         }
@@ -248,11 +271,19 @@ public class MazeMap extends BinaryEntity {
 
     public static void main(final String[] args) {
         final long start = System.currentTimeMillis();
-        final int from = Integer.parseInt(args[0]);
-        final int to = args.length < 2 ? from : Integer.parseInt(args[1]);
+
+        int index = 0;
+        final long seed = Long.parseLong(args[index++]);
+        final int from = Integer.parseInt(args[index++]);
+        final int to = args.length < 3 ? from : Integer.parseInt(args[index]);
+
+        final Noise opennessNoise = new CompositeNoise(DiamondSquareNoise.createSeamless(7, new Random(seed), 1.0, .5),
+            DiamondSquareNoise.createSeamless(7, new Random(seed + 1), 1.0, .7), CompositeNoise.XNOR_BLENDING);
+        opennessNoise.render(1024, 1024, "maze-noise");
+
         for (int smoothingIterations = from; smoothingIterations <= to; smoothingIterations++) {
             System.out.printf("Generating a maze with %d smoothing iterations...%n", smoothingIterations);
-            final MazeMap maze = MazeMap.createSeamless(30, 30, new Random(11L), smoothingIterations);
+            final MazeMap maze = MazeMap.createSeamless(50, 50, new Random(seed), smoothingIterations, opennessNoise);
             maze.render(1024, 1024, "maze" + smoothingIterations);
         }
         System.out.printf("Finished in %d seconds.", (System.currentTimeMillis() - start) / 1000);
@@ -405,5 +436,35 @@ public class MazeMap extends BinaryEntity {
             }
         }
         appendCollectionToBinaryOutput(walls, output);
+    }
+
+    private static @Nullable CellTraversal[][] traverse(final boolean[][] map, final int fromRow, final int fromCol) {
+        final int height = map.length;
+        final int width = map[0].length;
+        final CellTraversal[][] result = new CellTraversal[height][width];
+        if (!map[fromRow][fromCol]) {
+            return result;
+        }
+
+        result[fromRow][fromCol] = new CellTraversal(0, -1, -1);
+        final Queue<Integer> toExplore = new ArrayDeque<>();
+        toExplore.add(fromRow * width + fromCol);
+        while (!toExplore.isEmpty()) {
+            final int row = toExplore.peek() / width;
+            final int col = toExplore.poll() % width;
+            final int distance = result[row][col].getMinDistance() + 1;
+
+            for (int d = 0; d < 8; d++) {
+                final int newRow = wrap(row + dy[d], height);
+                final int newCol = wrap(col + dx[d], width);
+
+                if (map[newRow][newCol] && result[newRow][newCol] == null) {
+                    result[newRow][newCol] = new CellTraversal(distance, row, col);
+                    toExplore.add(newRow * width + newCol);
+                }
+            }
+        }
+
+        return result;
     }
 }
