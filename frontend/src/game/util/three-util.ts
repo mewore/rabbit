@@ -57,7 +57,10 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
     groundMaterial.side = FrontSide;
 
     const meshSize = new Vector2(worldWidth * 3, worldDepth * 3);
-    const groundMesh = new Mesh(new PlaneBufferGeometry(meshSize.x, meshSize.y), groundMaterial);
+    const groundMesh = new Mesh(
+        new PlaneBufferGeometry(meshSize.x, meshSize.y, Math.ceil(worldWidth / 1000), Math.ceil(worldDepth / 1000)),
+        groundMaterial
+    );
 
     const textureLoader = new TextureLoader();
     textureLoader.loadAsync('./assets/ground.jpg').then((groundTexture) => {
