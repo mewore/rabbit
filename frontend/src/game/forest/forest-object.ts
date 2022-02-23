@@ -202,10 +202,16 @@ export class ForestObject extends Object3D implements Updatable {
                 max.max(tmpVector2);
             }
         }
-        const topRow = Math.floor((min.y / this.worldDepth + 0.5) * height) - 1;
-        const bottomRow = Math.ceil((max.y / this.worldDepth + 0.5) * height) + 1;
-        const leftColumn = Math.floor((min.x / this.worldWidth + 0.5) * width) - 1;
-        const rightColumn = Math.ceil((max.x / this.worldWidth + 0.5) * width) + 1;
+        const topRow = Math.max(Math.floor((min.y / this.worldDepth + 0.5) * height) - 1, -this.mapData.height + 1);
+        const bottomRow = Math.min(
+            Math.ceil((max.y / this.worldDepth + 0.5) * height) + 1,
+            topRow + this.mapData.height - 1
+        );
+        const leftColumn = Math.max(Math.floor((min.x / this.worldWidth + 0.5) * width) - 1, -this.mapData.width + 1);
+        const rightColumn = Math.min(
+            Math.ceil((max.x / this.worldWidth + 0.5) * width) + 1,
+            leftColumn + this.mapData.width - 1
+        );
 
         for (const cell of this.visibleCells) {
             if (cell.row < topRow || cell.row > bottomRow || cell.column < leftColumn || cell.column > rightColumn) {

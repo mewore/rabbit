@@ -42,11 +42,11 @@ export class MazeMap extends BinaryEntity {
     }
 
     wrapRow(row: number): number {
-        return (row + this.height) % this.height;
+        return row - Math.floor(row / this.height) * this.height;
     }
 
     wrapColumn(column: number): number {
-        return (column + this.width) % this.width;
+        return column - Math.floor(column / this.width) * this.width;
     }
 
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
