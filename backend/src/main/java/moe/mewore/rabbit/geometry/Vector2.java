@@ -24,6 +24,10 @@ public class Vector2 extends BinaryEntity {
         return dx * dx + dy * dy;
     }
 
+    public Vector2 plus(final double deltaX, final double deltaY) {
+        return new Vector2(x + deltaX, y + deltaY);
+    }
+
     public static Vector2 decodeFromBinary(final DataInput input) throws IOException {
         return new Vector2(input.readDouble(), input.readDouble());
     }

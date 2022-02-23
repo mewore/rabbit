@@ -155,9 +155,49 @@ public class MazeMap extends BinaryEntity {
         double rightX;
         double topY;
         double bottomY;
+
+        int diagonalRow;
+        int diagonalCol;
         for (int top = 0; top < height; top++) {
             for (int left = 0; left < width; left++) {
-                if (map[top][left] || occupiedByPolygons[top][left]) {
+                if (map[top][left]) {
+                    topY = top;
+                    leftX = left;
+                    bottomY = top + 1;
+                    rightX = left + 1;
+                    for (int d = 4; d < 8; d++) {
+                        diagonalRow = wrap(top + dy[d], height);
+                        diagonalCol = wrap(left + dx[d], width);
+                        if (map[diagonalRow][diagonalCol] || map[diagonalRow][left] || map[top][diagonalCol]) {
+                            continue;
+                        }
+                        final List<Vector2> points = new ArrayList<>(3);
+                        final Vector2 corner = new Vector2((dx[d] < 0 ? leftX : rightX) / width,
+                            (dy[d] < 0 ? topY : bottomY) / height);
+                        points.add(corner);
+                        final double deltaX = (dx[d] < 0 ? SMOOTHING : -SMOOTHING) / width;
+                        final double deltaY = (dy[d] < 0 ? SMOOTHING : -SMOOTHING) / height;
+                        if (dx[d] * dy[d] > 0) {
+                            // Top-left or bottom-right
+                            points.add(corner.plus(0, deltaY));
+                            points.add(corner.plus(deltaX, 0));
+                        } else {
+                            // Top-right or bottom-left
+                            points.add(corner.plus(deltaX, 0));
+                            points.add(corner.plus(0, deltaY));
+                        }
+                        final int polygonIndex = walls.size();
+                        walls.add(new MazeWall(top, left, top, left, new ConvexPolygon(points)));
+
+                        for (int i = top - 1; i <= top + 1; i++) {
+                            for (int j = left - 1; j <= left + 1; j++) {
+                                relevantPolygonIndexLists.get(wrap(i, height)).get(wrap(j, width)).add(polygonIndex);
+                            }
+                        }
+                    }
+                    continue;
+                }
+                if (occupiedByPolygons[top][left]) {
                     continue;
                 }
 
@@ -180,25 +220,25 @@ public class MazeMap extends BinaryEntity {
                 topY = top;
                 bottomY = bottom + 1;
                 final List<Vector2> points = new ArrayList<>(4);
-                if (map[bottom][wrap(left - 1, map[0].length)] && map[wrap(bottom + 1, map.length)][left]) {
+                if (map[bottom][wrap(left - 1, width)] && map[wrap(bottom + 1, height)][left]) {
                     points.add(new Vector2(leftX / width, (bottomY - SMOOTHING) / height));
                     points.add(new Vector2((leftX + SMOOTHING) / width, bottomY / height));
                 } else {
                     points.add(new Vector2(leftX / width, bottomY / height));
                 }
-                if (map[bottom][wrap(right + 1, map[0].length)] && map[wrap(bottom + 1, map.length)][right]) {
+                if (map[bottom][wrap(right + 1, width)] && map[wrap(bottom + 1, height)][right]) {
                     points.add(new Vector2((rightX - SMOOTHING) / width, bottomY / height));
                     points.add(new Vector2(rightX / width, (bottomY - SMOOTHING) / height));
                 } else {
                     points.add(new Vector2(rightX / width, bottomY / height));
                 }
-                if (map[top][wrap(right + 1, map[0].length)] && map[wrap(top - 1, map.length)][right]) {
+                if (map[top][wrap(right + 1, width)] && map[wrap(top - 1, height)][right]) {
                     points.add(new Vector2(rightX / width, (topY + SMOOTHING) / height));
                     points.add(new Vector2((rightX - SMOOTHING) / width, topY / height));
                 } else {
                     points.add(new Vector2(rightX / width, topY / height));
                 }
-                if (map[top][wrap(left - 1, map[0].length)] && map[wrap(top - 1, map.length)][left]) {
+                if (map[top][wrap(left - 1, width)] && map[wrap(top - 1, height)][left]) {
                     points.add(new Vector2((leftX + SMOOTHING) / width, topY / height));
                     points.add(new Vector2(leftX / width, (topY + SMOOTHING) / height));
                 } else {
