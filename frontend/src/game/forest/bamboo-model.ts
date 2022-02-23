@@ -1,4 +1,5 @@
 import {
+    BufferAttribute,
     BufferGeometry,
     Color,
     Euler,
@@ -83,18 +84,21 @@ export class BambooModel {
         return new BambooModel(parseInt(bambooObject.name.substring(firstDigitIndex)), stem, leaf);
     }
 
-    makeInstances(positions: number[], tallness: number): InstancedMesh[] {
-        const count = positions.length / 2;
-        if (!count) {
-            return [];
-        }
-
-        const stems = new InstancedMesh(this.stemMesh.geometry, this.stemMesh.material, count);
+    makeEmptyInstancedMeshes(): InstancedMesh[] {
+        const stems = new InstancedMesh(this.stemMesh.geometry, this.stemMesh.material, 0);
         stems.name = `Bamboo:${this.maxHeight}:Stems`;
         stems.material.side = FrontSide;
 
-        const leaves = new InstancedMesh(this.leafMesh.geometry, this.leafMesh.material, count);
+        const leaves = new InstancedMesh(this.leafMesh.geometry, this.leafMesh.material, 0);
         leaves.name = `Bamboo:${this.maxHeight}:Leaves`;
+
+        return [stems, leaves];
+    }
+
+    makeInstanceMatrices(positions: number[], tallness: number): BufferAttribute {
+        const count = positions.length / 2;
+
+        const mesh = new InstancedMesh(this.stemMesh.geometry, this.stemMesh.material, count);
 
         let y: number;
 
@@ -106,11 +110,9 @@ export class BambooModel {
             y = -Math.random() * this.maxDepth;
             translation.set(positions[i + i], y, positions[i + i + 1]);
             matrix.compose(translation, rotation, scale);
-            for (const mesh of [stems, leaves]) {
-                mesh.setMatrixAt(i, matrix);
-            }
+            mesh.setMatrixAt(i, matrix);
         }
 
-        return [stems, leaves];
+        return mesh.instanceMatrix;
     }
 }

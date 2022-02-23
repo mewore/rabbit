@@ -1,4 +1,5 @@
 import {
+    BufferAttribute,
     Camera,
     Frustum,
     Group,
@@ -13,7 +14,8 @@ import {
     Vector3,
 } from 'three';
 import { BambooModel } from './bamboo-model';
-import { ForestCell } from './forest-cell';
+import { ForestCellData } from './forest-cell-data';
+import { ForestCellObject } from './forest-cell-object';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Input } from '../util/input';
 import { MazeMap } from '../entities/world/maze-map';
@@ -40,9 +42,9 @@ export class ForestObject extends Object3D implements Updatable {
     private bambooModels?: BambooModel[];
     private dummyBambooModels: BambooModel[] = [];
     private mapData?: MazeMap;
-    private readonly cells: ForestCell[] = [];
 
-    private cellGrid: (ForestCell | undefined)[][] | undefined;
+    private cellGrid: (ForestCellData | undefined)[][] | undefined;
+    private readonly cellPool: ForestCellObject[] = [];
 
     private forestUpdateTimeout = 0;
     private readonly oldCameraPosition = new Vector3();
@@ -51,8 +53,6 @@ export class ForestObject extends Object3D implements Updatable {
     private currentTotalPlants = 0;
     private currentRenderedDetailedPlants = 0;
     private currentRenderedDummyPlants = 0;
-
-    private visibleCells: ForestCell[] = [];
 
     private receivingShadows = false;
     visiblePlants = 1.0;
@@ -121,7 +121,7 @@ export class ForestObject extends Object3D implements Updatable {
             return;
         }
         this.receivingShadows = receiveShadow;
-        for (const cell of this.cells) {
+        for (const cell of this.cellPool) {
             cell.setReceiveShadow(receiveShadow);
         }
     }
@@ -150,7 +150,7 @@ export class ForestObject extends Object3D implements Updatable {
     update(): void {}
 
     beforeRender(delta: number): void {
-        if (!this.camera || !this.cells.length || !this.cellGrid || !this.mapData) {
+        if (!this.camera || !this.cellGrid || !this.mapData || !this.bambooModels) {
             return;
         }
 
@@ -213,33 +213,41 @@ export class ForestObject extends Object3D implements Updatable {
             leftColumn + this.mapData.width - 1
         );
 
-        for (const cell of this.visibleCells) {
-            if (cell.row < topRow || cell.row > bottomRow || cell.column < leftColumn || cell.column > rightColumn) {
-                cell.visible = false;
-            }
-        }
-        this.visibleCells = [];
+        let nextCellIndex = 0;
+        const cellWidth = this.worldWidth / this.mapData.width;
+        const cellDepth = this.worldDepth / this.mapData.height;
 
         let offsetX = 0;
         let offsetZ = 0;
         for (let i = topRow; i <= bottomRow; i++) {
             offsetZ = (i < 0 ? -this.worldDepth : 0) + (i >= height ? this.worldDepth : 0);
             for (let j = leftColumn; j <= rightColumn; j++) {
-                const cell = this.cellGrid[this.mapData.wrapRow(i)][this.mapData.wrapColumn(j)];
-                if (cell) {
-                    offsetX = (j < 0 ? -this.worldWidth : 0) + (j >= width ? this.worldWidth : 0);
-                    cell.reposition(offsetX, offsetZ);
-                    this.currentRenderedDetailedPlants += cell.cull(
-                        frustum,
-                        fadeOutPortion,
-                        viewDistance,
-                        this.visiblePlants
-                    );
-                    if (cell.visible) {
-                        this.visibleCells.push(cell);
-                    }
+                const cellData = this.cellGrid[this.mapData.wrapRow(i)][this.mapData.wrapColumn(j)];
+                if (!cellData) {
+                    continue;
                 }
+                offsetX = (j < 0 ? -this.worldWidth : 0) + (j >= width ? this.worldWidth : 0);
+                cellData.reposition(offsetX, offsetZ);
+                this.currentRenderedDetailedPlants += cellData.cull(
+                    frustum,
+                    fadeOutPortion,
+                    viewDistance,
+                    this.visiblePlants
+                );
+                if (!cellData.visible) {
+                    continue;
+                }
+                if (nextCellIndex >= this.cellPool.length) {
+                    this.cellPool.push(
+                        new ForestCellObject(ForestObject.createInstances(this.bambooModels), cellWidth, cellDepth)
+                    );
+                    this.attach(this.cellPool[nextCellIndex]);
+                }
+                this.cellPool[nextCellIndex++].applyData(cellData);
             }
+        }
+        while (nextCellIndex < this.cellPool.length) {
+            this.cellPool[nextCellIndex++].visible = false;
         }
     }
 
@@ -252,13 +260,13 @@ export class ForestObject extends Object3D implements Updatable {
         const dirtTexturePromise = textureLoader.loadAsync('./assets/leaves.jpg');
 
         let totalPlantCount = 0;
-        const memorizedPlants: Map<number, InstancedMesh[]> = new Map();
+        const memorizedPlants: Map<number, BufferAttribute[]> = new Map();
         const memorizedDirtMaterials: Map<number, Material> = new Map();
         this.cellGrid = [];
         for (let i = 0; i < this.mapData.height; i++) {
             this.cellGrid.push([]);
             for (let j = 0; j < this.mapData.width; j++) {
-                const cell = ForestCell.fromMapData(
+                const cell = ForestCellData.fromMapData(
                     this.mapData,
                     i,
                     j,
@@ -270,14 +278,15 @@ export class ForestObject extends Object3D implements Updatable {
                     dirtTexturePromise
                 );
                 if (cell) {
-                    this.cells.push(cell);
                     totalPlantCount += cell.count;
-                    this.attach(cell);
-                    cell.setReceiveShadow(this.receivingShadows);
                 }
                 this.cellGrid[i].push(cell);
             }
         }
         this.currentTotalPlants = totalPlantCount;
+    }
+
+    static createInstances(bambooModels: BambooModel[]): InstancedMesh[] {
+        return bambooModels.flatMap((model) => model.makeEmptyInstancedMeshes());
     }
 }

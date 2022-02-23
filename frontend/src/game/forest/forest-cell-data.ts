@@ -1,15 +1,11 @@
 import {
     Box3,
-    Color,
+    BufferAttribute,
     DataTexture,
     Frustum,
-    InstancedMesh,
     LinearFilter,
     Material,
-    Mesh,
     MeshStandardMaterial,
-    Object3D,
-    PlaneBufferGeometry,
     RGBFormat,
     Texture,
     UnsignedByteType,
@@ -31,8 +27,6 @@ const ALPHA_TEXTURE_WIDTH = 4;
 const ALPHA_TEXTURE_HEIGHT = ALPHA_TEXTURE_WIDTH;
 
 const invisibleAlphaTexture = new DataTexture(new Uint8Array([0, 0, 0]), 1, 1, RGBFormat, UnsignedByteType);
-
-const DIRT_PLANE_OFFSET = 0.1;
 
 const PLANT_PADDING = 15;
 const PLANT_HEIGHT = 100;
@@ -62,63 +56,43 @@ const FRUSTUM_NEAR_PLANE_INDEX = 5;
 let minPlantDistanceSquared: number;
 const tmpVector3 = new Vector3();
 
-export class ForestCell extends Object3D {
-    debugData = '';
-
+export class ForestCellData {
     private readonly boundingBox: Box3;
-    private readonly plantContainer: Object3D;
 
     readonly count: number;
+    readonly totalCountPerPlantType: number[];
+    readonly countPerPlantType: number[];
 
     static spawnAttempts = 0;
 
+    plantContainerVisible = false;
+
+    readonly position = new Vector3();
+    readonly name: string;
+    visible = false;
+
     constructor(
-        private readonly instancedMeshes: InstancedMesh[],
-        dirtMaterial: Material,
+        readonly allPlantMatrices: BufferAttribute[],
+        readonly dirtMaterial: Material,
         private readonly x: number,
         private readonly z: number,
-        plantScale: Vector3,
+        readonly plantScale: Vector3,
         cellWidth: number,
         cellDepth: number,
         readonly row: number,
         readonly column: number
     ) {
-        super();
-        this.name = `ForestCell(${row},${column})`;
-
-        const dirtPlane = new Mesh(new PlaneBufferGeometry(cellWidth, cellDepth), dirtMaterial);
-        dirtPlane.rotateX(-Math.PI / 2);
-        dirtPlane.position.y = DIRT_PLANE_OFFSET;
-        dirtPlane.receiveShadow = true;
-        this.attach(dirtPlane);
-
-        this.plantContainer = new Object3D();
-        for (const mesh of instancedMeshes) {
-            mesh.position.set(-cellWidth / 2, 0, -cellDepth / 2);
-            this.plantContainer.attach(mesh);
-        }
-        this.plantContainer.scale.copy(plantScale);
-        this.attach(this.plantContainer);
         this.boundingBox = new Box3(
             new Vector3(x - cellWidth / 2 - PLANT_PADDING, 0, z - cellDepth / 2 - PLANT_PADDING),
             new Vector3(x + cellWidth / 2 + PLANT_PADDING, PLANT_HEIGHT, z + cellDepth / 2 + PLANT_PADDING)
         );
 
-        let count = 0;
-        for (let i = 0; i < instancedMeshes.length; i += 2) {
-            count += instancedMeshes[i].count;
-        }
-        this.count = count;
+        this.totalCountPerPlantType = allPlantMatrices.map((matrices) => matrices.count);
+        this.countPerPlantType = this.totalCountPerPlantType.slice();
+        this.count = this.totalCountPerPlantType.reduce((previous, current) => previous + current, 0);
 
         this.position.set(x, 0, z);
-
-        this.visible = false;
-    }
-
-    setReceiveShadow(receiveShadow: boolean): void {
-        for (const mesh of this.instancedMeshes) {
-            mesh.receiveShadow = receiveShadow;
-        }
+        this.name = `ForestCell(${row},${column})`;
     }
 
     reposition(offsetX: number, offsetZ: number): void {
@@ -131,13 +105,13 @@ export class ForestCell extends Object3D {
         mapData: MazeMap,
         row: number,
         column: number,
-        memorizedPlants: Map<number, InstancedMesh[]>,
+        memorizedPlants: Map<number, BufferAttribute[]>,
         memorizedDirtMaterials: Map<number, Material>,
         worldWidth: number,
         worldDepth: number,
         bambooModels: BambooModel[],
         dirtTexturePromise: Promise<Texture>
-    ): ForestCell | undefined {
+    ): ForestCellData | undefined {
         let neighbouringWalls = 0;
         for (let i = 0; i < 4; i++) {
             neighbouringWalls += mapData.getCell(row + dy[i], column + dx[i]) ? 0 : 1;
@@ -161,44 +135,44 @@ export class ForestCell extends Object3D {
         }
         const originalCellKind = cellKind;
 
-        let reusedInstances = memorizedPlants.get(cellKind);
+        let reusedMatrices = memorizedPlants.get(cellKind);
 
         const scale = new Vector3(1, 1, 1);
-        for (let scaleX = 1; scaleX >= -1 && !reusedInstances; scaleX -= 2, cellKind = flipHorizontally(cellKind)) {
-            for (let scaleZ = 1; scaleZ >= -1 && !reusedInstances; scaleZ -= 2, cellKind = flipVertically(cellKind)) {
-                reusedInstances = memorizedPlants.get(cellKind);
-                if (reusedInstances) {
+        for (let scaleX = 1; scaleX >= -1 && !reusedMatrices; scaleX -= 2, cellKind = flipHorizontally(cellKind)) {
+            for (let scaleZ = 1; scaleZ >= -1 && !reusedMatrices; scaleZ -= 2, cellKind = flipVertically(cellKind)) {
+                reusedMatrices = memorizedPlants.get(cellKind);
+                if (reusedMatrices) {
                     scale.set(scaleX, 1, scaleZ);
                 }
             }
         }
 
-        let instancesToUse: InstancedMesh[];
+        let matricesToUse: BufferAttribute[];
 
         const cellWidth = worldWidth / mapData.width;
         const cellDepth = worldDepth / mapData.height;
         const x = (column / mapData.width - 0.5) * worldWidth;
         const z = (row / mapData.height - 0.5) * worldDepth;
-        if (reusedInstances) {
+        if (reusedMatrices) {
             // Attaching meshes to multiple parents doesn't work so they must be copied/
             // However, reusing matrices between instanced meshes *is* allowed.
-            instancesToUse = ForestCell.copyInstances(reusedInstances);
+            matricesToUse = reusedMatrices;
         } else {
-            instancesToUse = ForestCell.generatePlants(mapData, row, column, worldWidth, worldDepth, bambooModels);
-            memorizedPlants.set(originalCellKind, instancesToUse);
+            matricesToUse = ForestCellData.generatePlants(mapData, row, column, worldWidth, worldDepth, bambooModels);
+            memorizedPlants.set(originalCellKind, matricesToUse);
         }
 
         let dirtMaterialToUse: Material;
         const reusedDirtMaterial = memorizedDirtMaterials.get(originalCellKind);
         if (!reusedDirtMaterial) {
-            dirtMaterialToUse = ForestCell.generateMaterial(mapData, row, column, dirtTexturePromise);
+            dirtMaterialToUse = ForestCellData.generateMaterial(mapData, row, column, dirtTexturePromise);
             memorizedDirtMaterials.set(originalCellKind, dirtMaterialToUse);
         } else {
             dirtMaterialToUse = reusedDirtMaterial;
         }
 
-        const cell = new ForestCell(
-            instancesToUse,
+        const cell = new ForestCellData(
+            matricesToUse,
             dirtMaterialToUse,
             x + cellWidth / 2,
             z + cellDepth / 2,
@@ -208,19 +182,7 @@ export class ForestCell extends Object3D {
             row,
             column
         );
-        cell.debugData = reusedInstances
-            ? `Reused(${originalCellKind} -(${scale.x}, ${scale.z})-> ${cellKind})`
-            : 'Original';
         return cell;
-    }
-
-    private static copyInstances(instancedMeshes: InstancedMesh[]): InstancedMesh[] {
-        return instancedMeshes.map((instancedMesh) => {
-            const result = new InstancedMesh(instancedMesh.geometry, instancedMesh.material, instancedMesh.count);
-            result.instanceMatrix = instancedMesh.instanceMatrix;
-            result.count = instancedMesh.count;
-            return result;
-        });
     }
 
     static generatePlants(
@@ -230,7 +192,7 @@ export class ForestCell extends Object3D {
         worldWidth: number,
         worldDepth: number,
         bambooModels: BambooModel[]
-    ): InstancedMesh[] {
+    ): BufferAttribute[] {
         // Normalized
         const minX = column / mapData.width;
         const rangeX = 1 / mapData.width;
@@ -254,7 +216,7 @@ export class ForestCell extends Object3D {
         for (let i = 0; i < PLANT_ATTEMPTS_PER_CELL && plants.length < MAX_PLANTS_PER_CELL * 2; i++) {
             plantX = minX + Math.random() * rangeX;
             plantZ = minZ + Math.random() * rangeZ;
-            fertility = ForestCell.getFertility(
+            fertility = ForestCellData.getFertility(
                 plantX,
                 plantZ,
                 offsetsX,
@@ -263,7 +225,7 @@ export class ForestCell extends Object3D {
                 distanceDivisorSquared,
                 0
             );
-            ForestCell.spawnAttempts++;
+            ForestCellData.spawnAttempts++;
             fertility *= fertility;
             fertility *= fertility;
             if (fertility < 0.0000001 || Math.random() > fertility) {
@@ -278,10 +240,11 @@ export class ForestCell extends Object3D {
             plants[index].push((plantX - minX) * worldWidth, (plantZ - minZ) * worldDepth);
         }
 
-        const instances = plants.flatMap((plantPositions, index): InstancedMesh[] =>
-            bambooModels[index].makeInstances(plantPositions, (index + 1) / bambooModels.length)
+        const instanceMatrices = plants.flatMap(
+            (plantPositions, index): BufferAttribute =>
+                bambooModels[index].makeInstanceMatrices(plantPositions, (index + 1) / bambooModels.length)
         );
-        return instances;
+        return instanceMatrices;
     }
 
     static generateMaterial(
@@ -316,7 +279,14 @@ export class ForestCell extends Object3D {
         for (let i = 0; i < ALPHA_TEXTURE_HEIGHT; i++, z += zStep) {
             x = minX;
             for (let j = 0; j < ALPHA_TEXTURE_WIDTH; j++, x += xStep) {
-                fertility = ForestCell.getFertility(x, z, offsetsX, offsetsZ, relevantPolygons, distanceDivisorSquared);
+                fertility = ForestCellData.getFertility(
+                    x,
+                    z,
+                    offsetsX,
+                    offsetsZ,
+                    relevantPolygons,
+                    distanceDivisorSquared
+                );
                 alphaValue = Math.floor(fertility * fertility * 255.9);
                 alphaData[index++] = alphaValue;
                 alphaData[index++] = alphaValue;
@@ -394,16 +364,16 @@ export class ForestCell extends Object3D {
         closeness *= closeness;
         closeness *= closeness;
         const visibility = Math.min(closeness / fadeOutPortion, 1) * visibilityCoefficient;
-        this.plantContainer.visible = visibility > 0.001;
-        if (!this.plantContainer.visible) {
+        this.plantContainerVisible = visibility > 0.001;
+        if (!this.plantContainerVisible) {
             return 0;
         }
 
         let visible = 0;
 
-        for (const mesh of this.instancedMeshes) {
-            mesh.count = Math.floor(visibility * mesh.instanceMatrix.count);
-            visible += mesh.count;
+        for (let i = 0; i < this.allPlantMatrices.length; i++) {
+            this.countPerPlantType[i] = Math.floor(visibility * this.totalCountPerPlantType[i]);
+            visible += this.countPerPlantType[i];
         }
 
         return visible;
