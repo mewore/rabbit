@@ -74,6 +74,28 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
         groundTexture.minFilter = LinearMipMapLinearFilter;
         groundMaterial.map = groundTexture;
         groundMaterial.needsUpdate = true;
+
+        const actualTextureSize = new Vector2().copy(meshSize).divide(groundTexture.repeat);
+        if (!actualTextureSize.equals(scaledTextureSize)) {
+            const actualTextureSizePercentage = new Vector2()
+                .copy(actualTextureSize)
+                .divide(scaledTextureSize)
+                .multiplyScalar(10000)
+                .round()
+                .divideScalar(100);
+            actualTextureSize.multiplyScalar(100).round().divideScalar(100);
+            const suggestedWorldSize = new Vector2()
+                .copy(groundTexture.repeat)
+                .multiply(scaledTextureSize)
+                .divideScalar(3);
+            window.console.warn(
+                `The ground texture is scaled from the intended ${scaledTextureSize.x} x ${scaledTextureSize.y} px ` +
+                    `to ${actualTextureSize.x} x ${actualTextureSize.y} px ` +
+                    `(${actualTextureSizePercentage.x}% x ${actualTextureSizePercentage.y}%). ` +
+                    'The following world size would eliminate the stretching: ' +
+                    `(${suggestedWorldSize.x}, ${suggestedWorldSize.y})`
+            );
+        }
     });
 
     groundMesh.name = 'Ground';
