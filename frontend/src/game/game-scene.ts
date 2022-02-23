@@ -55,7 +55,7 @@ addCredit({
     author: { text: 'Stefan Hedman (and Poimandres)', url: 'https://github.com/schteppe' },
 });
 
-const WORLD_WIDTH = 2015;
+const WORLD_WIDTH = 4096;
 const WORLD_DEPTH = WORLD_WIDTH;
 
 const MIN_X = -WORLD_WIDTH / 2;
