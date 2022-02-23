@@ -63,7 +63,7 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
     );
 
     const textureLoader = new TextureLoader();
-    textureLoader.loadAsync('./assets/ground.jpg').then((groundTexture) => {
+    textureLoader.loadAsync('./assets/dirt.jpg').then((groundTexture) => {
         const textureSize = new Vector2(groundTexture.image.width, groundTexture.image.height);
         const scaledTextureSize = new Vector2().copy(textureSize).multiplyScalar(GROUND_TEXTURE_SCALE);
 

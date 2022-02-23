@@ -1,5 +1,6 @@
 import {
     Box3,
+    Color,
     DataTexture,
     Frustum,
     InstancedMesh,
@@ -26,8 +27,10 @@ import { MazeMap } from '../entities/world/maze-map';
 const MAX_PLANTS_PER_CELL = 400;
 const PLANT_ATTEMPTS_PER_CELL = MAX_PLANTS_PER_CELL * 2;
 
-const INFERTILITY_TEXTURE_WIDTH = 4;
-const INFERTILITY_TEXTURE_HEIGHT = INFERTILITY_TEXTURE_WIDTH;
+const ALPHA_TEXTURE_WIDTH = 4;
+const ALPHA_TEXTURE_HEIGHT = ALPHA_TEXTURE_WIDTH;
+
+const invisibleAlphaTexture = new DataTexture(new Uint8Array([0, 0, 0]), 1, 1, RGBFormat, UnsignedByteType);
 
 const DIRT_PLANE_OFFSET = 0.1;
 
@@ -39,8 +42,8 @@ const MAX_DISTANCE_FROM_WALL = 0.7;
 const HEIGHT_VARIATION = 0.4;
 const ZERO_HEIGHT_CHANCE = 0.2;
 
-const dy = [-1, 1, 0, 0];
-const dx = [0, 0, -1, 1];
+const dy = [-1, 1, 0, 0, 1, 1, -1, -1];
+const dx = [0, 0, -1, 1, 1, -1, 1, -1];
 
 // To get this array, draw a 3x3 square with 8, 7, ..., 0 written in its cells and flip it.
 const X_FLIP_BIT_INDICES = [6, 7, 8, 3, 4, 5, 0, 1, 2];
@@ -135,14 +138,19 @@ export class ForestCell extends Object3D {
         bambooModels: BambooModel[],
         dirtTexturePromise: Promise<Texture>
     ): ForestCell | undefined {
-        if (!mapData.getCell(row, column)) {
-            let neighbouringWalls = 0;
-            for (let i = 0; i < 4; i++) {
-                neighbouringWalls += mapData.getCell(row + dy[i], column + dx[i]) ? 0 : 1;
-            }
-            if (neighbouringWalls >= 3) {
-                return undefined;
-            }
+        let neighbouringWalls = 0;
+        for (let i = 0; i < 4; i++) {
+            neighbouringWalls += mapData.getCell(row + dy[i], column + dx[i]) ? 0 : 1;
+        }
+        let diagonalNeighbouringWalls = 0;
+        for (let i = 4; i < 8; i++) {
+            diagonalNeighbouringWalls += mapData.getCell(row + dy[i], column + dx[i]) ? 0 : 1;
+        }
+        if (
+            (mapData.getCell(row, column) && neighbouringWalls + diagonalNeighbouringWalls <= 0) ||
+            (!mapData.getCell(row, column) && neighbouringWalls >= 3)
+        ) {
+            return undefined;
         }
 
         let cellKind = 0;
@@ -297,28 +305,28 @@ export class ForestCell extends Object3D {
         const relevantPolygons: ReadonlyArray<ConvexPolygonEntity> = mapData.getRelevantPolygons(row, column);
 
         // The inside of the loops here may become a performance bottleneck!
-        const alphaData = new Uint8Array(INFERTILITY_TEXTURE_WIDTH * INFERTILITY_TEXTURE_HEIGHT * 4);
+        const alphaData = new Uint8Array(ALPHA_TEXTURE_WIDTH * ALPHA_TEXTURE_HEIGHT * 4);
 
         let index = 0;
         let x = minX;
         let z = minZ;
-        const xStep = rangeX / (INFERTILITY_TEXTURE_WIDTH - 1);
-        const zStep = rangeZ / (INFERTILITY_TEXTURE_HEIGHT - 1);
-        let infertility: number;
-        for (let i = 0; i < INFERTILITY_TEXTURE_HEIGHT; i++, z += zStep) {
+        const xStep = rangeX / (ALPHA_TEXTURE_WIDTH - 1);
+        const zStep = rangeZ / (ALPHA_TEXTURE_HEIGHT - 1);
+        let alphaValue: number;
+        for (let i = 0; i < ALPHA_TEXTURE_HEIGHT; i++, z += zStep) {
             x = minX;
-            for (let j = 0; j < INFERTILITY_TEXTURE_WIDTH; j++, x += xStep) {
+            for (let j = 0; j < ALPHA_TEXTURE_WIDTH; j++, x += xStep) {
                 fertility = ForestCell.getFertility(x, z, offsetsX, offsetsZ, relevantPolygons, distanceDivisorSquared);
-                infertility = Math.floor((1 - fertility) * (1 - fertility) * 255.9);
-                alphaData[index++] = infertility;
-                alphaData[index++] = infertility;
-                alphaData[index++] = infertility;
+                alphaValue = Math.floor(fertility * fertility * 255.9);
+                alphaData[index++] = alphaValue;
+                alphaData[index++] = alphaValue;
+                alphaData[index++] = alphaValue;
             }
         }
-        const dirtAlphaTexture = new DataTexture(
+        const leafAlphaTexture = new DataTexture(
             alphaData,
-            INFERTILITY_TEXTURE_WIDTH,
-            INFERTILITY_TEXTURE_HEIGHT,
+            ALPHA_TEXTURE_WIDTH,
+            ALPHA_TEXTURE_HEIGHT,
             RGBFormat,
             UnsignedByteType,
             undefined,
@@ -326,12 +334,12 @@ export class ForestCell extends Object3D {
             undefined,
             LinearFilter
         );
-        dirtAlphaTexture.flipY = true;
-        const material = new MeshStandardMaterial({ wireframe: true, transparent: true });
+        leafAlphaTexture.flipY = true;
+        const material = new MeshStandardMaterial({ alphaMap: invisibleAlphaTexture, transparent: true });
         dirtTexturePromise.then((dirtTexture) => {
             dirtTexture.encoding = sRGBEncoding;
             material.map = dirtTexture;
-            material.alphaMap = dirtAlphaTexture;
+            material.alphaMap = leafAlphaTexture;
             material.wireframe = false;
             material.needsUpdate = true;
         });

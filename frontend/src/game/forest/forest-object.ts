@@ -243,7 +243,7 @@ export class ForestObject extends Object3D implements Updatable {
         }
 
         const textureLoader = new TextureLoader();
-        const dirtTexturePromise = textureLoader.loadAsync('./assets/dirt.jpg');
+        const dirtTexturePromise = textureLoader.loadAsync('./assets/leaves.jpg');
 
         let totalPlantCount = 0;
         const memorizedPlants: Map<number, InstancedMesh[]> = new Map();
