@@ -69,7 +69,6 @@ const WRAP_Z_OFFSETS = [-WORLD_DEPTH, 0, WORLD_DEPTH];
 const WRAP_OFFSETS: Vector3[] = WRAP_X_OFFSETS.flatMap((xOffset) =>
     WRAP_Z_OFFSETS.map((zOffset) => new Vector3(xOffset, 0, zOffset))
 );
-const NONZERO_WRAP_OFFSETS: Vector3[] = WRAP_OFFSETS.filter((offset) => offset.lengthSq() > 0);
 
 const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
@@ -140,7 +139,7 @@ export class GameScene {
         lightSphere.material.fog = false;
 
         this.add(centralLight);
-        this.add(...this.cloneWithOffset(lightSphere));
+        this.add(lightSphere);
 
         this.add(new AmbientLight(this.scene.background, 3));
         this.add(new AmbientLight(0x112255, 1));
@@ -157,7 +156,7 @@ export class GameScene {
 
         this.add(this.forest);
 
-        const cameraIntersectionObjects = [ground];
+        const cameraIntersectionObjects: Object3D[] = [ground];
 
         const physicsDummyBoxRotation = Math.PI * 0.15;
         const physicsDummyBoxRotationMatrix = new Matrix4().makeRotationY(physicsDummyBoxRotation);
@@ -191,7 +190,7 @@ export class GameScene {
 
         this.cameraControls.intersectionObjects = cameraIntersectionObjects;
 
-        this.add(...this.cloneWithOffset(new AxisHelper()));
+        this.add(new AxisHelper());
 
         const moon = new Moon(200);
         moon.target = this.character;
@@ -237,16 +236,6 @@ export class GameScene {
         this.physicsDebugger.active = newSettings.debugPhysics;
         this.currentRenderer.setPixelRatio(window.devicePixelRatio * newSettings.quality);
         this.refreshSize();
-    }
-
-    cloneWithOffset<T extends Object3D>(object: T): T[] {
-        const result: T[] = [object];
-        for (const offset of NONZERO_WRAP_OFFSETS) {
-            const cloned = object.clone(false);
-            cloned.position.add(offset);
-            result.push(cloned);
-        }
-        return result;
     }
 
     get time(): number {
