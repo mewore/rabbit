@@ -1,6 +1,5 @@
 import {
     BufferAttribute,
-    Camera,
     Frustum,
     Group,
     InstancedMesh,
@@ -48,19 +47,18 @@ export class ForestObject extends Object3D implements Updatable {
 
     private forestUpdateTimeout = 0;
     private readonly oldCameraPosition = new Vector3();
-    camera?: Camera;
 
     private currentTotalPlants = 0;
     private currentRenderedDetailedPlants = 0;
     private currentRenderedDummyPlants = 0;
 
-    private receivingShadows = false;
-    visiblePlants = 1.0;
-
     constructor(
         private readonly worldWidth: number,
         private readonly worldDepth: number,
-        private readonly input: Input
+        private readonly input: Input,
+        private receivingShadows: boolean,
+        public visiblePlants: number,
+        private readonly camera: PerspectiveCamera | OrthographicCamera
     ) {
         super();
 
@@ -150,7 +148,7 @@ export class ForestObject extends Object3D implements Updatable {
     update(): void {}
 
     beforeRender(delta: number): void {
-        if (!this.camera || !this.cellGrid || !this.mapData || !this.bambooModels) {
+        if (!this.cellGrid || !this.mapData || !this.bambooModels) {
             return;
         }
 
@@ -164,13 +162,6 @@ export class ForestObject extends Object3D implements Updatable {
         }
 
         this.forestUpdateTimeout = 1;
-
-        if (!(this.camera instanceof OrthographicCamera || this.camera instanceof PerspectiveCamera)) {
-            throw new Error(
-                'The camera should be either an orthographic or a perspective one. Instead, it is of type "' +
-                    this.camera.type
-            );
-        }
 
         const fadeOutPortion = 0.1;
         const viewDistance = this.camera.far - this.camera.near;

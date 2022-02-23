@@ -30,6 +30,19 @@
                     )
                 }}%)
             </div>
+            <hr />
+            <div>Physics bodies: {{ lastSegment.physicsBodiesPerFrame }}</div>
+            <div>
+                Active forest walls:
+                {{ lastSegment.solidForestWallsPerFrame }} out of
+                {{ lastSegment.totalForestWalls }}
+                ({{
+                    Math.round(
+                        (lastSegment.solidForestWallsPerFrame * 100) /
+                            lastSegment.totalForestWalls
+                    )
+                }}%)
+            </div>
         </div>
     </div>
 </template>
@@ -55,6 +68,9 @@ interface SegmentInfo extends Segment {
     totalPlantsPerFrame: number;
     renderedDetailedPlantsPerFrame: number;
     renderedDummyPlantsPerFrame: number;
+    physicsBodiesPerFrame: number;
+    solidForestWallsPerFrame: number;
+    totalForestWalls: number;
 }
 
 interface EmptySegment extends Segment {
@@ -93,6 +109,9 @@ export default class PerformanceDisplay extends Vue {
     private totalPlants = 0;
     private renderedDetailedPlants = 0;
     private renderedDummyPlants = 0;
+    private physicsBodies = 0;
+    private solidForestWalls = 0;
+    private totalForestWalls = 0;
 
     lastSegment: EmptySegment | SegmentInfo = { className: 'empty' };
     readonly segments: (EmptySegment | SegmentInfo)[] = [];
@@ -117,6 +136,9 @@ export default class PerformanceDisplay extends Vue {
         totalPlants: number,
         renderedDetailedPlants: number,
         renderedDummyPlants: number,
+        physicsBodies: number,
+        solidForestWalls: number,
+        totalForestWalls: number,
         skipped = false
     ): void {
         const targetFrameCount = this.segmentTime / targetDelta;
@@ -206,6 +228,13 @@ export default class PerformanceDisplay extends Vue {
                 renderedDummyPlantsPerFrame: hasFrames
                     ? Math.round(this.renderedDummyPlants / this.frameCount)
                     : renderedDummyPlants,
+                physicsBodiesPerFrame: hasFrames
+                    ? Math.round(this.physicsBodies / this.frameCount)
+                    : physicsBodies,
+                solidForestWallsPerFrame: hasFrames
+                    ? Math.round(this.solidForestWalls / this.frameCount)
+                    : solidForestWalls,
+                totalForestWalls: this.totalForestWalls,
             };
             this.lastSegment = this.segments[this.index - 1];
 
@@ -220,6 +249,9 @@ export default class PerformanceDisplay extends Vue {
             this.totalPlants = 0;
             this.renderedDetailedPlants = 0;
             this.renderedDummyPlants = 0;
+            this.physicsBodies = 0;
+            this.solidForestWalls = 0;
+            this.totalForestWalls = 0;
         }
         if (!skipped) {
             this.frameCount++;
@@ -227,6 +259,9 @@ export default class PerformanceDisplay extends Vue {
             this.totalPlants += totalPlants;
             this.renderedDetailedPlants += renderedDetailedPlants;
             this.renderedDummyPlants += renderedDummyPlants;
+            this.physicsBodies += physicsBodies;
+            this.solidForestWalls += solidForestWalls;
+            this.totalForestWalls = totalForestWalls;
         }
         this.targetFrameCount +=
             (timestamp - this.lastFrameTime) * targetFrameCount;

@@ -9,6 +9,7 @@
         >
             <q-tab name="general" label="General" />
             <q-tab name="graphics" label="Graphics" />
+            <q-tab name="physics" label="Physics" />
             <q-tab name="debug" label="Debug" />
         </q-tabs>
 
@@ -100,6 +101,35 @@
                     label="Dark UI"
                     @update:model-value="onUpdated()"
                 />
+            </q-tab-panel>
+
+            <q-tab-panel name="physics">
+                <div class="input-with-label">
+                    <div class="text-subtitle1">Forest wall active radius</div>
+                    <q-slider
+                        v-model="settings.forestWallActiveRadius"
+                        :min="50"
+                        :max="500"
+                        :step="50"
+                        label
+                        :label-value="settings.forestWallActiveRadius"
+                        @update:model-value="onUpdated()"
+                        color="purple-4"
+                    />
+                    <div
+                        class="text-purple-4 right-icon"
+                        style="font-size: 2em"
+                    >
+                        <q-icon name="info" />
+                        <q-tooltip>
+                            The physics bodies of forest walls far away from
+                            your character are deactivated. The worst thing that
+                            can happen with this radius being low is that other
+                            players may seem to be going through walls
+                            temporarily from your perspective.
+                        </q-tooltip>
+                    </div>
+                </div>
             </q-tab-panel>
 
             <q-tab-panel name="debug">

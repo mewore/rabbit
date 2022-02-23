@@ -107,12 +107,18 @@ export default class ReisenGame extends Vue {
     ][] = [];
 
     mounted(): void {
+        const settings = getSettings();
+        if (!settings.darkUi) {
+            this.$emit('darkUiSetting', settings.darkUi);
+        }
+        this.showingPerformance = settings.showPerformance;
+
         this.webSocket = new WebSocket(
             `ws://${window.location.host}/multiplayer`
         );
         const canvasWrapper = this.getCanvasWrapper();
         this.webSocket.binaryType = 'arraybuffer';
-        this.scene = new GameScene(canvasWrapper, this.webSocket);
+        this.scene = new GameScene(canvasWrapper, this.webSocket, settings);
         (this.$refs.performanceDisplay as PerformanceDisplay).start(
             this.scene.time
         );
@@ -164,7 +170,6 @@ export default class ReisenGame extends Vue {
                 }
             })
         );
-        this.onSettingsChanged(getSettings());
     }
 
     private addEvent<T extends Event>(
@@ -221,6 +226,9 @@ export default class ReisenGame extends Vue {
                 0,
                 0,
                 0,
+                0,
+                0,
+                0,
                 true
             );
             return;
@@ -233,7 +241,10 @@ export default class ReisenGame extends Vue {
             rendererInfo.render.calls,
             this.scene.forest.totalPlants,
             this.scene.forest.renderedDetailedPlants,
-            this.scene.forest.renderedDummyPlants
+            this.scene.forest.renderedDummyPlants,
+            this.scene.physicsBodyCount,
+            this.scene.activeForestWallBodyCount,
+            this.scene.totalForestWallBodyCount
         );
         if (
             this.menuIsVisible &&

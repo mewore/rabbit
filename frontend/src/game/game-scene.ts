@@ -26,6 +26,7 @@ import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
 import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
+import { LazyBodyCollection } from './util/lazy-body-collection';
 import { MapDataMessage } from './entities/messages/map-data-message';
 import { Moon } from './moon';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
@@ -101,14 +102,20 @@ export class GameScene {
 
     private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0), allowSleep: true });
 
-    readonly forest = new ForestObject(WORLD_WIDTH, WORLD_DEPTH, this.input);
+    readonly forest: ForestObject;
     readonly forestWalls = new ForestWall();
+    private forestWallBodyCollection?: LazyBodyCollection;
+
     readonly physicsDebugger = new CannonDebugRenderer(this.scene, this.physicsWorld);
 
     private width = 0;
     private height = 0;
 
-    constructor(private readonly wrapperElement: HTMLElement, private readonly webSocket: WebSocket) {
+    constructor(
+        private readonly wrapperElement: HTMLElement,
+        private readonly webSocket: WebSocket,
+        private settings: Settings
+    ) {
         this.scene.background = new Color(0x0b051b);
         this.scene.fog = new Fog(this.scene.background, FOG_START, FOG_END);
         this.camera.position.set(-30, 10, -50);
@@ -121,15 +128,23 @@ export class GameScene {
         // this.renderer.physicallyCorrectLights = true;
 
         this.camera.rotation.reorder('YXZ');
-        this.forest.camera = this.camera;
+
+        this.forest = new ForestObject(
+            WORLD_WIDTH,
+            WORLD_DEPTH,
+            this.input,
+            this.settings.plantsReceiveShadows,
+            this.settings.plantVisibility,
+            this.camera
+        );
         this.cameraControls.offset = new Vector3(0, 20, 0);
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
 
         this.add(this.character);
         this.wrapperElement.appendChild(this.currentRenderer.domElement);
-        this.currentRenderer.setPixelRatio(window.devicePixelRatio * 0.5);
-        this.currentRenderer.shadowMap.enabled = true;
+        this.currentRenderer.setPixelRatio(window.devicePixelRatio * this.settings.quality);
+        this.currentRenderer.shadowMap.enabled = this.settings.shadows;
 
         const centralLight = new PointLight(0xffdd44, 1, WORLD_WIDTH / 4, 0.9);
         centralLight.position.set(0, 10, 0);
@@ -198,6 +213,8 @@ export class GameScene {
 
         this.add(new AutoFollow(moon, this.character));
         this.add(this.cameraControls);
+
+        this.physicsDebugger.active = this.settings.debugPhysics;
         this.add(this.physicsDebugger);
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
@@ -221,7 +238,24 @@ export class GameScene {
         this.character.visible = false;
     }
 
+    get physicsBodyCount(): number {
+        return this.physicsWorld.bodies.length;
+    }
+
+    get activeForestWallBodyCount(): number {
+        return this.forestWallBodyCollection?.activeBodyCount || 0;
+    }
+
+    get totalForestWallBodyCount(): number {
+        return this.forestWallBodyCollection?.bodies.length || 0;
+    }
+
+    get time(): number {
+        return this.elapsedTimeClock.getElapsedTime();
+    }
+
     applySettings(newSettings: Settings): void {
+        let shouldRefreshSize = false;
         if (newSettings.shadows !== this.currentRenderer.shadowMap.enabled) {
             this.wrapperElement.removeChild(this.currentRenderer.domElement);
             this.currentRenderer.forceContextLoss();
@@ -230,16 +264,24 @@ export class GameScene {
             this.currentRenderer = new WebGLRenderer({ antialias: true });
             this.wrapperElement.appendChild(this.currentRenderer.domElement);
             this.currentRenderer.shadowMap.enabled = newSettings.shadows;
+            shouldRefreshSize = true;
+        }
+        if (newSettings.quality !== this.settings.quality) {
+            this.currentRenderer.setPixelRatio(window.devicePixelRatio * newSettings.quality);
+            shouldRefreshSize = true;
         }
         this.forest.setReceiveShadow(newSettings.plantsReceiveShadows);
         this.forest.visiblePlants = newSettings.plantVisibility;
+        if (this.forestWallBodyCollection) {
+            this.forestWallBodyCollection.padding = newSettings.forestWallActiveRadius;
+        }
         this.physicsDebugger.active = newSettings.debugPhysics;
-        this.currentRenderer.setPixelRatio(window.devicePixelRatio * newSettings.quality);
-        this.refreshSize();
-    }
 
-    get time(): number {
-        return this.elapsedTimeClock.getElapsedTime();
+        if (shouldRefreshSize) {
+            this.refreshSize();
+        }
+
+        this.settings = newSettings;
     }
 
     start(): void {
@@ -294,9 +336,17 @@ export class GameScene {
     private onForestData(reader: SignedBinaryReader): void {
         const message = MapDataMessage.decodeFromBinary(reader);
         this.forest.setMapData(message.map);
-        this.forestWalls.generate(WORLD_WIDTH, WORLD_DEPTH, message.map, WRAP_OFFSETS);
+        this.forestWallBodyCollection = this.forestWalls.generate(
+            WORLD_WIDTH,
+            WORLD_DEPTH,
+            message.map,
+            WRAP_OFFSETS,
+            this.physicsWorld,
+            this.character.position
+        );
+        this.forestWallBodyCollection.padding = this.settings.forestWallActiveRadius;
         this.cameraControls.intersectionObjects.push(this.forestWalls);
-        this.add(this.forestWalls);
+        this.add(this.forestWalls, this.forestWallBodyCollection);
     }
 
     private getOrCreatePlayerCharacters(

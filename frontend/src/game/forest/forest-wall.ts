@@ -11,8 +11,9 @@ import {
     Vector3,
     sRGBEncoding,
 } from 'three';
-import { Body, Box, ConvexPolyhedron, Material, Vec3 } from 'cannon-es';
+import { Body, Box, ConvexPolyhedron, Material, Vec3, World } from 'cannon-es';
 import { CannonDebugRenderer } from '../util/cannon-debug-renderer';
+import { LazyBodyCollection } from '../util/lazy-body-collection';
 import { MazeMap } from '../entities/world/maze-map';
 
 const HEIGHT = 100.0;
@@ -21,8 +22,6 @@ const PADDING_COEFFICIENT = 0.1;
 const DISTANCE_TO_UV_MULTIPLIER = 1 / HEIGHT;
 
 export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
-    readonly bodies: Body[] = [];
-
     constructor() {
         super(
             new BufferGeometry(),
@@ -55,9 +54,18 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
         });
     }
 
-    generate(worldWidth: number, worldDepth: number, mapData: MazeMap, offsets: Vector3[]): void {
+    generate(
+        worldWidth: number,
+        worldDepth: number,
+        mapData: MazeMap,
+        offsets: Vector3[],
+        physicsWorld: World,
+        characterPosition: Vector3
+    ): LazyBodyCollection {
         const positions: number[] = [];
         const uvPositions: number[] = [];
+        const bodies: Body[] = [];
+
         for (const offset of offsets) {
             for (const wall of mapData.walls) {
                 const polygon = wall.polygon;
@@ -107,7 +115,7 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
                         allowSleep: true,
                         fixedRotation: true,
                     });
-                    this.bodies.push(body);
+                    bodies.push(body);
                 } else {
                     let position = new Vec3();
                     for (let i = 0; i < vertices.length; i += 2) {
@@ -135,20 +143,21 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
                     }
                     const shape = new ConvexPolyhedron({ vertices, faces });
                     CannonDebugRenderer.setShapeColor(shape, 0xff0000);
-                    this.bodies.push(
+                    bodies.push(
                         new Body({ shape, position, material: PHYSICS_MATERIAL, allowSleep: true, fixedRotation: true })
                     );
                 }
             }
         }
-        for (const body of this.bodies) {
+        for (const body of bodies) {
             body.updateAABB();
             body.updateBoundingRadius();
-            body.allowSleep = true;
-            body.sleep();
         }
+
         this.geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
         this.geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvPositions), 2));
         this.geometry.computeVertexNormals();
+
+        return new LazyBodyCollection(physicsWorld, bodies, characterPosition);
     }
 }
