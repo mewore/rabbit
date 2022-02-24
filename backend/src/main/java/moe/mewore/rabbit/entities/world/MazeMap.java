@@ -5,9 +5,10 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Stack;
@@ -116,7 +117,7 @@ public class MazeMap extends BinaryEntity {
         }
 
 
-        final CellTraversal[][] traversals = traverse(map, height / 2, width / 2);
+        final @Nullable CellTraversal[][] traversals = traverse(map, height / 2, width / 2);
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 map[i][j] = traversals[i][j] != null;
@@ -346,19 +347,56 @@ public class MazeMap extends BinaryEntity {
         return coordinate < 0 ? coordinate + size : coordinate % size;
     }
 
-    public double get(final double x, final double y) {
-        for (final MazeWall wall : walls) {
-            if (wall.getPolygon().containsPoint(new Vector2(x, y))) {
-                return -1.0;
+    private static @Nullable CellTraversal[][] traverse(final boolean[][] map, final int fromRow, final int fromCol) {
+        final int height = map.length;
+        final int width = map[0].length;
+        final @Nullable CellTraversal[][] result = new CellTraversal[height][width];
+        if (!map[fromRow][fromCol]) {
+            return result;
+        }
+
+        final boolean[][] explored = new boolean[height][width];
+        result[fromRow][fromCol] = new CellTraversal(0, -1, -1);
+        final Queue<Integer> toExplore = new PriorityQueue<>(
+            Comparator.comparingDouble(index -> result[index / width][index % width].getMinDistance()));
+        toExplore.add(fromRow * width + fromCol);
+        while (!toExplore.isEmpty()) {
+            final int row = toExplore.peek() / width;
+            final int col = toExplore.poll() % width;
+            if (explored[row][col]) {
+                continue;
+            }
+            explored[row][col] = true;
+            final double distance = result[row][col].getMinDistance();
+
+            for (int d = 0; d < 8; d++) {
+                final int newRow = wrap(row + dy[d], height);
+                final int newCol = wrap(col + dx[d], width);
+                final double newDistance = distance + Math.sqrt(dx[d] * dx[d] + dy[d] * dy[d]);
+
+                if (!explored[newRow][newCol] && map[newRow][newCol] &&
+                    (result[newRow][newCol] == null || result[newRow][newCol].getMinDistance() > newDistance)) {
+                    result[newRow][newCol] = new CellTraversal(newDistance, dx[d], dy[d]);
+                    toExplore.add(newRow * width + newCol);
+                }
             }
         }
-        final double requiredDistance = .8 / Math.max(map.length, map[0].length);
-        final double requiredDistanceSquared = requiredDistance * requiredDistance;
 
+        return result;
+    }
+
+    public double get(final double x, final double y) {
         final int row = Math.min((int) (y * map.length), map.length);
         final int col = Math.min((int) (x * map[0].length), map[0].length);
         final int[] wallIndices = relevantPolygonIndices[row][col];
+        for (final int wallIndex : wallIndices) {
+            if (walls.get(wallIndex).getPolygon().containsPoint(new Vector2(x, y))) {
+                return -1.0;
+            }
+        }
 
+        final double requiredDistance = .8 / Math.max(map.length, map[0].length);
+        final double requiredDistanceSquared = requiredDistance * requiredDistance;
         final double[] offsetsX = Stream.of(0, col == 0 ? 1 : -10, (col == map[0].length - 1) ? -1 : -10)
             .filter(value -> value > -10)
             .mapToDouble(a -> a)
@@ -386,86 +424,6 @@ public class MazeMap extends BinaryEntity {
         return maxFertility * maxFertility;
     }
 
-    public void render(final int width, final int height, final String name) {
-        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", map[0].length,
-            map.length, walls.size(), width, height);
-
-        final BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-
-        final Color walkableCenter = new Color((125 << 24) | (25 << 16) | (150 << 8) | 100);
-        final Color solidCenter = new Color((255 << 24) | (255 << 16) | (100 << 8));
-        final int solid = (200 << 24) | (200 << 16) | (100 << 8);
-
-        final List<Polygon> polygonsToDraw = walls.stream()
-            .map(MazeWall::getPolygon)
-            .map(polygon -> new Polygon(
-                polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getX() * width))).toArray(),
-                polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getY() * height))).toArray(),
-                polygon.getPoints().size()))
-            .collect(Collectors.toUnmodifiableList());
-
-        final Graphics2D graphics = img.createGraphics();
-
-        graphics.setColor(new Color(solid, true));
-        polygonsToDraw.forEach(graphics::fillPolygon);
-
-        final float[] walkableWithTrees = new float[3];
-        new Color(50, 200, 100).getRGBColorComponents(walkableWithTrees);
-        final float[] walkable = new float[3];
-        Color.WHITE.getRGBColorComponents(walkable);
-        final float[] currentColor = new float[3];
-        final double xStep = 1.0 / width;
-        final double yStep = 1.0 / height;
-        double normalizedY = 0.0;
-        double normalizedX;
-        double fertility;
-        for (int y = 0; y < height; y++, normalizedY += yStep) {
-            normalizedX = 0.0;
-            for (int x = 0; x < width; x++, normalizedX += xStep) {
-                if (img.getRGB(x, y) == 0) {
-                    fertility = get(normalizedX, normalizedY);
-                    if (fertility < 0) {
-                        img.setRGB(x, y, solidCenter.getRGB());
-                    } else {
-                        for (int c = 0; c < 3; c++) {
-                            currentColor[c] = (float) (walkableWithTrees[c] * fertility +
-                                walkable[c] * (1.0 - fertility));
-                        }
-                        img.setRGB(x, y, new Color(currentColor[0], currentColor[1], currentColor[2]).getRGB());
-                    }
-                }
-            }
-        }
-
-        graphics.addRenderingHints(
-            new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON));
-
-        graphics.setColor(solidCenter);
-        polygonsToDraw.forEach(graphics::drawPolygon);
-
-        final double centerHorizontalSize = .25 * width / (map[0].length * 2);
-        final double centerVerticalSize = .25 * height / (map.length * 2);
-        final double centerYStep = (double) (height) / map.length;
-        double centerY = 0.5 * centerYStep;
-        for (int i = 0; i < map.length; i++, centerY += centerYStep) {
-            final double centerXStep = (double) (width) / map[i].length;
-            double centerX = 0.5 * centerXStep;
-            for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
-                graphics.setColor(map[i][j] ? walkableCenter : solidCenter);
-                graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
-                        centerHorizontalSize), (int) centerX},
-                    new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
-                        centerVerticalSize)}, 4);
-            }
-        }
-
-        try {
-            ImageIO.write(img, "png", new File(name + ".png"));
-        } catch (final IOException e) {
-            System.out.println("Error while creating maze preview: " + e);
-        }
-    }
-
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
         output.writeInt(map.length);
@@ -478,33 +436,137 @@ public class MazeMap extends BinaryEntity {
         appendCollectionToBinaryOutput(walls, output);
     }
 
-    private static @Nullable CellTraversal[][] traverse(final boolean[][] map, final int fromRow, final int fromCol) {
-        final int height = map.length;
-        final int width = map[0].length;
-        final CellTraversal[][] result = new CellTraversal[height][width];
-        if (!map[fromRow][fromCol]) {
-            return result;
-        }
+    public void render(final int imageWidth, final int imageHeight, final String name) {
+        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", map[0].length,
+            map.length, walls.size(), imageWidth, imageHeight);
 
-        result[fromRow][fromCol] = new CellTraversal(0, -1, -1);
-        final Queue<Integer> toExplore = new ArrayDeque<>();
-        toExplore.add(fromRow * width + fromCol);
-        while (!toExplore.isEmpty()) {
-            final int row = toExplore.peek() / width;
-            final int col = toExplore.poll() % width;
-            final int distance = result[row][col].getMinDistance() + 1;
+        final BufferedImage img = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
 
-            for (int d = 0; d < 8; d++) {
-                final int newRow = wrap(row + dy[d], height);
-                final int newCol = wrap(col + dx[d], width);
+        final Color walkableCenter = new Color((125 << 24) | (25 << 16) | (150 << 8) | 100);
+        final Color solidCenter = new Color(60, 60, 60);
+        final Color solid = new Color(100, 100, 110);
 
-                if (map[newRow][newCol] && result[newRow][newCol] == null) {
-                    result[newRow][newCol] = new CellTraversal(distance, row, col);
-                    toExplore.add(newRow * width + newCol);
+        final List<Polygon> polygonsToDraw = walls.stream()
+            .map(MazeWall::getPolygon)
+            .map(polygon -> new Polygon(
+                polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getX() * imageWidth))).toArray(),
+                polygon.getPoints()
+                    .stream()
+                    .mapToInt(point -> (int) (Math.round(point.getY() * imageHeight)))
+                    .toArray(), polygon.getPoints().size()))
+            .collect(Collectors.toUnmodifiableList());
+
+        final Graphics2D graphics = img.createGraphics();
+
+        graphics.setColor(solid);
+        polygonsToDraw.forEach(graphics::fillPolygon);
+
+        if (Math.max((double) (imageHeight) / map.length, (double) (imageWidth) / map[0].length) > 15.0) {
+            final float[] walkableWithTrees = new float[3];
+            new Color(50, 200, 100).getRGBColorComponents(walkableWithTrees);
+            final float[] walkable = new float[3];
+            Color.WHITE.getRGBColorComponents(walkable);
+            final float[] currentColor = new float[3];
+            final double xStep = 1.0 / imageWidth;
+            final double yStep = 1.0 / imageHeight;
+            double normalizedY = 0.0;
+            double normalizedX;
+            double fertility;
+            for (int y = 0; y < imageHeight; y++, normalizedY += yStep) {
+                normalizedX = 0.0;
+                for (int x = 0; x < imageWidth; x++, normalizedX += xStep) {
+                    if (img.getRGB(x, y) == 0) {
+                        fertility = get(normalizedX, normalizedY);
+                        if (fertility < 0) {
+                            img.setRGB(x, y, solidCenter.getRGB());
+                        } else {
+                            for (int c = 0; c < 3; c++) {
+                                currentColor[c] = (float) (walkableWithTrees[c] * fertility +
+                                    walkable[c] * (1.0 - fertility));
+                            }
+                            img.setRGB(x, y, new Color(currentColor[0], currentColor[1], currentColor[2]).getRGB());
+                        }
+                    }
+                }
+            }
+        } else {
+            for (int y = 0; y < imageHeight; y++) {
+                for (int x = 0; x < imageWidth; x++) {
+                    if (img.getRGB(x, y) == 0) {
+                        img.setRGB(x, y, Color.WHITE.getRGB());
+                    }
                 }
             }
         }
 
-        return result;
+        graphics.addRenderingHints(
+            new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON));
+
+        graphics.setColor(solidCenter);
+        graphics.setStroke(
+            new BasicStroke(Math.min((imageHeight * .1f) / map.length, (imageWidth * .1f) / map[0].length)));
+        polygonsToDraw.forEach(graphics::drawPolygon);
+
+        final double centerHorizontalSize = .25 * imageWidth / (map[0].length * 2);
+        final double centerVerticalSize = .25 * imageHeight / (map.length * 2);
+        final double centerYStep = (double) (imageHeight) / map.length;
+        final double centerXStep = (double) (imageWidth) / map[0].length;
+        double centerY = 0.5 * centerYStep;
+        for (int i = 0; i < map.length; i++, centerY += centerYStep) {
+            double centerX = 0.5 * centerXStep;
+            for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
+                graphics.setColor(map[i][j] ? walkableCenter : solidCenter);
+                graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
+                        centerHorizontalSize), (int) centerX},
+                    new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
+                        centerVerticalSize)}, 4);
+            }
+        }
+
+        graphics.setStroke(new BasicStroke((float) (centerYStep * .2)));
+
+        double maxDistance = -1;
+        final @Nullable CellTraversal[][] traversals = traverse(map, map.length / 2, map[0].length / 2);
+        for (final CellTraversal[] row : traversals) {
+            for (final CellTraversal traversal : row) {
+                if (traversal != null) {
+                    maxDistance = Math.max(maxDistance, traversal.getMinDistance());
+                }
+            }
+        }
+        centerY = 0.5 * centerYStep;
+        for (int i = 0; i < traversals.length; i++, centerY += centerYStep) {
+            double centerX = 0.5 * centerXStep;
+            for (int j = 0; j < traversals[i].length; j++, centerX += centerXStep) {
+                if (traversals[i][j] == null || traversals[i][j].getMinDistance() < 0) {
+                    continue;
+                }
+
+                final double distanceRatio = traversals[i][j].getMinDistance() / maxDistance;
+                final double extremity = Math.abs((distanceRatio - 0.5) * 2);
+                graphics.setColor(distanceRatio > 0.5
+                    ? new Color(125 + (int) (125 * extremity), 120 - (int) (120 * extremity), 0)
+                    : new Color(125 - (int) (125 * extremity), 120 + (int) (50 * extremity), (int) (70 * extremity)));
+                graphics.drawLine((int) (centerX), (int) (centerY),
+                    (int) (centerX - centerXStep * traversals[i][j].getDx()),
+                    (int) (centerY - centerYStep * traversals[i][j].getDy()));
+
+                if (i - traversals[i][j].getDy() < 0 || i - traversals[i][j].getDy() >= map.length ||
+                    j - traversals[i][j].getDx() < 0 || j - traversals[i][j].getDx() >= map[0].length) {
+                    final double otherCenterX = (wrap(j - traversals[i][j].getDx(), map[0].length) + 0.5) * centerXStep;
+                    final double otherCenterY = (wrap(i - traversals[i][j].getDy(), map.length) + 0.5) * centerYStep;
+                    graphics.drawLine((int) (otherCenterX), (int) (otherCenterY),
+                        (int) (otherCenterX + centerXStep * traversals[i][j].getDx()),
+                        (int) (otherCenterY + centerYStep * traversals[i][j].getDy()));
+                }
+
+            }
+        }
+
+        try {
+            ImageIO.write(img, "png", new File(name + ".png"));
+        } catch (final IOException e) {
+            System.out.println("Error while creating maze preview: " + e);
+        }
     }
 }

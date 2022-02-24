@@ -7,9 +7,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CellTraversal {
 
-    public final int minDistance;
+    private final double minDistance;
 
-    public final int fromRow;
+    private final int dx;
 
-    public final int fromColumn;
+    private final int dy;
 }

@@ -17,4 +17,10 @@
     <Match>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+
+    <!-- For some reason Spotbugs concluded that `MazeMap#traverse` may return null... -->
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="moe.mewore.rabbit.entities.world.MazeMap"/>
+    </Match>
 </FindBugsFilter>
