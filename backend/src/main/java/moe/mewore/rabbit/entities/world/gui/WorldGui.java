@@ -5,6 +5,7 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.entities.world.MazeMap;
@@ -22,7 +23,7 @@ public class WorldGui {
 
     private final MazeMapCanvas canvas = new MazeMapCanvas();
 
-    private final JTextField seedField = new JTextField("11", 18);
+    private final JTextField seedField = new JTextField("11", 8);
 
     private final JSpinner widthField = new JSpinner(new SpinnerNumberModel(50, 1, 1000, 5));
 
@@ -36,7 +37,9 @@ public class WorldGui {
         new SpinnerNumberModel(5.0, 0, NOISE_SHARPNESS_INPUT_MULTIPLIER, 1));
 
     private final JSpinner noiseVisibilityField = new JSpinner(
-        new SpinnerNumberModel(2f, 0, NOISE_VISIBILITY_INPUT_MULTIPLIER, 1));
+        new SpinnerNumberModel(0f, 0, NOISE_VISIBILITY_INPUT_MULTIPLIER, 1));
+
+    private final JCheckBox visibleFertilityCheckbox = new JCheckBox();
 
     private final File worldPropertiesFile;
 
@@ -55,31 +58,42 @@ public class WorldGui {
         final WorldProperties worldProperties = WorldProperties.getFromClasspath();
         seedField.setText(worldProperties.getSeed());
 
-        final JPanel panel = new JPanel();
+        final JPanel upperPanel = new JPanel();
 
         seedField.setText(worldProperties.getSeed());
-        addField(panel, "Seed", seedField);
+        addField(upperPanel, "Seed", seedField);
 
         widthField.setValue(worldProperties.getWidth());
-        addField(panel, "Width", widthField);
+        addField(upperPanel, "Width", widthField);
 
         heightField.setValue(worldProperties.getHeight());
-        addField(panel, "Height", heightField);
+        addField(upperPanel, "Height", heightField);
+
+        final JPanel lowerPanel = new JPanel();
 
         smoothingPassesField.setValue(worldProperties.getSmoothingPasses());
-        addField(panel, "Smoothing", smoothingPassesField);
+        addField(lowerPanel, "Smoothing", smoothingPassesField);
 
         noiseResolutionField.setValue(worldProperties.getNoiseResolution());
-        addField(panel, "Noise resolution", noiseResolutionField);
+        addField(lowerPanel, "Noise resolution", noiseResolutionField);
 
         noiseSharpnessField.setValue(worldProperties.getNoiseSharpness() * 10);
-        addField(panel, "Noise sharpness", noiseSharpnessField);
+        addField(lowerPanel, "Noise sharpness", noiseSharpnessField);
 
-        addField(panel, "Noise visibility", noiseVisibilityField);
-        noiseSharpnessField.setMinimumSize(new Dimension(60, 0));
+
+        lowerPanel.add(new JLabel("Noise visibility"));
+        lowerPanel.add(noiseVisibilityField);
+        noiseVisibilityField.addChangeListener(a -> this.canvas.setNoiseVisibility(getNoiseVisibility()));
+
+        lowerPanel.add(new JLabel("Visible fertility"));
+        lowerPanel.add(visibleFertilityCheckbox);
+        visibleFertilityCheckbox.addChangeListener(
+            a -> this.canvas.setFertilityVisible(visibleFertilityCheckbox.isSelected()));
+
+        canvas.setFlippedCells(worldProperties.getFlippedCellSet());
 
         final JButton saveButton = new JButton("Save");
-        panel.add(saveButton);
+        upperPanel.add(saveButton);
         saveButton.setToolTipText("Will save to: " + worldPropertiesFile.getAbsolutePath());
         saveButton.addActionListener(a -> {
             try {
@@ -90,6 +104,10 @@ public class WorldGui {
             }
         });
 
+        final JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(2, 1));
+        panel.add(upperPanel);
+        panel.add(lowerPanel);
         frame.getContentPane().add(BorderLayout.SOUTH, panel);
         frame.setVisible(true);
 
@@ -118,16 +136,21 @@ public class WorldGui {
             DiamondSquareNoise.createSeamless(resolution, new Random(seed + 1), 1.0, sharpness),
             CompositeNoise.XNOR_BLENDING);
         final MazeMap map = MazeMap.createSeamless(worldProperties.getWidth(), worldProperties.getHeight(),
-            new Random(seed), worldProperties.getSmoothingPasses(), opennessNoise);
-        canvas.setNoise(opennessNoise);
-        canvas.setNoiseVisibility((float) (double) noiseVisibilityField.getValue() / NOISE_VISIBILITY_INPUT_MULTIPLIER);
-        canvas.setMap(map);
+            new Random(seed), worldProperties.getSmoothingPasses(), opennessNoise, worldProperties.getFlippedCellSet());
+        canvas.setNoiseVisibility(getNoiseVisibility());
+        canvas.setFertilityVisible(visibleFertilityCheckbox.isSelected());
+        canvas.setUp(map, worldProperties.getFlippedCellSet(), opennessNoise);
         canvas.update(canvas.getGraphics());
+    }
+
+    private float getNoiseVisibility() {
+        return (float) (double) noiseVisibilityField.getValue() / NOISE_VISIBILITY_INPUT_MULTIPLIER;
     }
 
     private WorldProperties makeWorldProperties() {
         return new WorldProperties(seedField.getText(), (int) widthField.getValue(), (int) heightField.getValue(),
             (double) noiseSharpnessField.getValue() / NOISE_SHARPNESS_INPUT_MULTIPLIER,
-            (int) noiseResolutionField.getValue(), (int) smoothingPassesField.getValue());
+            (int) noiseResolutionField.getValue(), (int) smoothingPassesField.getValue(),
+            canvas.getFlippedCells().stream().map(Object::toString).collect(Collectors.joining(",")));
     }
 }

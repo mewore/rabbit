@@ -25,7 +25,9 @@ class ConvexPolygonTest {
 
     @Test
     void testContainsPoint_onBoundary() {
-        assertFalse(makePolygon().containsPoint(new Vector2(3, 0)));
+        assertFalse(
+            new ConvexPolygon(Arrays.asList(new Vector2(2, 0), new Vector2(0, 0), new Vector2(2, 2))).containsPoint(
+                new Vector2(1, 1)));
     }
 
     @Test

@@ -1,6 +1,7 @@
 package moe.mewore.rabbit.entities.world;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,8 @@ class MazeMapTest {
         when(opennessNoise.get(anyDouble(), anyDouble())).thenReturn(.5);
 
         // ~20KB
-        assertEquals(20044, MazeMap.createSeamless(30, 30, random, 3, opennessNoise).encodeToBinary().length);
+        assertEquals(20044,
+            MazeMap.createSeamless(30, 30, random, 3, opennessNoise, Collections.emptySet()).encodeToBinary().length);
     }
 
     @Test

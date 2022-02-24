@@ -76,7 +76,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 worldProperties.getNoiseSharpness()), CompositeNoise.XNOR_BLENDING);
 
         final MazeMap map = MazeMap.createSeamless(worldProperties.getWidth(), worldProperties.getHeight(),
-            new Random(seed), 1, opennessNoise);
+            new Random(seed), 1, opennessNoise, worldProperties.getFlippedCellSet());
         return new Server(settings, javalin, map).start();
     }
 

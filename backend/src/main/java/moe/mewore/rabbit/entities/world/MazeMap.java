@@ -6,11 +6,13 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
 import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,6 +39,12 @@ public class MazeMap extends BinaryEntity {
 
     private static final int[] dy = {0, 0, -1, 1, -1, 1, -1, 1};
 
+    private static final Color SOLID_CENTER = new Color(60, 60, 60);
+
+    private static final Color WALKABLE_CENTER = new Color((125 << 24) | (25 << 16) | (150 << 8) | 100);
+
+    private static final Color SOLID_COLOR = new Color(100, 100, 110);
+
     private static final double SMOOTHING = 0.3;
 
     @Getter
@@ -52,7 +60,7 @@ public class MazeMap extends BinaryEntity {
     private final int[][][] relevantPolygonIndices;
 
     public static MazeMap createSeamless(final int width, final int height, final Random random,
-        final int clearOutPasses, final Noise opennessNoise) {
+        final int clearOutPasses, final Noise opennessNoise, final Set<Integer> flippedCells) {
         final boolean[][] map = createSeamlessLabyrinth(width, height, random);
 
         for (int i = -1; i <= 1; i++) {
@@ -129,6 +137,9 @@ public class MazeMap extends BinaryEntity {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 map[i][j] = traversals[i][j] != null;
+                if (flippedCells.contains(i * width + j)) {
+                    map[i][j] = !map[i][j];
+                }
             }
         }
 
@@ -332,7 +343,8 @@ public class MazeMap extends BinaryEntity {
 
         for (int smoothingIterations = from; smoothingIterations <= to; smoothingIterations++) {
             System.out.printf("Generating a maze with %d smoothing iterations...%n", smoothingIterations);
-            final MazeMap maze = MazeMap.createSeamless(50, 50, new Random(seed), smoothingIterations, opennessNoise);
+            final MazeMap maze = MazeMap.createSeamless(50, 50, new Random(seed), smoothingIterations, opennessNoise,
+                Collections.emptySet());
             maze.render(1024, 1024, "maze" + smoothingIterations);
         }
         System.out.printf("Finished in %d seconds.", (System.currentTimeMillis() - start) / 1000);
@@ -393,7 +405,23 @@ public class MazeMap extends BinaryEntity {
         return result;
     }
 
-    public double get(final double x, final double y) {
+    public boolean getCell(final int row, final int col) {
+        return map[wrap(row, height)][wrap(col, width)];
+    }
+
+    public void setCell(final int row, final int col, final boolean value) {
+        map[wrap(row, height)][wrap(col, width)] = value;
+    }
+
+    public void recomputeWalls() {
+        final List<MazeWall> walls = generateWallsFromMap(width, height, map, relevantPolygonIndices);
+        this.walls.clear();
+        this.walls.addAll(walls);
+    }
+
+    public double get(double x, double y) {
+        x = (x + 1.0) % 1.0;
+        y = (y + 1.0) % 1.0;
         final int row = Math.min((int) (y * height), height);
         final int col = Math.min((int) (x * width), width);
         final int[] wallIndices = relevantPolygonIndices[row][col];
@@ -444,17 +472,51 @@ public class MazeMap extends BinaryEntity {
         appendCollectionToBinaryOutput(walls, output);
     }
 
-    public BufferedImage render(final int imageWidth, final int imageHeight) {
-        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", width, height,
-            walls.size(), imageWidth, imageHeight);
+    public void applyFertilityToImage(final BufferedImage image, final int fromX, final int fromY, final int toX,
+        final int toY) {
+        final int imageWidth = image.getWidth();
+        final int imageHeight = image.getHeight();
 
-        final BufferedImage image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
+        if (Math.max((double) (imageHeight) / height, (double) (imageWidth) / width) <= 15.0) {
+            return;
+        }
 
-        final Color walkableCenter = new Color((125 << 24) | (25 << 16) | (150 << 8) | 100);
-        final Color solidCenter = new Color(60, 60, 60);
-        final Color solid = new Color(100, 100, 110);
+        final float[] walkableWithTrees = new float[3];
+        new Color(50, 200, 100).getRGBColorComponents(walkableWithTrees);
+        final float[] walkable = new float[3];
+        Color.WHITE.getRGBColorComponents(walkable);
+        final float[] currentColor = new float[3];
+        final double xStep = 1.0 / imageWidth;
+        final double yStep = 1.0 / imageHeight;
+        double normalizedY = fromY * yStep;
+        double normalizedX;
+        double fertility;
+        int trueY;
+        int trueX;
+        for (int y = fromY; y <= toY; y++, normalizedY += yStep) {
+            normalizedX = fromX * xStep;
+            trueY = wrap(y, imageHeight);
+            for (int x = fromX; x <= toX; x++, normalizedX += xStep) {
+                trueX = wrap(x, imageWidth);
+                if (image.getRGB(trueX, trueY) == -1) {
+                    fertility = get(normalizedX, normalizedY);
+                    if (fertility < 0) {
+                        image.setRGB(trueX, trueY, SOLID_CENTER.getRGB());
+                    } else {
+                        for (int c = 0; c < 3; c++) {
+                            currentColor[c] = (float) (walkableWithTrees[c] * fertility +
+                                walkable[c] * (1.0 - fertility));
+                        }
+                        image.setRGB(trueX, trueY,
+                            new Color(currentColor[0], currentColor[1], currentColor[2]).getRGB());
+                    }
+                }
+            }
+        }
+    }
 
-        final List<Polygon> polygonsToDraw = walls.stream()
+    private List<Polygon> getPolygonsToDraw(final int imageWidth, final int imageHeight) {
+        return walls.stream()
             .map(MazeWall::getPolygon)
             .map(polygon -> new Polygon(
                 polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getX() * imageWidth))).toArray(),
@@ -463,54 +525,46 @@ public class MazeMap extends BinaryEntity {
                     .mapToInt(point -> (int) (Math.round(point.getY() * imageHeight)))
                     .toArray(), polygon.getPoints().size()))
             .collect(Collectors.toUnmodifiableList());
+    }
+
+    public void render(final BufferedImage image) {
+        final int imageWidth = image.getWidth();
+        final int imageHeight = image.getHeight();
+        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", width, height,
+            walls.size(), imageWidth, imageHeight);
+
+        final List<Polygon> polygonsToDraw = getPolygonsToDraw(imageWidth, imageHeight);
 
         final Graphics2D graphics = image.createGraphics();
+        graphics.setColor(Color.WHITE);
+        graphics.fillRect(0, 0, imageWidth, imageHeight);
 
-        graphics.setColor(solid);
+        graphics.setColor(SOLID_COLOR);
         polygonsToDraw.forEach(graphics::fillPolygon);
 
-        if (Math.max((double) (imageHeight) / height, (double) (imageWidth) / width) > 15.0) {
-            final float[] walkableWithTrees = new float[3];
-            new Color(50, 200, 100).getRGBColorComponents(walkableWithTrees);
-            final float[] walkable = new float[3];
-            Color.WHITE.getRGBColorComponents(walkable);
-            final float[] currentColor = new float[3];
-            final double xStep = 1.0 / imageWidth;
-            final double yStep = 1.0 / imageHeight;
-            double normalizedY = 0.0;
-            double normalizedX;
-            double fertility;
-            for (int y = 0; y < imageHeight; y++, normalizedY += yStep) {
-                normalizedX = 0.0;
-                for (int x = 0; x < imageWidth; x++, normalizedX += xStep) {
-                    if (image.getRGB(x, y) == 0) {
-                        fertility = get(normalizedX, normalizedY);
-                        if (fertility < 0) {
-                            image.setRGB(x, y, solidCenter.getRGB());
-                        } else {
-                            for (int c = 0; c < 3; c++) {
-                                currentColor[c] = (float) (walkableWithTrees[c] * fertility +
-                                    walkable[c] * (1.0 - fertility));
-                            }
-                            image.setRGB(x, y, new Color(currentColor[0], currentColor[1], currentColor[2]).getRGB());
-                        }
-                    }
-                }
-            }
-        } else {
-            for (int y = 0; y < imageHeight; y++) {
-                for (int x = 0; x < imageWidth; x++) {
-                    if (image.getRGB(x, y) == 0) {
-                        image.setRGB(x, y, Color.WHITE.getRGB());
-                    }
-                }
-            }
-        }
+        applyFertilityToImage(image, 0, 0, imageWidth - 1, imageHeight - 1);
+
+        applyEverythingElseToImage(image, polygonsToDraw);
+    }
+
+    public void applyEverythingElseToImage(final BufferedImage image) {
+        applyEverythingElseToImage(image, getPolygonsToDraw(image.getWidth(), image.getHeight()));
+    }
+
+    private void applyEverythingElseToImage(final BufferedImage image, final List<Polygon> polygonsToDraw) {
+        final int imageWidth = image.getWidth();
+        final int imageHeight = image.getHeight();
+        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", width, height,
+            walls.size(), imageWidth, imageHeight);
+
+        final Graphics2D graphics = image.createGraphics();
+        graphics.setColor(SOLID_COLOR);
+        polygonsToDraw.forEach(graphics::fillPolygon);
 
         graphics.addRenderingHints(
             new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON));
 
-        graphics.setColor(solidCenter);
+        graphics.setColor(SOLID_CENTER);
         graphics.setStroke(new BasicStroke(Math.min((imageHeight * .1f) / height, (imageWidth * .1f) / width)));
         polygonsToDraw.forEach(graphics::drawPolygon);
 
@@ -522,7 +576,7 @@ public class MazeMap extends BinaryEntity {
         for (int i = 0; i < height; i++, centerY += centerYStep) {
             double centerX = 0.5 * centerXStep;
             for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
-                graphics.setColor(map[i][j] ? walkableCenter : solidCenter);
+                graphics.setColor(map[i][j] ? WALKABLE_CENTER : SOLID_CENTER);
                 graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
                         centerHorizontalSize), (int) centerX},
                     new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
@@ -554,8 +608,7 @@ public class MazeMap extends BinaryEntity {
                 graphics.setColor(distanceRatio > 0.5
                     ? new Color(125 + (int) (125 * extremity), 120 - (int) (120 * extremity), 0)
                     : new Color(125 - (int) (125 * extremity), 120 + (int) (50 * extremity), (int) (70 * extremity)));
-                graphics.drawLine((int) (centerX), (int) (centerY),
-                    (int) (centerX - centerXStep * traversals[i][j].getDx()),
+                graphics.drawLine((int) (centerX), (int) (centerY), (int) (centerX - centerXStep * traversals[i][j].getDx()),
                     (int) (centerY - centerYStep * traversals[i][j].getDy()));
 
                 if (i - traversals[i][j].getDy() < 0 || i - traversals[i][j].getDy() >= height ||
@@ -569,6 +622,11 @@ public class MazeMap extends BinaryEntity {
 
             }
         }
+    }
+
+    public BufferedImage render(final int imageWidth, final int imageHeight) {
+        final BufferedImage image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
+        render(image);
         return image;
     }
 
