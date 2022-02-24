@@ -20,13 +20,13 @@ class MazeMapTest {
         final Noise opennessNoise = mock(Noise.class);
         when(opennessNoise.get(anyDouble(), anyDouble())).thenReturn(.5);
 
-        // ~21KB
-        assertEquals(21144, MazeMap.createSeamless(30, 30, random, 3, opennessNoise).encodeToBinary().length);
+        // ~20KB
+        assertEquals(20044, MazeMap.createSeamless(30, 30, random, 3, opennessNoise).encodeToBinary().length);
     }
 
     @Test
     void testEncode() {
-        final MazeMap map = new MazeMap(new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        final MazeMap map = new MazeMap(3, 3, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
         assertEquals(21, map.encodeToBinary().length);
     }
 }

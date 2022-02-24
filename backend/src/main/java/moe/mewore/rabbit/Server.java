@@ -35,6 +35,7 @@ import moe.mewore.rabbit.entities.mutations.MutationType;
 import moe.mewore.rabbit.entities.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.entities.mutations.PlayerUpdateMutation;
 import moe.mewore.rabbit.entities.world.MazeMap;
+import moe.mewore.rabbit.entities.world.WorldProperties;
 import moe.mewore.rabbit.noise.DiamondSquareNoise;
 import moe.mewore.rabbit.noise.Noise;
 import moe.mewore.rabbit.noise.composite.CompositeNoise;
@@ -54,11 +55,11 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final MazeMap map;
 
-    public static void main(final String[] args) {
+    public static void main(final String[] args) throws IOException {
         start(new ServerSettings(args, System.getenv()));
     }
 
-    static Javalin start(final ServerSettings settings) {
+    static Javalin start(final ServerSettings settings) throws IOException {
         final Javalin javalin = Javalin.create(config -> {
             config.addStaticFiles("static");
             final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
@@ -66,10 +67,16 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 config.addStaticFiles(settings.getExternalStaticLocation(), Location.EXTERNAL);
             }
         });
-        final long seed = 11L;
-        final Noise opennessNoise = new CompositeNoise(DiamondSquareNoise.createSeamless(7, new Random(seed), 1.0, .5),
-            DiamondSquareNoise.createSeamless(7, new Random(seed + 1), 1.0, .7), CompositeNoise.XNOR_BLENDING);
-        final MazeMap map = MazeMap.createSeamless(50, 50, new Random(seed), 1, opennessNoise);
+        final WorldProperties worldProperties = WorldProperties.getFromClasspath();
+        final long seed = worldProperties.getSeedAsLong();
+        final Noise opennessNoise = new CompositeNoise(
+            DiamondSquareNoise.createSeamless(worldProperties.getNoiseResolution(), new Random(seed), 1.0,
+                worldProperties.getNoiseSharpness()),
+            DiamondSquareNoise.createSeamless(worldProperties.getNoiseResolution(), new Random(seed + 1), 1.0,
+                worldProperties.getNoiseSharpness()), CompositeNoise.XNOR_BLENDING);
+
+        final MazeMap map = MazeMap.createSeamless(worldProperties.getWidth(), worldProperties.getHeight(),
+            new Random(seed), 1, opennessNoise);
         return new Server(settings, javalin, map).start();
     }
 
