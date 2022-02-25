@@ -26,6 +26,7 @@ else
 fi
 
 ./gradlew jar
+./gradlew editor:spotbugsMain editor:test editor:jar
 result=$?
 
 exit $result

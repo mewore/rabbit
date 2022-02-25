@@ -16,9 +16,6 @@ dependencies {
     annotationProcessor(lombokArtifact)
     compileOnly(lombokArtifact)
     compileOnly("org.checkerframework:checker-qual:3.21.2")
-    implementation("io.javalin:javalin:3.13.11")
-    runtimeOnly("org.slf4j:slf4j-api:1.7.35")
-    runtimeOnly("org.slf4j:slf4j-simple:1.7.35")
 
     testAnnotationProcessor(lombokArtifact)
     testCompileOnly(lombokArtifact)
@@ -31,10 +28,10 @@ tasks.spotbugsMain {
     excludeFilter.fileValue(projectDir.toPath().resolve("spotbugs-exclude.xml").toFile())
 }
 
-val serverClass = "moe.mewore.rabbit.backend.Server"
+val editorClass = "moe.mewore.rabbit.world.editor.WorldEditor"
 
 application {
-    mainClass.set(serverClass)
+    mainClass.set(editorClass)
 }
 
 tasks.test {
@@ -54,7 +51,7 @@ tasks.jacocoTestReport {
 tasks.jar {
     dependsOn.addAll(listOf(tasks.spotbugsMain, tasks.test))
     manifest {
-        attributes["Main-Class"] = serverClass
+        attributes["Main-Class"] = editorClass
     }
 
     duplicatesStrategy = DuplicatesStrategy.WARN

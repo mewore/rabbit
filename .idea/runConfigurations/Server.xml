@@ -3,11 +3,11 @@
     <envs>
       <env name="rabbit.static.external" value="frontend/dist" />
     </envs>
-    <option name="MAIN_CLASS_NAME" value="moe.mewore.rabbit.Server" />
+    <option name="MAIN_CLASS_NAME" value="moe.mewore.rabbit.backend.Server" />
     <module name="rabbit.backend.main" />
     <extension name="coverage">
       <pattern>
-        <option name="PATTERN" value="moe.mewore.rabbit.*" />
+        <option name="PATTERN" value="moe.mewore.rabbit.backend.*" />
         <option name="ENABLED" value="true" />
       </pattern>
     </extension>
