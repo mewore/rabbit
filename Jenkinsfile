@@ -29,7 +29,7 @@ pipeline {
                     sh './gradlew --parallel ' + tasksToRun.join(' ') + ' --no-daemon && ' +
                         spotbugsCommands.join(' && ')
 
-                    taskTimeFile = 'build/task-time.txt'
+                    taskTimeFile = 'build/reports/task-durations/index.html'
                     if (fileExists(taskTimeFile)) {
                         currentBuild.description = readFile([encoding: 'UTF-8', file: taskTimeFile])
                     }

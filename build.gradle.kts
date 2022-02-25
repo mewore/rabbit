@@ -105,7 +105,7 @@ class TaskExecutionTimePreview : TaskExecutionListener, BuildListener {
             lines.add(if (taskState.failure == null) line else "<span style=\"color: indianred\">$line</span>")
             println(line)
         }
-        val reportDir = result.gradle?.rootProject?.buildDir?.resolve("reports/task-time")
+        val reportDir = result.gradle?.rootProject?.buildDir?.resolve("reports/task-durations")
         if (reportDir != null && (reportDir.exists() || reportDir.mkdirs())) {
             val file = reportDir.resolve("index.html")
             file.writeText("<pre>" + lines.joinToString("\n") + "\n</pre>\n")
