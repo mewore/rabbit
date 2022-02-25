@@ -26,11 +26,6 @@ pipeline {
                     sourcePattern: '**/backend/src/main/java',
                     exclusionPattern: [
                         '**/test/**/*.class',
-                        '**/Application.class',
-                        '**/*Constants.class',
-                        '**/*Entity.class',
-                        '**/services/util/**/*.class',
-                        '**/config/security/AuthorityRoles.class',
                     ].join(','),
 
                     // 100% health at:
