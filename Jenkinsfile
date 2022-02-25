@@ -20,7 +20,6 @@ pipeline {
                 script {
                     sh './gradlew core:spotbugsMain core:test --no-daemon && ' + copySpotbugsReportCmd('core')
                 }
-                makeJacocoStep('core', [])
             }
         }
         stage('Editor') {
@@ -29,7 +28,6 @@ pipeline {
                     sh './gradlew editor:spotbugsMain editor:test editor:jar --no-daemon && ' +
                         copySpotbugsReportCmd('editor')
                 }
-                makeJacocoStep('editor', ['**/WorldEditor.class'])
             }
         }
         stage('Backend') {
@@ -37,7 +35,32 @@ pipeline {
                 script {
                     sh './gradlew backend:spotbugsMain backend:test --no-daemon && ' + copySpotbugsReportCmd('backend')
                 }
-                makeJacocoStep('backend', [])
+            }
+        }
+        stage('Coverage') {
+            steps {
+                jacoco([
+                    classPattern: '**/build/classes',
+                    execPattern: '**/**.exec',
+                    sourcePattern: '**/src/main/java',
+                    exclusionPattern: [
+                        '**/test/**/*.class',
+                        '**/WorldEditor.class',
+                    ].plus(excluded).join(','),
+
+                    // 100% health at:
+                    maximumBranchCoverage: '90',
+                    maximumClassCoverage: '95',
+                    maximumComplexityCoverage: '90',
+                    maximumLineCoverage: '95',
+                    maximumMethodCoverage: '95',
+                    // 0% health at:
+                    minimumBranchCoverage: '70',
+                    minimumClassCoverage: '80',
+                    minimumComplexityCoverage: '70',
+                    minimumLineCoverage: '80',
+                    minimumMethodCoverage: '80',
+                ])
             }
         }
         stage('Frontend') {
@@ -69,30 +92,6 @@ pipeline {
             ])
         }
     }
-}
-
-def makeJacocoStep(module, excluded) {
-    return jacoco([
-        classPattern: '**/' + module + '/build/classes',
-        execPattern: '**/**.exec',
-        sourcePattern: '**/' + module + '/src/main/java',
-        exclusionPattern: [
-            '**/test/**/*.class',
-        ].plus(excluded).join(','),
-
-        // 100% health at:
-        maximumBranchCoverage: '90',
-        maximumClassCoverage: '95',
-        maximumComplexityCoverage: '90',
-        maximumLineCoverage: '95',
-        maximumMethodCoverage: '95',
-        // 0% health at:
-        minimumBranchCoverage: '70',
-        minimumClassCoverage: '80',
-        minimumComplexityCoverage: '70',
-        minimumLineCoverage: '80',
-        minimumMethodCoverage: '80',
-    ])
 }
 
 def copySpotbugsReportCmd(module) {
