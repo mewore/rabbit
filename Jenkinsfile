@@ -46,7 +46,7 @@ pipeline {
                     exclusionPattern: [
                         '**/test/**/*.class',
                         '**/WorldEditor.class',
-                    ].plus(excluded).join(','),
+                    ].join(','),
 
                     // 100% health at:
                     maximumBranchCoverage: '90',
