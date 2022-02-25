@@ -20,7 +20,7 @@ pipeline {
                 script {
                     sh './gradlew core:spotbugsMain core:test --no-daemon && ' + copySpotbugsReportCmd('core')
                 }
-                makeJacocoStep('core')
+                makeJacocoStep('core', [])
             }
         }
         stage('Editor') {
@@ -37,7 +37,7 @@ pipeline {
                 script {
                     sh './gradlew backend:spotbugsMain backend:test --no-daemon && ' + copySpotbugsReportCmd('backend')
                 }
-                makeJacocoStep('backend')
+                makeJacocoStep('backend', [])
             }
         }
         stage('Frontend') {
@@ -71,7 +71,7 @@ pipeline {
     }
 }
 
-def makeJacocoStep(module, excluded = []) {
+def makeJacocoStep(module, excluded) {
     return jacoco([
         classPattern: '**/' + module + '/build/classes',
         execPattern: '**/**.exec',
