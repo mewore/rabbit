@@ -63,7 +63,7 @@ pipeline {
                 artifacts: [
                     'build/libs/**/*.jar',
                     'editor/build/libs/**/*.jar',
-                    ['core', 'editor', 'backend'].map({it + '/build/reports/spotbugs/spotbugs-' + it + '.html'})
+                    ['core', 'editor', 'backend'].collect({it + '/build/reports/spotbugs/spotbugs-' + it + '.html'})
                 ].flatten().join(','),
                 fingerprint: true,
             ])
