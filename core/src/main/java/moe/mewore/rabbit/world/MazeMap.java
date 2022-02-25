@@ -530,8 +530,8 @@ public class MazeMap extends BinaryEntity {
     private void applyEverythingElseToImage(final BufferedImage image, final List<Polygon> polygonsToDraw) {
         final int imageWidth = image.getWidth();
         final int imageHeight = image.getHeight();
-        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", width, height,
-            walls.size(), imageWidth, imageHeight);
+        System.out.printf("Applying the polygons and paths of a %dx%d map with %d polygons into a %dx%d px image...%n",
+            width, height, walls.size(), imageWidth, imageHeight);
 
         final Graphics2D graphics = image.createGraphics();
         graphics.setColor(SOLID_COLOR);
@@ -584,7 +584,8 @@ public class MazeMap extends BinaryEntity {
                 graphics.setColor(distanceRatio > 0.5
                     ? new Color(125 + (int) (125 * extremity), 120 - (int) (120 * extremity), 0)
                     : new Color(125 - (int) (125 * extremity), 120 + (int) (50 * extremity), (int) (70 * extremity)));
-                graphics.drawLine((int) (centerX), (int) (centerY), (int) (centerX - centerXStep * traversals[i][j].getDx()),
+                graphics.drawLine((int) (centerX), (int) (centerY),
+                    (int) (centerX - centerXStep * traversals[i][j].getDx()),
                     (int) (centerY - centerYStep * traversals[i][j].getDy()));
 
                 if (i - traversals[i][j].getDy() < 0 || i - traversals[i][j].getDy() >= height ||
