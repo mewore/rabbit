@@ -15,29 +15,28 @@ pipeline {
                 sh 'java -version'
             }
         }
-        stage('Core') {
+        stage('Build + Test') {
             steps {
                 script {
-                    sh './gradlew core:spotbugsMain core:test --no-daemon && ' + copySpotbugsReportCmd('core')
+                    tasksToRun = ['frontend:frontendLint', 'frontend:frontendTest', 'editor:jar', 'jar']
+                    spotbugsCommands = []
+                    for (javaModule in ['core', 'backend', 'editor']) {
+                        tasksToRun.add(javaModule + ':spotbugsMain')
+                        tasksToRun.add(javaModule + ':test')
+                        spotbugsCommands.add(copySpotbugsReportCmd(javaModule))
+                    }
+
+                    sh './gradlew --parallel ' + tasksToRun.join(' ') + ' --no-daemon && ' +
+                        spotbugsCommands.join(' && ')
+
+                    taskTimeFile = 'build/task-time.txt'
+                    if (fileExists(taskTimeFile)) {
+                        currentBuild.description = readFile([encoding: 'UTF-8', file: taskTimeFile])
+                    }
                 }
             }
         }
-        stage('Editor') {
-            steps {
-                script {
-                    sh './gradlew editor:spotbugsMain editor:test editor:jar --no-daemon && ' +
-                        copySpotbugsReportCmd('editor')
-                }
-            }
-        }
-        stage('Backend') {
-            steps {
-                script {
-                    sh './gradlew backend:spotbugsMain backend:test --no-daemon && ' + copySpotbugsReportCmd('backend')
-                }
-            }
-        }
-        stage('Coverage') {
+        stage('JaCoCo Report') {
             steps {
                 jacoco([
                     classPattern: '**/build/classes',
@@ -63,21 +62,6 @@ pipeline {
                 ])
             }
         }
-        stage('Frontend') {
-            steps {
-                script {
-                    sh './gradlew frontend:frontendLint frontend:frontendBuildProd frontend:frontendTest' +
-                        ' --no-daemon'
-                }
-            }
-        }
-        stage('Jar') {
-            steps {
-                script {
-                    sh './gradlew jar --no-daemon'
-                }
-            }
-        }
     }
 
     post {
@@ -89,6 +73,12 @@ pipeline {
                     ['core', 'editor', 'backend'].collect({it + '/build/reports/spotbugs/spotbugs-' + it + '.html'})
                 ].flatten().join(','),
                 fingerprint: true,
+            ])
+            publishHTML([
+                keepAll: true,
+                reportDir: 'build/reports/task-durations',
+                reportName: 'Task Durations',
+                reportTitles: 'Task Durations'
             ])
         }
     }

@@ -66,9 +66,10 @@ class TaskExecutionTimePreview : TaskExecutionListener, BuildListener {
         }
 
         val length = kotlin.math.max(maxEnd - minStart, 1)
-        val resolution = kotlin.math.max(10, kotlin.math.min(10 + (taskStarts.entries.size / 5) * 5, 80))
+        val resolution = kotlin.math.max(20, kotlin.math.min(20 + (taskStarts.entries.size / 5) * 5, 80))
         val shades = listOf(" ", "░", "▒", "▓", "█")
 
+        val lines = mutableListOf<String>()
         for (entry in taskStarts.entries.sortedBy { it.value }) {
             val task = entry.key
             val taskState = taskStates[task]
@@ -99,8 +100,15 @@ class TaskExecutionTimePreview : TaskExecutionListener, BuildListener {
                 formattedTime += ".0"
             }
             val prefix = (if (end - start <= 50) "" else "$formattedTime s").padStart(12)
-            val taskSign = if (taskState.failure == null) "✓" else "❌"
-            println("$prefix |${characters.joinToString("")}| $taskSign $task")
+            val taskSign = if (taskState.failure == null) "✓" else "✖"
+            val line = "$prefix |${characters.joinToString("")}| $taskSign $task"
+            lines.add(if (taskState.failure == null) line else "<span style=\"color: indianred\">$line</span>")
+            println(line)
+        }
+        val reportDir = result.gradle?.rootProject?.buildDir?.resolve("reports/task-time")
+        if (reportDir != null && (reportDir.exists() || reportDir.mkdirs())) {
+            val file = reportDir.resolve("index.html")
+            file.writeText("<pre>" + lines.joinToString("\n") + "\n</pre>\n")
         }
     }
 
