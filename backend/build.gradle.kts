@@ -52,7 +52,6 @@ tasks.jacocoTestReport {
 }
 
 tasks.jar {
-    dependsOn.addAll(listOf(tasks.spotbugsMain, tasks.test))
     manifest {
         attributes["Main-Class"] = serverClass
     }

@@ -69,7 +69,7 @@ val frontendTest = tasks.create<com.github.gradle.node.npm.task.NpmTask>("fronte
 }
 
 tasks.jar {
-    setDependsOn(listOf(frontendLint, frontendBuildProd, frontendTest))
+    setDependsOn(listOf(frontendBuildProd))
     inputs.dir("dist")
     outputs.dir("build")
     from("dist")

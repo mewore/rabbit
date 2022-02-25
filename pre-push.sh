@@ -25,8 +25,5 @@ else
     echo "There are no changed Gradle project files so the 'clean' task will not be performed."
 fi
 
-./gradlew jar
-./gradlew editor:spotbugsMain editor:test editor:jar
-result=$?
-
-exit $result
+./test-everything.sh
+exit $?

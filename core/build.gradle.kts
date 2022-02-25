@@ -41,8 +41,6 @@ tasks.jacocoTestReport {
 }
 
 tasks.jar {
-    dependsOn.addAll(listOf(tasks.spotbugsMain, tasks.test))
-
     duplicatesStrategy = DuplicatesStrategy.WARN
 
     doFirst("Include dependency jars in the jar (make a fat jar)") {
