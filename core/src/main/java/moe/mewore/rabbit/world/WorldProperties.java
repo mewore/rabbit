@@ -1,8 +1,10 @@
 package moe.mewore.rabbit.world;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,7 +63,17 @@ public class WorldProperties {
 
     public static WorldProperties getFromClasspath() throws IOException {
         final Properties properties = new Properties();
-        properties.load(WorldProperties.class.getClassLoader().getResourceAsStream(FILENAME));
+        try (final InputStream stream = WorldProperties.class.getClassLoader().getResourceAsStream(FILENAME)) {
+            properties.load(stream);
+        }
+        return new WorldProperties(properties);
+    }
+
+    public static WorldProperties getFromFile(final File file) throws IOException {
+        final Properties properties = new Properties();
+        try (final InputStream stream = new FileInputStream(file)) {
+            properties.load(stream);
+        }
         return new WorldProperties(properties);
     }
 

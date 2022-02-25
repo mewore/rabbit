@@ -55,7 +55,10 @@ public class WorldEditor {
         final JMenuBar mb = new JMenuBar();
         frame.getContentPane().add(BorderLayout.NORTH, mb);
 
-        final WorldProperties worldProperties = WorldProperties.getFromClasspath();
+        final File propertiesFile = new File(WorldProperties.FILENAME);
+        final WorldProperties worldProperties = propertiesFile.canRead()
+            ? WorldProperties.getFromFile(propertiesFile)
+            : WorldProperties.getFromClasspath();
         seedField.setText(worldProperties.getSeed());
 
         final JPanel upperPanel = new JPanel();
