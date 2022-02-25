@@ -75,8 +75,11 @@ pipeline {
                 fingerprint: true,
             ])
             publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: false,
                 keepAll: true,
                 reportDir: 'build/reports/task-durations',
+                reportFiles: 'index.html',
                 reportName: 'Task Durations',
                 reportTitles: 'Task Durations'
             ])
