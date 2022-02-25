@@ -20,7 +20,7 @@ pipeline {
                 script {
                     sh './gradlew core:spotbugsMain core:test --no-daemon && ' + copySpotbugsReportCmd('core')
                 }
-                jacoco(jacocoConfig('core'))
+                makeJacocoStep('core')
             }
         }
         stage('Editor') {
@@ -29,7 +29,7 @@ pipeline {
                     sh './gradlew editor:spotbugsMain editor:test editor:jar --no-daemon && ' +
                         copySpotbugsReportCmd('editor')
                 }
-                jacoco(jacocoConfig('editor', ['**/WorldEditor.class']))
+                makeJacocoStep('editor', ['**/WorldEditor.class'])
             }
         }
         stage('Backend') {
@@ -37,7 +37,7 @@ pipeline {
                 script {
                     sh './gradlew backend:spotbugsMain backend:test --no-daemon && ' + copySpotbugsReportCmd('backend')
                 }
-                jacoco(jacocoConfig('backend'))
+                makeJacocoStep('backend')
             }
         }
         stage('Frontend') {
@@ -71,8 +71,8 @@ pipeline {
     }
 }
 
-def jacocoConfig(module, excluded = []) {
-    return [
+def makeJacocoStep(module, excluded = []) {
+    return jacoco([
         classPattern: '**/' + module + '/build/classes',
         execPattern: '**/**.exec',
         sourcePattern: '**/' + module + '/src/main/java',
@@ -92,7 +92,7 @@ def jacocoConfig(module, excluded = []) {
         minimumComplexityCoverage: '70',
         minimumLineCoverage: '80',
         minimumMethodCoverage: '80',
-    ]
+    ])
 }
 
 def copySpotbugsReportCmd(module) {
