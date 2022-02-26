@@ -20,21 +20,41 @@ pipeline {
 
     stages {
         stage('Prepare') {
-            when {
-                expression {
-                    return !fileExists("${DOWNLOADED_JAR_NAME}");
+            parallel {
+                stage('Prepare Server') {
+                    when {
+                        expression {
+                            return !fileExists("${DOWNLOADED_JAR_NAME}");
+                        }
+                    }
+                    steps {
+                        script {
+                            sh 'pwd'
+                            copyArtifacts([
+                                projectName: "${SOURCE_BUILD_JOBNAME}",
+                                selector: specific("${SOURCE_BUILD_NUMBER}"),
+                                filter: "build/libs/${JAR_NAME}",
+                            ])
+                            sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
+                            sh 'rm -rf "build"'
+                        }
+                    }
                 }
-            }
-            steps {
-                script {
-                    sh 'pwd'
-                    copyArtifacts([
-                        projectName: "${SOURCE_BUILD_JOBNAME}",
-                        selector: specific("${SOURCE_BUILD_NUMBER}"),
-                        filter: "build/libs/${JAR_NAME}",
-                    ])
-                    sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
-                    sh 'rm -rf "build"'
+                stage('WorldEditor Executables') {
+                    steps {
+                        script {
+                            copyArtifacts([
+                                projectName: "${SOURCE_BUILD_JOBNAME}",
+                                selector: specific("${SOURCE_BUILD_NUMBER}"),
+                                filter: "editor/build/**",
+                            ])
+                            TARGET_DIR="./static/editor/${SOURCE_BUILD_NUMBER}"
+                            sh 'if ! [ -e \'' + TARGET_DIR + ' ]; then mkdir -p \'' + TARGET_DIR + '\' fi'
+                            sh 'cp editor/build/libs/editor.jar \'' + TARGET_DIR + '\''
+                            sh 'cp editor/build/executable-jar/linux64/editor-lin64.tar.gz \'' + TARGET_DIR + '\''
+                            sh 'cp editor/build/executable-jar/windows64/editor-win64.zip \'' + TARGET_DIR + '\''
+                        }
+                    }
                 }
             }
         }
