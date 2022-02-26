@@ -45,12 +45,7 @@
                     <div class="text-subtitle1">Clarity</div>
                     <q-slider
                         :model-value="settings.quality"
-                        @change="
-                            (value) => {
-                                settings.quality = value;
-                                onUpdated();
-                            }
-                        "
+                        @change="onQualityChanged"
                         :min="0.1"
                         :max="1.0"
                         :step="0.05"
@@ -195,6 +190,11 @@ export default class SettingsMenu extends Vue {
 
     onUpdated(): void {
         this.$emit('settingsChange', this.settings);
+    }
+
+    onQualityChanged(newQuality: number): void {
+        this.settings.quality = newQuality;
+        this.onUpdated();
     }
 
     onSaveClicked(): void {

@@ -58,9 +58,11 @@ pipeline {
                                 TARGET_DIR = "./static/editors/${SOURCE_BUILD_NUMBER}"
                                 sh 'if [ -e ./static/editor ] && ! [ -e ./static/editors ]; then mv ./static/editor ./static/editors; fi'
                                 sh 'if ! [ -e \'' + TARGET_DIR + '\' ]; then mkdir -p \'' + TARGET_DIR + '\'; fi'
-                                sh 'mv editor/build/libs/editor.jar \'' + TARGET_DIR + '\''
-                                sh 'mv editor/build/executable-jar/linux64/editor-lin64.tar.gz \'' + TARGET_DIR + '\''
-                                sh 'mv editor/build/executable-jar/windows64/editor-win64.zip \'' + TARGET_DIR + '\''
+                                sh 'mv editor/build/libs/editor.jar \'' + TARGET_DIR + '/rabbit-world-editor.jar\''
+                                sh 'mv editor/build/executable-jar/linux64/editor-lin64.tar.gz \'' + TARGET_DIR +
+                                    '/rabbit-world-editor-v' + SOURCE_BUILD_NUMBER + '-lin64.tar.gz\''
+                                sh 'mv editor/build/executable-jar/linux64/editor-win64.zip \'' + TARGET_DIR +
+                                    '/Rabbit World Editor v' + SOURCE_BUILD_NUMBER + ' - win64.zip\''
                             }
                             sh 'mv \'' + TMP_EDITOR_CHECKSUM_FILE + '\' \'' + EDITOR_CHECKSUM_FILE + '\''
                         }

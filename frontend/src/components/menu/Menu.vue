@@ -10,12 +10,12 @@
         <q-btn-group
             class="button-group"
             spread
-            v-if="currentMenu !== 'SETTINGS'"
+            v-if="currentMenu === 'MAIN_MENU' || currentMenu === 'CREDITS'"
         >
             <q-btn
                 :disable="playing && !canResume"
                 color="purple"
-                @click="onResumeOrPlayClicked($event)"
+                @click="onResumeOrPlayClicked()"
                 tabindex="2"
                 size="lg"
                 :label="playing ? 'Resume' : 'Play'"
@@ -37,8 +37,14 @@
                     label="Settings"
                 />
                 <q-btn
-                    @click="goTo('CREDITS')"
+                    @click="goTo('WORLD_EDITOR')"
                     tabindex="4"
+                    size="lg"
+                    label="World Editor"
+                />
+                <q-btn
+                    @click="goTo('CREDITS')"
+                    tabindex="5"
                     size="lg"
                     label="Credits"
                 />
@@ -65,6 +71,12 @@
                 v-on:settingsChange="onSettingsChanged"
             />
         </template>
+        <template v-if="currentMenu === 'WORLD_EDITOR'">
+            <EditorDownloadMenu
+                ref="editorMenu"
+                v-on:close="goTo('MAIN_MENU')"
+            />
+        </template>
     </q-card>
 </template>
 
@@ -72,11 +84,15 @@
 import { Options, Vue } from 'vue-class-component';
 import { Settings, getTitle } from '@/temp-util';
 import Credits from '@/components/menu/Credits.vue';
+import EditorDownloadMenu from '@/components/menu/EditorDownloadMenu.vue';
 import SettingsMenu from '@/components/menu/SettingsMenu.vue';
+
+type MenuId = 'MAIN_MENU' | 'SETTINGS' | 'WORLD_EDITOR' | 'CREDITS';
 
 @Options({
     components: {
         Credits,
+        EditorDownloadMenu,
         SettingsMenu,
     },
     props: {
@@ -87,7 +103,7 @@ import SettingsMenu from '@/components/menu/SettingsMenu.vue';
 })
 export default class Menu extends Vue {
     title = getTitle();
-    currentMenu = 'MAIN_MENU';
+    currentMenu: MenuId = 'MAIN_MENU';
     menuName = 'Main Menu';
 
     playing!: boolean;
@@ -147,6 +163,11 @@ export default class Menu extends Vue {
                 case 'SETTINGS':
                     (this.$refs.settingsMenu as SettingsMenu).onCancelClicked();
                     break;
+                case 'WORLD_EDITOR':
+                    (
+                        this.$refs.editorMenu as EditorDownloadMenu
+                    ).onBackClicked();
+                    break;
                 case 'CREDITS':
                     this.goTo('MAIN_MENU');
                     break;
@@ -154,7 +175,7 @@ export default class Menu extends Vue {
         }
     }
 
-    goTo(menu: string): void {
+    goTo(menu: MenuId): void {
         if (menu === this.currentMenu) {
             return;
         }
@@ -166,6 +187,9 @@ export default class Menu extends Vue {
                 break;
             case 'SETTINGS':
                 this.menuName = 'Settings';
+                break;
+            case 'WORLD_EDITOR':
+                this.menuName = 'World Editor';
                 break;
             case 'CREDITS':
                 this.menuName = 'Credits';

@@ -1,6 +1,6 @@
 <template>
     <div id="credits">
-        <div class="credit" v-for="credit in credits" :key="credit">
+        <div class="credit" v-for="credit in credits" :key="credit.thing.text">
             <a
                 v-if="credit.thing.url"
                 target="_blank"

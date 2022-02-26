@@ -11,7 +11,7 @@ class EditorVersion {
 
     public static final EditorVersion INVALID_EDITOR_VERSION = new EditorVersion(-1, -1, null, null, null);
 
-    private final int version;
+    private final int id;
 
     private final long lastModified;
 
