@@ -4,6 +4,12 @@ pipeline {
         jdk 'openjdk-15.0.2'
     }
 
+    environment {
+        LINUX_JAVA_PATH = "${env.HOME}/.jdks/jdk-15.0.2-lin64"
+        WINDOWS_JAVA_PATH = "${env.HOME}/.jdks/jdk-15.0.2-win64"
+        LAUNCH4J_PATH = "${env.HOME}/launch4j"
+    }
+
     stages {
         stage('Prepare') {
             steps {
@@ -31,30 +37,41 @@ pipeline {
                 }
             }
         }
-        stage('JaCoCo Report') {
-            steps {
-                jacoco([
-                    classPattern: '**/build/classes',
-                    execPattern: '**/**.exec',
-                    sourcePattern: '**/src/main/java',
-                    exclusionPattern: [
-                        '**/test/**/*.class',
-                        '**/WorldEditor.class',
-                    ].join(','),
+        stage('Finalize') {
+            parallel {
+                stage('Create WorldEditor executables') {
+                    steps {
+                        script {
+                            sh 'cd ./editor && ./package-into-executable.sh'
+                        }
+                    }
+                }
+                stage('JaCoCo Report') {
+                    steps {
+                        jacoco([
+                            classPattern: '**/build/classes',
+                            execPattern: '**/**.exec',
+                            sourcePattern: '**/src/main/java',
+                            exclusionPattern: [
+                                '**/test/**/*.class',
+                                '**/WorldEditor.class',
+                            ].join(','),
 
-                    // 100% health at:
-                    maximumBranchCoverage: '90',
-                    maximumClassCoverage: '95',
-                    maximumComplexityCoverage: '90',
-                    maximumLineCoverage: '95',
-                    maximumMethodCoverage: '95',
-                    // 0% health at:
-                    minimumBranchCoverage: '70',
-                    minimumClassCoverage: '80',
-                    minimumComplexityCoverage: '70',
-                    minimumLineCoverage: '80',
-                    minimumMethodCoverage: '80',
-                ])
+                            // 100% health at:
+                            maximumBranchCoverage: '90',
+                            maximumClassCoverage: '95',
+                            maximumComplexityCoverage: '90',
+                            maximumLineCoverage: '95',
+                            maximumMethodCoverage: '95',
+                            // 0% health at:
+                            minimumBranchCoverage: '70',
+                            minimumClassCoverage: '80',
+                            minimumComplexityCoverage: '70',
+                            minimumLineCoverage: '80',
+                            minimumMethodCoverage: '80',
+                        ])
+                    }
+                }
             }
         }
     }
@@ -65,6 +82,8 @@ pipeline {
                 artifacts: [
                     'build/libs/**/*.jar',
                     'editor/build/libs/**/*.jar',
+                    'editor/build/executable-jar/**/*.tar.gz',
+                    'editor/build/executable-jar/**/*.zip',
                     ['core', 'editor', 'backend'].collect({it + '/build/reports/spotbugs/spotbugs-' + it + '.html'})
                 ].flatten().join(','),
                 fingerprint: true,
