@@ -54,7 +54,7 @@ pipeline {
                         currentChecksum = sh(
                             script: "md5sum '${DOWNLOADED_JAR_NAME}' | awk '{print \$1;}'",
                             returnStdout: true
-                        ).trim()
+                        )
                         needsToRun = lastChecksum != currentChecksum
                         env {
                             NEEDS_TO_RUN = needsToRun
