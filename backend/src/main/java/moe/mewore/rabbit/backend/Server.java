@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -25,6 +26,7 @@ import io.javalin.websocket.WsConnectContext;
 import io.javalin.websocket.WsConnectHandler;
 import io.javalin.websocket.WsContext;
 import lombok.RequiredArgsConstructor;
+import moe.mewore.rabbit.backend.editor.EditorVersionHandler;
 import moe.mewore.rabbit.backend.messages.MapDataMessage;
 import moe.mewore.rabbit.backend.messages.PlayerDisconnectMessage;
 import moe.mewore.rabbit.backend.messages.PlayerJoinMessage;
@@ -59,13 +61,14 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     }
 
     static Javalin start(final ServerSettings settings) throws IOException {
+        final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
         final Javalin javalin = Javalin.create(config -> {
             config.addStaticFiles("static");
-            final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
             if (externalStaticLocation != null) {
-                config.addStaticFiles(settings.getExternalStaticLocation(), Location.EXTERNAL);
+                config.addStaticFiles(externalStaticLocation, Location.EXTERNAL);
             }
         });
+
         final WorldProperties worldProperties = WorldProperties.getFromClasspath();
         final long seed = worldProperties.getSeedAsLong();
         final Noise opennessNoise = new CompositeNoise(
@@ -76,6 +79,11 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
         final MazeMap map = MazeMap.createSeamless(worldProperties.getWidth(), worldProperties.getHeight(),
             new Random(seed), 1, opennessNoise, worldProperties.getFlippedCellSet());
+
+        javalin.get("editors", externalStaticLocation != null
+            ? new EditorVersionHandler(externalStaticLocation)
+            : ctx -> ctx.json(Collections.emptySet()));
+
         return new Server(settings, javalin, map).start();
     }
 

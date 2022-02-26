@@ -19,6 +19,7 @@ dependencies {
     implementation("io.javalin:javalin:3.13.11")
     runtimeOnly("org.slf4j:slf4j-api:1.7.35")
     runtimeOnly("org.slf4j:slf4j-simple:1.7.35")
+    runtimeOnly("com.fasterxml.jackson.core:jackson-databind:2.13.1")
 
     testAnnotationProcessor(lombokArtifact)
     testCompileOnly(lombokArtifact)

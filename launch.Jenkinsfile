@@ -48,7 +48,8 @@ pipeline {
                                 selector: specific("${SOURCE_BUILD_NUMBER}"),
                                 filter: "editor/build/**",
                             ])
-                            TARGET_DIR="./static/editor/${SOURCE_BUILD_NUMBER}"
+                            TARGET_DIR="./static/editors/${SOURCE_BUILD_NUMBER}"
+                            sh 'if [ -e ./static/editor ] && ! [ -e ./static/editors ]; then mv ./static/editor ./static/editors; fi'
                             sh 'if ! [ -e \'' + TARGET_DIR + '\' ]; then mkdir -p \'' + TARGET_DIR + '\'; fi'
                             sh 'cp editor/build/libs/editor.jar \'' + TARGET_DIR + '\''
                             sh 'cp editor/build/executable-jar/linux64/editor-lin64.tar.gz \'' + TARGET_DIR + '\''
