@@ -16,6 +16,8 @@ pipeline {
         LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${APP_PORT} --rabbit.static.external=./static\" > '${LOG_FILE}' &"
         LAUNCH_COMMAND_IDENTIFYING_STRING = "rabbit.port="
         EXPECTED_RESPONSE = "<title>rabbit-frontend</title>"
+        EDITOR_CHECKSUM_FILE = "editor.md5"
+        TMP_EDITOR_CHECKSUM_FILE = "editor-tmp.md5"
     }
 
     stages {
@@ -48,12 +50,18 @@ pipeline {
                                 selector: specific("${SOURCE_BUILD_NUMBER}"),
                                 filter: "editor/build/**",
                             ])
-                            TARGET_DIR="./static/editors/${SOURCE_BUILD_NUMBER}"
-                            sh 'if [ -e ./static/editor ] && ! [ -e ./static/editors ]; then mv ./static/editor ./static/editors; fi'
-                            sh 'if ! [ -e \'' + TARGET_DIR + '\' ]; then mkdir -p \'' + TARGET_DIR + '\'; fi'
-                            sh 'cp editor/build/libs/editor.jar \'' + TARGET_DIR + '\''
-                            sh 'cp editor/build/executable-jar/linux64/editor-lin64.tar.gz \'' + TARGET_DIR + '\''
-                            sh 'cp editor/build/executable-jar/windows64/editor-win64.zip \'' + TARGET_DIR + '\''
+
+                            sh 'md5sum \'editor/build/libs/editor.jar\' | awk \'{print $1;} > ' + TMP_EDITOR_CHECKSUM_FILE
+                            if (!fileExists(EDITOR_CHECKSUM_FILE)
+                                    || readFile(TMP_EDITOR_CHECKSUM_FILE) != readFile(EDITOR_CHECKSUM_FILE)) {
+                                TARGET_DIR="./static/editors/${SOURCE_BUILD_NUMBER}"
+                                sh 'if [ -e ./static/editor ] && ! [ -e ./static/editors ]; then mv ./static/editor ./static/editors; fi'
+                                sh 'if ! [ -e \'' + TARGET_DIR + '\' ]; then mkdir -p \'' + TARGET_DIR + '\'; fi'
+                                sh 'mv editor/build/libs/editor.jar \'' + TARGET_DIR + '\''
+                                sh 'mv editor/build/executable-jar/linux64/editor-lin64.tar.gz \'' + TARGET_DIR + '\''
+                                sh 'mv editor/build/executable-jar/windows64/editor-win64.zip \'' + TARGET_DIR + '\''
+                            }
+                            sh 'mv \'' + TMP_EDITOR_CHECKSUM_FILE + '\' \'' + EDITOR_CHECKSUM_FILE + '\''
                         }
                     }
                 }
