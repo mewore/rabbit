@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("com.dorongold.task-tree").version("2.1.0")
 }
 
 group = "moe.mewore.rabbit"

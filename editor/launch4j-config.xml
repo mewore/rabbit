@@ -1,8 +1,8 @@
 <launch4jConfig>
     <dontWrapJar>false</dontWrapJar>
     <headerType>gui</headerType>
-    <jar>./build/libs/editor.jar</jar>
-    <outfile>./build/executable-jar/windows64/rabbit-world-editor/editor.exe</outfile>
+    <jar/>
+    <outfile/>
     <errTitle/>
     <cmdLine/>
     <chdir>.</chdir>
