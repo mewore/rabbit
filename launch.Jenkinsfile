@@ -44,6 +44,7 @@ pipeline {
         steps {
             script {
                 isRunning = sh(
+                    label: 'Check if the server is running',
                     script: "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'",
                     returnStatus: true
                 ) == 0
@@ -52,8 +53,10 @@ pipeline {
                     if (fileExists(BACKEND_JAR_CHECKSUM_FILE)) {
                         lastChecksum = readFile(BACKEND_JAR_CHECKSUM_FILE).trim()
                         currentChecksum = sh(
+                            label: 'Get MD5 checksum of current .jar file'
                             script: "md5sum '${DOWNLOADED_JAR_NAME}' | awk '{print \$1;}'",
-                            returnStdout: true
+                            returnStdout: true,
+                            encoding: 'UTF-8'
                         )
                         needsToRun = lastChecksum != currentChecksum
                         env {
