@@ -52,22 +52,12 @@ pipeline {
                 if (!needsToRun) {
                     if (fileExists(BACKEND_JAR_CHECKSUM_FILE)) {
                         lastChecksum = readFile(BACKEND_JAR_CHECKSUM_FILE).trim()
-                        test = sh(
-                            label: 'Test',
-                            script: "echo a",
-                            encoding: 'UTF-8'
-                        ).toString()
-                        test2 = sh(
-                            label: 'Other test',
-                            script: "echo b",
-                            encoding: 'UTF-8'
-                        )
                         currentChecksum = sh(
                             label: 'Get MD5 checksum of current .jar file',
-                            script: "md5sum '${DOWNLOADED_JAR_NAME}' | awk '" + '{' + "print \$1;" + '}' + "'",
+                            script: 'md5sum \'${DOWNLOADED_JAR_NAME}\' | awk \'{print $1;}\'',
                             returnStdout: true,
                             encoding: 'UTF-8'
-                        ).toString()
+                        )
                         needsToRun = lastChecksum != currentChecksum
                         env {
                             NEEDS_TO_RUN = needsToRun
