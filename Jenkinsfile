@@ -9,9 +9,9 @@ pipeline {
         WINDOWS_JAVA_PATH = "${env.HOME}/.jdks/jdk-15.0.2-win64"
         LAUNCH4J_PATH = "${env.HOME}/launch4j"
         LINUX_ROOT_DIR = "rabbit-world-editor"
-        LINUX_ARCHIVE_NAME = "editor"
+        LINUX_ARCHIVE_NAME = "editor-lin64"
         WINDOWS_ROOT_DIR = "Rabbit World Editor"
-        WINDOWS_ARCHIVE_NAME = "editor"
+        WINDOWS_ARCHIVE_NAME = "editor-win64"
     }
 
     stages {
