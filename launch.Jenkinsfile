@@ -49,7 +49,7 @@ pipeline {
                                 filter: "editor/build/**",
                             ])
                             TARGET_DIR="./static/editor/${SOURCE_BUILD_NUMBER}"
-                            sh 'if ! [ -e \'' + TARGET_DIR + ' ]; then mkdir -p \'' + TARGET_DIR + '\' fi'
+                            sh 'if ! [ -e \'' + TARGET_DIR + ' ]; then mkdir -p \'' + TARGET_DIR + '\'; fi'
                             sh 'cp editor/build/libs/editor.jar \'' + TARGET_DIR + '\''
                             sh 'cp editor/build/executable-jar/linux64/editor-lin64.tar.gz \'' + TARGET_DIR + '\''
                             sh 'cp editor/build/executable-jar/windows64/editor-win64.zip \'' + TARGET_DIR + '\''
