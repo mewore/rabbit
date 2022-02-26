@@ -281,7 +281,7 @@ export class GameScene {
             this.refreshSize();
         }
 
-        this.settings = newSettings;
+        this.settings = { ...newSettings };
     }
 
     start(): void {
