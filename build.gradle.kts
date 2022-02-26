@@ -95,7 +95,7 @@ class TaskExecutionTimePreview : TaskExecutionListener, BuildListener {
                 )] = shades[1]
             }
 
-            var formattedTime = "${((end - start) / 100) / 10.0}"
+            var formattedTime = "${kotlin.math.round((end - start) / 100.0) / 10.0}"
             if (!formattedTime.contains(".")) {
                 formattedTime += ".0"
             }
