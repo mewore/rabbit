@@ -30,7 +30,6 @@ val frontendLint = tasks.create<com.github.gradle.node.npm.task.NpmTask>("fronte
 
 tasks.create<com.github.gradle.node.npm.task.NpmTask>("frontendBuild") {
     setDependsOn(listOf(tasks.npmInstall))
-    setMustRunAfter(listOf(frontendLint))
     inputs.dir("src")
     inputs.dir("public")
     inputs.files(commonRootSourceFiles)
@@ -41,7 +40,6 @@ tasks.create<com.github.gradle.node.npm.task.NpmTask>("frontendBuild") {
 
 val frontendBuildProd = tasks.create<com.github.gradle.node.npm.task.NpmTask>("frontendBuildProd") {
     setDependsOn(listOf(tasks.npmInstall))
-    setMustRunAfter(listOf(frontendLint))
     inputs.dir("src")
     inputs.dir("public")
     inputs.files(commonRootSourceFiles)
