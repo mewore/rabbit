@@ -16,8 +16,6 @@ pipeline {
         LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${APP_PORT}\" > '${LOG_FILE}' &"
         LAUNCH_COMMAND_IDENTIFYING_STRING = "rabbit.port="
         EXPECTED_RESPONSE = "<title>rabbit-frontend</title>"
-        BACKEND_JAR_CHECKSUM_FILE = "backend-checksum.txt"
-        NEEDS_TO_RUN = true
     }
 
     stages {
@@ -40,38 +38,7 @@ pipeline {
                 }
             }
         }
-        stage('Check if same') {
-        steps {
-            script {
-                isRunning = sh([
-                    label: 'Check if the server is running',
-                    script: "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'",
-                    returnStatus: true,
-                ]) == 0
-                needsToRun = !isRunning
-                if (!needsToRun) {
-                    if (fileExists(BACKEND_JAR_CHECKSUM_FILE)) {
-                        lastChecksum = readFile(BACKEND_JAR_CHECKSUM_FILE)
-                        hasSameChecksum = sh([
-                            label: 'Check if the old checksum matches the new one',
-                            script: 'md5sum \'' + DOWNLOADED_JAR_NAME + '\' | awk \'{print $1;}\' | grep \'' + lastChecksum + '\'',
-                            returnStatus: true,
-                        ]) == 0
-                        needsToRun = !hasSameChecksum
-                        env {
-                            NEEDS_TO_RUN = needsToRun
-                        }
-                    } else {
-                        needsToRun = true
-                    }
-                }
-            }
-        }
-        }
         stage('Stop') {
-            when {
-                environment name: 'NEEDS_TO_RUN', value: 'true'
-            }
             steps {
                 script {
                     processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' -o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
@@ -94,23 +61,16 @@ pipeline {
             }
         }
         stage('Launch') {
-            when {
-                environment name: 'NEEDS_TO_RUN', value: 'true'
-            }
             steps {
                 // https://devops.stackexchange.com/questions/1473/running-a-background-process-in-pipeline-job
                 withEnv(['JENKINS_NODE_COOKIE=dontkill']) {
                     script {
-                        sh "md5sum '${DOWNLOADED_JAR_NAME}' | awk '{print \$1;}' > '${BACKEND_JAR_CHECKSUM_FILE}'"
                         sh LAUNCH_COMMAND
                     }
                 }
             }
         }
         stage('Verify') {
-            when {
-                environment name: 'NEEDS_TO_RUN', value: 'true'
-            }
             steps {
                 sleep 20
                 script {
