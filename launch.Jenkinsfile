@@ -13,7 +13,7 @@ pipeline {
         LOG_FILE = "${LOG_FILE_PREFIX}-${env.BUILD_NUMBER}.log"
         APP_PROTOCOL = "http"
         APP_PORT = 8100
-        LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${APP_PORT}\" > '${LOG_FILE}' &"
+        LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${APP_PORT} --rabbit.static.external=./static\" > '${LOG_FILE}' &"
         LAUNCH_COMMAND_IDENTIFYING_STRING = "rabbit.port="
         EXPECTED_RESPONSE = "<title>rabbit-frontend</title>"
     }
