@@ -51,7 +51,7 @@ pipeline {
                 needsToRun = !isRunning
                 if (!needsToRun) {
                     if (fileExists(BACKEND_JAR_CHECKSUM_FILE)) {
-                        lastChecksum = readFile(BACKEND_JAR_CHECKSUM_FILE).trim()
+                        lastChecksum = readFile(BACKEND_JAR_CHECKSUM_FILE)
                         hasSameChecksum = sh([
                             label: 'Check if the old checksum matches the new one',
                             script: 'md5sum \'' + DOWNLOADED_JAR_NAME + '\' | awk \'{print $1;}\' | grep \'' + lastChecksum + '\'',
