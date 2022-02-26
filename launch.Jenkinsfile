@@ -53,7 +53,7 @@ pipeline {
                     if (fileExists(BACKEND_JAR_CHECKSUM_FILE)) {
                         lastChecksum = readFile(BACKEND_JAR_CHECKSUM_FILE).trim()
                         currentChecksum = sh(
-                            label: 'Get MD5 checksum of current .jar file'
+                            label: 'Get MD5 checksum of current .jar file',
                             script: "md5sum '${DOWNLOADED_JAR_NAME}' | awk '{print \$1;}'",
                             returnStdout: true,
                             encoding: 'UTF-8'
