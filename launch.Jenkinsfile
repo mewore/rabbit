@@ -67,7 +67,9 @@ pipeline {
         }
         }
         stage('Stop') {
-            when(NEEDS_TO_RUN)
+            when {
+                environment name: 'NEEDS_TO_RUN', value: 'true'
+            }
             steps {
                 script {
                     processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' -o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
@@ -90,7 +92,9 @@ pipeline {
             }
         }
         stage('Launch') {
-            when(NEEDS_TO_RUN)
+            when {
+                environment name: 'NEEDS_TO_RUN', value: 'true'
+            }
             steps {
                 // https://devops.stackexchange.com/questions/1473/running-a-background-process-in-pipeline-job
                 withEnv(['JENKINS_NODE_COOKIE=dontkill']) {
@@ -102,7 +106,9 @@ pipeline {
             }
         }
         stage('Verify') {
-            when(NEEDS_TO_RUN)
+            when {
+                environment name: 'NEEDS_TO_RUN', value: 'true'
+            }
             steps {
                 sleep 20
                 script {
