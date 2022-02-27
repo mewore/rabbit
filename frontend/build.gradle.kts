@@ -11,8 +11,8 @@ repositories {
 }
 
 node {
-    version.set("10.19.0")
-    npmVersion.set("6.14.4")
+    version.set("16.14.0")
+    npmVersion.set("8.5.2")
     download.set(true)
 }
 

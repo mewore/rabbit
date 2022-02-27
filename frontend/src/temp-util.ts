@@ -81,7 +81,9 @@ export function getTitle(): string {
 
 const SETTINGS_KEY = 'rabbit-reisen:settings';
 
-const initialSettingsRaw = window.localStorage?.getItem(SETTINGS_KEY) || window.sessionStorage?.getItem(SETTINGS_KEY);
+const initialSettingsRaw =
+    (window.localStorage && window.localStorage.getItem(SETTINGS_KEY)) ||
+    (window.sessionStorage && window.sessionStorage.getItem(SETTINGS_KEY));
 const initialSettings = initialSettingsRaw ? JSON.parse(initialSettingsRaw) : {};
 
 export enum SaveLocation {
