@@ -11,8 +11,8 @@ pipeline {
 
     environment {
         DOWNLOADED_JAR_NAME = "${SOURCE_BUILD_JOBNAME}-${SOURCE_BUILD_NUMBER}-${JAR_NAME}"
-        OLD_CHECKSUM_FILE_NAME = "${DOWNLOADED_JAR_NAME}.md5"
-        NEW_CHECKSUM_FILE_NAME = "${OLD_CHECKSUM_FILE_NAME}.tmp"
+        OLD_SERVER_CHECKSUM_FILE = "${DOWNLOADED_JAR_NAME}.md5"
+        NEW_SERVER_CHECKSUM_FILE = "${OLD_SERVER_CHECKSUM_FILE}.tmp"
         LOG_FILE_PREFIX = "rabbit"
         LOG_FILE = "${LOG_FILE_PREFIX}-${env.BUILD_NUMBER}.log"
         APP_PROTOCOL = "http"
@@ -42,18 +42,18 @@ pipeline {
                             ])
                             sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
                             sh 'rm -rf "build"'
-                            oldChecksumFile = '${DOWNLOADED_JAR_NAME}.md5'
-                            newChecksumFile = '${oldChecksumFile}.tmp'
-                            sh 'md5sum "${DOWNLOADED_JAR_NAME}" | awk \'{print $1;}\' > "${newChecksumFile}"'
-                            shouldLaunch = !fileExists(oldChecksumFile) \
-                                || readFile(newChecksumFile) != readFile(oldChecksumFile) \
+                            sh 'md5sum \'${DOWNLOADED_JAR_NAME}\' | awk \'{print $1;}\' > \'' +
+                                NEW_SERVER_CHECKSUM_FILE + '\''
+                            echo 'New checksum of "${DOWNLOADED_JAR_NAME}": ' + readFile(NEW_SERVER_CHECKSUM_FILE)
+                            shouldLaunch = !fileExists(OLD_SERVER_CHECKSUM_FILE) \
+                                || readFile(NEW_SERVER_CHECKSUM_FILE) != readFile(OLD_SERVER_CHECKSUM_FILE) \
                                 || sh([
                                     label: 'Check if the server is running',
                                     script: "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'",
                                     returnStatus: true
                                 ]) != 0
                             if (!shouldLaunch) {
-                                sh 'rm "${NEW_CHECKSUM_FILE_NAME}"'
+                                sh 'rm "${NEW_SERVER_CHECKSUM_FILE}"'
                             }
                         }
                     }
@@ -127,7 +127,7 @@ pipeline {
             when { expression { shouldLaunch == true } }
             steps {
                 script {
-                    sh 'mv "${NEW_CHECKSUM_FILE_NAME}" "${OLD_CHECKSUM_FILE_NAME}"'
+                    sh 'mv "${NEW_SERVER_CHECKSUM_FILE}" "${OLD_SERVER_CHECKSUM_FILE}"'
                 }
             }
         }
