@@ -28,8 +28,9 @@
                     left: label.left + 'px',
                     opacity: label.opacity * (1.0 - inactivity) + '%',
                 }"
-                >{{ label.text }}</span
             >
+                {{ label.text }}
+            </span>
         </div>
         <PerformanceDisplay
             :style="{ display: showingPerformance ? 'block' : 'none' }"
