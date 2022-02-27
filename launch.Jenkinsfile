@@ -16,8 +16,7 @@ pipeline {
         LAUNCH_COMMAND = "nohup bash -c \"java -jar '${DOWNLOADED_JAR_NAME}' --rabbit.port=${APP_PORT} --rabbit.static.external=./static\" > '${LOG_FILE}' &"
         LAUNCH_COMMAND_IDENTIFYING_STRING = "rabbit.port="
         EXPECTED_RESPONSE = "<title>rabbit-frontend</title>"
-        EDITOR_CHECKSUM_FILE = "editor.md5"
-        TMP_EDITOR_CHECKSUM_FILE = "editor-tmp.md5"
+        EDITOR_JAR_FILE = "editor.jar"
     }
 
     stages {
