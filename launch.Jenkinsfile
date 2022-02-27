@@ -134,7 +134,11 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: "${LOG_FILE}", fingerprint: true
+            archiveArtifacts([
+                artifacts: "${LOG_FILE}",
+                allowEmptyArchive: true,
+                fingerprint: true,
+            ])
         }
     }
 }
