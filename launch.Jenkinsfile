@@ -1,3 +1,5 @@
+def shouldLaunch = true;
+
 pipeline {
     agent {
         node LAUNCH_NODE
@@ -9,6 +11,8 @@ pipeline {
 
     environment {
         DOWNLOADED_JAR_NAME = "${SOURCE_BUILD_JOBNAME}-${SOURCE_BUILD_NUMBER}-${JAR_NAME}"
+        OLD_CHECKSUM_FILE_NAME = "${DOWNLOADED_JAR_NAME}.md5"
+        NEW_CHECKSUM_FILE_NAME = "${OLD_CHECKSUM_FILE_NAME}.tmp"
         LOG_FILE_PREFIX = "rabbit"
         LOG_FILE = "${LOG_FILE_PREFIX}-${env.BUILD_NUMBER}.log"
         APP_PROTOCOL = "http"
@@ -38,6 +42,19 @@ pipeline {
                             ])
                             sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
                             sh 'rm -rf "build"'
+                            oldChecksumFile = '${DOWNLOADED_JAR_NAME}.md5'
+                            newChecksumFile = '${oldChecksumFile}.tmp'
+                            sh 'md5sum "${DOWNLOADED_JAR_NAME}" | awk \'{print $1;}\' > "${newChecksumFile}"'
+                            shouldLaunch = !fileExists(oldChecksumFile) \
+                                || readFile(newChecksumFile) != readFile(oldChecksumFile) \
+                                || sh([
+                                    label: 'Check if the server is running',
+                                    script: "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'",
+                                    returnStatus: true
+                                ]) != 0
+                            if (!shouldLaunch) {
+                                sh 'rm "${NEW_CHECKSUM_FILE_NAME}"'
+                            }
                         }
                     }
                 }
@@ -59,6 +76,7 @@ pipeline {
             }
         }
         stage('Stop') {
+            when { expression { shouldLaunch == true } }
             steps {
                 script {
                     processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' -o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
@@ -81,6 +99,7 @@ pipeline {
             }
         }
         stage('Launch') {
+            when { expression { shouldLaunch == true } }
             steps {
                 // https://devops.stackexchange.com/questions/1473/running-a-background-process-in-pipeline-job
                 withEnv(['JENKINS_NODE_COOKIE=dontkill']) {
@@ -91,6 +110,7 @@ pipeline {
             }
         }
         stage('Verify') {
+            when { expression { shouldLaunch == true } }
             steps {
                 sleep 20
                 script {
@@ -100,6 +120,14 @@ pipeline {
                         error "The app does not have an output file '${LOG_FILE}'!"
                     }
                     sh "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'"
+                }
+            }
+        }
+        stage('Update server checksum') {
+            when { expression { shouldLaunch == true } }
+            steps {
+                script {
+                    sh 'mv "${NEW_CHECKSUM_FILE_NAME}" "${OLD_CHECKSUM_FILE_NAME}"'
                 }
             }
         }
