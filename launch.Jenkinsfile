@@ -45,26 +45,15 @@ pipeline {
                 stage('WorldEditor Executables') {
                     steps {
                         script {
+                            sh 'rm -rf "editor/build"'
                             copyArtifacts([
                                 projectName: "${SOURCE_BUILD_JOBNAME}",
                                 selector: specific("${SOURCE_BUILD_NUMBER}"),
                                 filter: "editor/build/**",
                             ])
 
-                            sh 'md5sum \'editor/build/libs/editor.jar\' | awk \'{print $1;}\' > \'' +
-                                TMP_EDITOR_CHECKSUM_FILE + '\''
-                            if (!fileExists(EDITOR_CHECKSUM_FILE)
-                                    || readFile(TMP_EDITOR_CHECKSUM_FILE) != readFile(EDITOR_CHECKSUM_FILE)) {
-                                TARGET_DIR = "./static/editors/${SOURCE_BUILD_NUMBER}"
-                                sh 'if [ -e ./static/editor ] && ! [ -e ./static/editors ]; then mv ./static/editor ./static/editors; fi'
-                                sh 'if ! [ -e \'' + TARGET_DIR + '\' ]; then mkdir -p \'' + TARGET_DIR + '\'; fi'
-                                sh 'mv editor/build/libs/editor.jar \'' + TARGET_DIR + '/rabbit-world-editor.jar\''
-                                sh 'mv editor/build/executable/linux/editor-lin64.tar.gz \'' + TARGET_DIR +
-                                    '/rabbit-world-editor-v' + SOURCE_BUILD_NUMBER + '-lin64.tar.gz\''
-                                sh 'mv editor/build/executable/windows/editor-win64.zip \'' + TARGET_DIR +
-                                    '/Rabbit World Editor v' + SOURCE_BUILD_NUMBER + ' - win64.zip\''
-                            }
-                            sh 'mv \'' + TMP_EDITOR_CHECKSUM_FILE + '\' \'' + EDITOR_CHECKSUM_FILE + '\''
+                            sh './launch/add-world-editor-version.sh'
+                            sh 'rm -rf "editor/build"'
                         }
                     }
                 }
