@@ -21,29 +21,25 @@ pipeline {
         LAUNCH_COMMAND_IDENTIFYING_STRING = "rabbit.port="
         EXPECTED_RESPONSE = "<title>rabbit-frontend</title>"
         EDITOR_JAR_FILE = "editor.jar"
+        OLD_SERVER_JAR_DIR = "./server-jars"
     }
 
     stages {
         stage('Prepare') {
             parallel {
                 stage('Prepare Server') {
-                    when {
-                        expression {
-                            return !fileExists("${DOWNLOADED_JAR_NAME}");
-                        }
-                    }
                     steps {
+                        sh 'pwd'
+                        copyArtifacts([
+                            projectName: "${SOURCE_BUILD_JOBNAME}",
+                            selector: specific("${SOURCE_BUILD_NUMBER}"),
+                            filter: "build/libs/${JAR_NAME}",
+                        ])
+                        sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
+                        sh 'rm -rf "build"'
+                        sh "md5sum '${DOWNLOADED_JAR_NAME}'" + ' | awk \'{print $1;}\'' +
+                            " | tee '${NEW_SERVER_CHECKSUM_FILE}'"
                         script {
-                            sh 'pwd'
-                            copyArtifacts([
-                                projectName: "${SOURCE_BUILD_JOBNAME}",
-                                selector: specific("${SOURCE_BUILD_NUMBER}"),
-                                filter: "build/libs/${JAR_NAME}",
-                            ])
-                            sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
-                            sh 'rm -rf "build"'
-                            sh "md5sum '${DOWNLOADED_JAR_NAME}'" + ' | awk \'{print $1;}\'' +
-                                " | tee '${NEW_SERVER_CHECKSUM_FILE}'"
                             shouldLaunch = !fileExists(OLD_SERVER_CHECKSUM_FILE) \
                                 || readFile(NEW_SERVER_CHECKSUM_FILE) != readFile(OLD_SERVER_CHECKSUM_FILE) \
                                 || sh([
@@ -52,24 +48,22 @@ pipeline {
                                     returnStatus: true
                                 ]) != 0
                             if (!shouldLaunch) {
-                                sh 'rm "${NEW_SERVER_CHECKSUM_FILE}"'
+                                sh 'rm "${NEW_SERVER_CHECKSUM_FILE}" && rm "${DOWNLOADED_JAR_NAME}"'
                             }
                         }
                     }
                 }
                 stage('WorldEditor Executables') {
                     steps {
-                        script {
-                            sh 'rm -rf "editor/build"'
-                            copyArtifacts([
-                                projectName: "${SOURCE_BUILD_JOBNAME}",
-                                selector: specific("${SOURCE_BUILD_NUMBER}"),
-                                filter: "editor/build/**",
-                            ])
+                        sh 'rm -rf "editor/build"'
+                        copyArtifacts([
+                            projectName: "${SOURCE_BUILD_JOBNAME}",
+                            selector: specific("${SOURCE_BUILD_NUMBER}"),
+                            filter: "editor/build/**",
+                        ])
 
-                            sh './launch/add-world-editor-version.sh'
-                            sh 'rm -rf "editor/build"'
-                        }
+                        sh './launch/add-world-editor-version.sh'
+                        sh 'rm -rf "editor/build"'
                     }
                 }
             }
@@ -78,7 +72,10 @@ pipeline {
             when { expression { shouldLaunch == true } }
             steps {
                 script {
-                    processOutput = sh returnStdout: true, script: "ps -C java -u '${env.USER}' -o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
+                    processOutput = sh([
+                        returnStdout: true,
+                        script: "ps -C java -u '${env.USER}' -o pid=,command= | grep '${LAUNCH_COMMAND_IDENTIFYING_STRING}' | awk '{print \$1;}'"
+                    ])
                     processOutput.split('\n').each { pid ->
                         if (pid.length() > 0) {
                             echo "Killing: ${pid}"
@@ -93,8 +90,8 @@ pipeline {
                     if (curlStatus == 0) {
                         error "The app is still running or something else has taken up port :${APP_PORT}! Kill it manually."
                     }
-                    sh "mkdir -p 'old-logs' && mv ${LOG_FILE_PREFIX}-*.log ./old-logs || echo 'No logs to move.'"
                 }
+                sh "mkdir -p 'old-logs' && mv ${LOG_FILE_PREFIX}-*.log ./old-logs || echo 'No logs to move.'"
             }
         }
         stage('Launch') {
@@ -102,32 +99,27 @@ pipeline {
             steps {
                 // https://devops.stackexchange.com/questions/1473/running-a-background-process-in-pipeline-job
                 withEnv(['JENKINS_NODE_COOKIE=dontkill']) {
-                    script {
-                        sh LAUNCH_COMMAND
-                    }
+                    sh LAUNCH_COMMAND
                 }
+                retry(10) {
+                    sleep 5
+                    sh([
+                        label: 'Check if the server is running',
+                        script: "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'",
+                    ])
+                    sh([
+                        label: 'Update the server checksum file',
+                        script: "mv '${NEW_SERVER_CHECKSUM_FILE}' '${OLD_SERVER_CHECKSUM_FILE}'"
+                    ])
+                }
+                sh "if [ -e '${LOG_FILE}' ]; then tail -n 100 '${LOG_FILE}'; else " +
+                    "echo 'The app does not have an output file ${LOG_FILE}!'; exit 1; fi"
             }
         }
-        stage('Verify') {
-            when { expression { shouldLaunch == true } }
+        stage('Save server JAR') {
             steps {
-                sleep 20
-                script {
-                    if (fileExists(LOG_FILE)) {
-                        sh "tail -n 100 '${LOG_FILE}'"
-                    } else {
-                        error "The app does not have an output file '${LOG_FILE}'!"
-                    }
-                    sh "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'"
-                }
-            }
-        }
-        stage('Update server checksum') {
-            when { expression { shouldLaunch == true } }
-            steps {
-                script {
-                    sh 'mv "${NEW_SERVER_CHECKSUM_FILE}" "${OLD_SERVER_CHECKSUM_FILE}"'
-                }
+                sh "if ! [ -e '${OLD_SERVER_JAR_DIR}' ]; then mkdir -p '${OLD_SERVER_JAR_DIR}'; fi"
+                sh "gzip '${DOWNLOADED_JAR_NAME}' && mv '${DOWNLOADED_JAR_NAME}.gz' '${OLD_SERVER_JAR_DIR}'"
             }
         }
     }
@@ -135,7 +127,7 @@ pipeline {
     post {
         always {
             archiveArtifacts([
-                artifacts: "${LOG_FILE}",
+                artifacts: LOG_FILE,
                 allowEmptyArchive: true,
                 fingerprint: true,
             ])
