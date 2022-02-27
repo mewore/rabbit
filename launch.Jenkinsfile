@@ -42,9 +42,8 @@ pipeline {
                             ])
                             sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
                             sh 'rm -rf "build"'
-                            sh 'md5sum \'${DOWNLOADED_JAR_NAME}\' | awk \'{print $1;}\' > \'' +
-                                NEW_SERVER_CHECKSUM_FILE + '\''
-                            echo 'New checksum of "${DOWNLOADED_JAR_NAME}": ' + readFile(NEW_SERVER_CHECKSUM_FILE)
+                            sh "md5sum '${DOWNLOADED_JAR_NAME}'" + ' | awk \'{print $1;}\'' +
+                                " | tee '${NEW_SERVER_CHECKSUM_FILE}'"
                             shouldLaunch = !fileExists(OLD_SERVER_CHECKSUM_FILE) \
                                 || readFile(NEW_SERVER_CHECKSUM_FILE) != readFile(OLD_SERVER_CHECKSUM_FILE) \
                                 || sh([
