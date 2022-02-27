@@ -11,7 +11,7 @@ pipeline {
 
     environment {
         DOWNLOADED_JAR_NAME = "${SOURCE_BUILD_JOBNAME}-${SOURCE_BUILD_NUMBER}-${JAR_NAME}"
-        OLD_SERVER_CHECKSUM_FILE = "${DOWNLOADED_JAR_NAME}.md5"
+        OLD_SERVER_CHECKSUM_FILE = "server-jar.md5"
         NEW_SERVER_CHECKSUM_FILE = "${OLD_SERVER_CHECKSUM_FILE}.tmp"
         LOG_FILE_PREFIX = "rabbit"
         LOG_FILE = "${LOG_FILE_PREFIX}-${env.BUILD_NUMBER}.log"
