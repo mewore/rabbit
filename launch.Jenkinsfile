@@ -117,6 +117,7 @@ pipeline {
             }
         }
         stage('Save server JAR') {
+            when { expression { shouldLaunch == true } }
             steps {
                 sh "if ! [ -e '${OLD_SERVER_JAR_DIR}' ]; then mkdir -p '${OLD_SERVER_JAR_DIR}'; fi"
                 sh "gzip '${DOWNLOADED_JAR_NAME}' && mv '${DOWNLOADED_JAR_NAME}.gz' '${OLD_SERVER_JAR_DIR}'"
