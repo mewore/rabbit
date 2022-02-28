@@ -1,5 +1,5 @@
-def shouldLaunch = true;
-def newEditorVersion = true;
+def shouldLaunch = false;
+def newEditorVersion = false;
 
 pipeline {
     agent {
@@ -39,7 +39,7 @@ pipeline {
                         sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
                         sh 'rm -rf "build"'
                         script {
-                            shouldLaunch = checkFileIsNew([
+                            shouldLaunch = this.&checkFileIsNew([
                                 file = DOWNLOADED_JAR_NAME,
                                 checksumFile = SERVER_CHECKSUM_FILE
                             ]) || sh([
@@ -61,7 +61,7 @@ pipeline {
                             filter: "editor/build/**",
                         ])
                         script {
-                            newEditorVersion = checkFileIsNew([file = EDITOR_JAR_PATH, checksumFile = EDITOR_CHECKSUM_FILE])
+                            newEditorVersion = this.&checkFileIsNew([file = EDITOR_JAR_PATH, checksumFile = EDITOR_CHECKSUM_FILE])
                         }
                     }
                 }
