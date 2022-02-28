@@ -2,21 +2,18 @@
 
 ### Moves the world editor from ./editor/build/...  to ./static/editors/... if the editor.jar is new
 
-./launch/require-env-vars.sh EDITOR_JAR_FILE SOURCE_BUILD_NUMBER || exit 1
+./launch/require-env-vars.sh EDITOR_JAR_PATH EDITOR_CHECKSUM_FILE SOURCE_BUILD_NUMBER || exit 1
 
-editor_checksum_file="${EDITOR_JAR_FILE}.md5"
-
-editor_jar_path="./editor/build/libs/${EDITOR_JAR_FILE}"
-if ! [ -e "${editor_jar_path}" ]; then
-    echo "ERROR: File '${editor_jar_path}' does not exist!"
+if ! [ -e "${EDITOR_JAR_PATH}" ]; then
+    echo "ERROR: File '${EDITOR_JAR_PATH}' does not exist!"
     exit 1
 fi
 
 echo 'Adding a new editor version if necessary...'
-new_checksum=$(md5sum "${editor_jar_path}" | awk '{print $1;}')
-echo "Current checksum of ${EDITOR_JAR_FILE}: ${new_checksum}"
-if [ -e "${editor_checksum_file}" ] && grep "${new_checksum}" <"${editor_checksum_file}"; then
-    echo "The old ${EDITOR_JAR_FILE} is the same as the new one (checksum: $(cat "${editor_checksum_file}"))"
+new_checksum=$(md5sum "${EDITOR_JAR_PATH}" | awk '{print $1;}')
+echo "Current checksum of ${EDITOR_JAR_PATH}: ${new_checksum}"
+if [ -e "${EDITOR_CHECKSUM_FILE}" ] && grep "${new_checksum}" <"${EDITOR_CHECKSUM_FILE}"; then
+    echo "The old ${EDITOR_JAR_PATH} is the same as the new one (checksum: $(cat "${EDITOR_CHECKSUM_FILE}"))"
     exit 0
 fi
 
@@ -26,7 +23,7 @@ if ! [ -e "${target_dir}" ]; then
     mkdir -p "${target_dir}" || exit 1
 fi
 
-mv "${editor_jar_path}" "${target_dir}/rabbit-world-editor.jar" || exit 1
+mv "${EDITOR_JAR_PATH}" "${target_dir}/rabbit-world-editor.jar" || exit 1
 
 executable_dir="./editor/build/executable"
 
@@ -37,4 +34,4 @@ windows_zip_path="${executable_dir}/windows/editor-win64.zip"
 mv "${windows_zip_path}" "${target_dir}/Rabbit World Editor v${SOURCE_BUILD_NUMBER} - win64.zip" || exit 1
 
 echo "Done moving the new version into ${target_dir}"
-echo "${new_checksum}" >"${editor_checksum_file}"
+echo "${new_checksum}" >"${EDITOR_CHECKSUM_FILE}"
