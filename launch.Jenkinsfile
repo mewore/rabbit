@@ -39,10 +39,7 @@ pipeline {
                         sh 'cp "build/libs/${JAR_NAME}" "${DOWNLOADED_JAR_NAME}"'
                         sh 'rm -rf "build"'
                         script {
-                            shouldLaunch = this.&checkFileIsNew([
-                                file = DOWNLOADED_JAR_NAME,
-                                checksumFile = SERVER_CHECKSUM_FILE
-                            ]) || sh([
+                            shouldLaunch = checkFileIsNew(DOWNLOADED_JAR_NAME, SERVER_CHECKSUM_FILE) || sh([
                                 label: 'Check if the server is running',
                                 script: "curl --insecure ${APP_PROTOCOL}://localhost:${APP_PORT} | grep '${EXPECTED_RESPONSE}'",
                                 returnStatus: true
@@ -61,7 +58,7 @@ pipeline {
                             filter: "editor/build/**",
                         ])
                         script {
-                            newEditorVersion = this.&checkFileIsNew([file = EDITOR_JAR_PATH, checksumFile = EDITOR_CHECKSUM_FILE])
+                            newEditorVersion = checkFileIsNew(EDITOR_JAR_PATH, EDITOR_CHECKSUM_FILE)
                         }
                     }
                 }
@@ -147,7 +144,7 @@ pipeline {
 }
 
 def checkFileIsNew(file, checksumFile) {
-    status = sh([
+    def status = sh([
         label: 'Check if the file ${file} is new',
         script: "FILE='${file}' CHECKSUM_FILE='${checksumFile}' ./launch/check-file-is-new.sh",
         returnStatus: true
