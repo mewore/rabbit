@@ -41,13 +41,16 @@ export class ForestCellObject extends Object3D {
         this.name = data.name;
         this.position.copy(data.position);
         this.dirtPlane.material = data.dirtMaterial;
-        for (let i = 0; i < data.allPlantMatrices.length; i++) {
-            this.instancedMeshes[i * 2].instanceMatrix = data.allPlantMatrices[i];
-            this.instancedMeshes[i * 2].count = data.countPerPlantType[i];
-            this.instancedMeshes[i * 2 + 1].instanceMatrix = data.allPlantMatrices[i];
-            this.instancedMeshes[i * 2 + 1].count = data.countPerPlantType[i];
+        this.plantContainer.visible = data.plantContainerVisible;
+        if (this.plantContainer.visible) {
+            for (let i = 0; i < data.allPlantMatrices.length; i++) {
+                this.instancedMeshes[i * 2].instanceMatrix = data.allPlantMatrices[i];
+                this.instancedMeshes[i * 2].count = data.countPerPlantType[i];
+                this.instancedMeshes[i * 2 + 1].instanceMatrix = data.allPlantMatrices[i];
+                this.instancedMeshes[i * 2 + 1].count = data.countPerPlantType[i];
+            }
+            this.plantContainer.scale.set(data.plantScaleX, 1, data.plantScaleZ);
         }
-        this.plantContainer.scale.copy(data.plantScale);
         this.visible = true;
     }
 

@@ -76,7 +76,8 @@ export class ForestCellData {
         readonly dirtMaterial: Material,
         private readonly x: number,
         private readonly z: number,
-        readonly plantScale: Vector3,
+        readonly plantScaleX: number,
+        readonly plantScaleZ: number,
         cellWidth: number,
         cellDepth: number,
         readonly row: number,
@@ -137,12 +138,14 @@ export class ForestCellData {
 
         let reusedMatrices = memorizedPlants.get(cellKind);
 
-        const scale = new Vector3(1, 1, 1);
+        let actualScaleX = 1;
+        let actualScaleZ = 1;
         for (let scaleX = 1; scaleX >= -1 && !reusedMatrices; scaleX -= 2, cellKind = flipHorizontally(cellKind)) {
             for (let scaleZ = 1; scaleZ >= -1 && !reusedMatrices; scaleZ -= 2, cellKind = flipVertically(cellKind)) {
                 reusedMatrices = memorizedPlants.get(cellKind);
                 if (reusedMatrices) {
-                    scale.set(scaleX, 1, scaleZ);
+                    actualScaleX = scaleX;
+                    actualScaleZ = scaleZ;
                 }
             }
         }
@@ -176,7 +179,8 @@ export class ForestCellData {
             dirtMaterialToUse,
             x + cellWidth / 2,
             z + cellDepth / 2,
-            scale,
+            actualScaleX,
+            actualScaleZ,
             cellWidth,
             cellDepth,
             row,
