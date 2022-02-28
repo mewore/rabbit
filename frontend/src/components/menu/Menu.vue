@@ -82,6 +82,7 @@
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
+import { QBar, QBtn, QBtnGroup, QCard, QCardSection, QSpace } from 'quasar';
 import { Settings, getTitle } from '@/temp-util';
 import Credits from '@/components/menu/Credits.vue';
 import EditorDownloadMenu from '@/components/menu/EditorDownloadMenu.vue';
@@ -94,6 +95,12 @@ type MenuId = 'MAIN_MENU' | 'SETTINGS' | 'WORLD_EDITOR' | 'CREDITS';
         Credits,
         EditorDownloadMenu,
         SettingsMenu,
+        QBar,
+        QBtn,
+        QBtnGroup,
+        QCard,
+        QCardSection,
+        QSpace,
     },
     props: {
         playing: Boolean,

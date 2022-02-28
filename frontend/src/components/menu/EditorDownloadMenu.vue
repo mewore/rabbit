@@ -70,6 +70,15 @@
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
+import {
+    QBtn,
+    QCard,
+    QCardActions,
+    QIcon,
+    QSelect,
+    QSeparator,
+    QSpinner,
+} from 'quasar';
 import { QSelectOption } from 'quasar/dist/types/api';
 import axios from 'axios';
 
@@ -96,6 +105,15 @@ interface EditorVersion {
 }
 
 @Options({
+    components: {
+        QBtn,
+        QCard,
+        QCardActions,
+        QIcon,
+        QSelect,
+        QSeparator,
+        QSpinner,
+    },
     emits: ['close'],
 })
 export default class EditorDownloadMenu extends Vue {

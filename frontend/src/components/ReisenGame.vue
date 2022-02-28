@@ -11,7 +11,7 @@
             ref="canvasWrapper"
             @keyup="onCanvasKeyUp($event)"
             @mousemove="onMouseMove($event)"
-            @click="onClick($event)"
+            @click="onClick()"
             @mousewheel="onMouseWheel($event)"
             tabindex="0"
             :style="{
@@ -21,7 +21,7 @@
         >
             <span
                 v-for="label in labels"
-                :key="label"
+                :key="label.id"
                 class="floating-label"
                 :style="{
                     top: label.top + 'px',
@@ -60,8 +60,10 @@ import { Settings, getSettings } from '@/temp-util';
 import { GameScene } from '../game/game-scene';
 import Menu from '@/components/menu/Menu.vue';
 import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
+import { QDialog } from 'quasar';
 
 interface LabelInfo {
+    id: number;
     top: number;
     left: number;
     text: string;
@@ -83,6 +85,7 @@ const INACTIVE_FRAME_DELTA = 1 / INACTIVE_FPS;
     components: {
         Menu,
         PerformanceDisplay,
+        QDialog,
     },
     emits: ['darkUiSetting'],
 })
@@ -285,6 +288,7 @@ export default class ReisenGame extends Vue {
                 this.labels.push({} as LabelInfo);
             }
             const label = this.labels[labelIndex];
+            label.id = labelIndex;
             label.left = left;
             label.top = top;
             label.text = username;

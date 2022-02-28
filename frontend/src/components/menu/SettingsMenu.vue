@@ -154,9 +154,45 @@
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
+import {
+    QBtn,
+    QCard,
+    QCardActions,
+    QIcon,
+    QItem,
+    QItemLabel,
+    QItemSection,
+    QSelect,
+    QSeparator,
+    QSlider,
+    QTab,
+    QTabPanel,
+    QTabPanels,
+    QTabs,
+    QToggle,
+    QTooltip,
+} from 'quasar';
 import { SaveLocation, getSettings, setSettings } from '@/temp-util';
 
 @Options({
+    components: {
+        QBtn,
+        QCard,
+        QCardActions,
+        QIcon,
+        QItem,
+        QItemLabel,
+        QItemSection,
+        QSelect,
+        QSeparator,
+        QSlider,
+        QTab,
+        QTabPanel,
+        QTabPanels,
+        QTabs,
+        QToggle,
+        QTooltip,
+    },
     emits: ['close', 'settingsChange'],
 })
 export default class SettingsMenu extends Vue {

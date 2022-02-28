@@ -3,7 +3,7 @@
         <div class="frame-info-container">
             <div
                 v-for="segment in segments"
-                :key="segment"
+                :key="segment.id"
                 :class="segment.className"
                 :style="{ opacity: segment.opacity }"
             ></div>
@@ -51,10 +51,8 @@
 import { Options, Vue } from 'vue-class-component';
 
 interface Segment {
+    id: number;
     inactive?: boolean;
-}
-
-interface SegmentInfo extends Segment {
     frameCount: number;
     targetFrameCount: number;
     drawCalls: number;
@@ -73,9 +71,24 @@ interface SegmentInfo extends Segment {
     totalForestWalls: number;
 }
 
-interface EmptySegment extends Segment {
-    className: 'empty';
-}
+const emptySegment = (id: number): Segment => ({
+    id,
+    frameCount: -1,
+    targetFrameCount: -1,
+    drawCalls: -1,
+    fps: -1,
+    targetFps: -1,
+    msPerFrame: -1,
+    targetMsPerFrame: -1,
+    drawCallsPerFrame: -1,
+    className: 'empty',
+    totalPlantsPerFrame: -1,
+    renderedDetailedPlantsPerFrame: -1,
+    renderedDummyPlantsPerFrame: -1,
+    physicsBodiesPerFrame: -1,
+    solidForestWallsPerFrame: -1,
+    totalForestWalls: -1,
+});
 
 @Options({
     props: {
@@ -113,12 +126,12 @@ export default class PerformanceDisplay extends Vue {
     private solidForestWalls = 0;
     private totalForestWalls = 0;
 
-    lastSegment: EmptySegment | SegmentInfo = { className: 'empty' };
-    readonly segments: (EmptySegment | SegmentInfo)[] = [];
+    lastSegment: Segment = emptySegment(-1);
+    readonly segments: Segment[] = [];
 
     beforeCreate(): void {
         for (let i = 0; i < this.resolution; i++) {
-            this.segments.push({ className: 'empty' });
+            this.segments.push(emptySegment(i));
         }
         this.lastSegment = this.segments[0];
     }
@@ -152,6 +165,7 @@ export default class PerformanceDisplay extends Vue {
             if (this.segmentIsVisible(lastSegment)) {
                 this.segments[lastIndex] = {
                     ...lastSegment,
+                    id: lastIndex,
                     opacity: 0.6,
                 };
             }
@@ -166,6 +180,7 @@ export default class PerformanceDisplay extends Vue {
                 if (this.segmentIsVisible(nextSegment)) {
                     this.segments[nextIndex] = {
                         ...nextSegment,
+                        id: nextIndex,
                         opacity: 0.6 * (i / gradientSize),
                     };
                 }
@@ -207,7 +222,8 @@ export default class PerformanceDisplay extends Vue {
             const roundedTargetMsPerFrame = Math.round(1000 / roundedTargetFps);
 
             const hasFrames = this.frameCount > 0;
-            this.segments[this.index++] = {
+            this.segments[this.index] = {
+                id: this.index,
                 fps: Math.min(roundedFps, roundedTargetFps),
                 targetFps: roundedTargetFps,
                 msPerFrame: roundedMsPerFrame,
@@ -236,6 +252,7 @@ export default class PerformanceDisplay extends Vue {
                     : solidForestWalls,
                 totalForestWalls: this.totalForestWalls,
             };
+            this.index++;
             this.lastSegment = this.segments[this.index - 1];
 
             if (this.index >= this.segments.length) {
@@ -268,8 +285,8 @@ export default class PerformanceDisplay extends Vue {
         this.lastFrameTime = timestamp;
     }
 
-    private segmentIsVisible(segment: Segment): segment is SegmentInfo {
-        return (segment as unknown as SegmentInfo).fps != null;
+    private segmentIsVisible(segment: Segment): segment is Segment {
+        return (segment as unknown as Segment).fps != null;
     }
 
     getSegmentClass(fps: number, targetFps: number): string {
