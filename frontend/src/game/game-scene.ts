@@ -126,6 +126,7 @@ export class GameScene {
         );
         this.loadAllocations.push(this.forest.cellLazyLoad);
         this.forestWalls.padding = this.settings.forestWallActiveRadius;
+        this.loadAllocations.push(this.forestWalls.wallLazyLoad);
         this.cameraControls.offset = new Vector3(0, 20, 0);
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
@@ -323,7 +324,7 @@ export class GameScene {
         this.add(ground);
         this.cameraControls.intersectionObjects.push(ground);
 
-        this.forestWalls.generate(message.map);
+        this.forestWalls.generate(message.map, 50);
         this.cameraControls.intersectionObjects.push(this.forestWalls);
         this.add(this.forestWalls);
     }

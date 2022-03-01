@@ -83,16 +83,8 @@ export class MazeMap extends BinaryEntity {
     }
 
     wrapTowards(source: { x: number; z: number }, target: { x: number; z: number }): void {
-        source.x = this.wrapTowardsX(source.x, target.x);
-        source.z = this.wrapTowardsZ(source.z, target.z);
-    }
-
-    private wrapTowardsX(x: number, target: number): number {
-        return x - Math.floor((x - target) / this.width + 0.5) * this.width;
-    }
-
-    private wrapTowardsZ(z: number, target: number): number {
-        return z - Math.floor((z - target) / this.depth + 0.5) * this.depth;
+        source.x -= Math.floor((source.x - target.x) / this.width + 0.5) * this.width;
+        source.z -= Math.floor((source.z - target.z) / this.depth + 0.5) * this.depth;
     }
 
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
@@ -109,9 +101,8 @@ export class MazeMap extends BinaryEntity {
     static decodeFromBinary(reader: SignedBinaryReader): MazeMap {
         const height = reader.readInt();
         const width = reader.readInt();
-        const map: boolean[][] = [];
+        const map: boolean[][] = Array.from({ length: height }, () => []);
         for (let i = 0; i < height; i++) {
-            map.push([]);
             for (let j = 0; j < width; j++) {
                 map[i].push(reader.readBoolean());
             }
