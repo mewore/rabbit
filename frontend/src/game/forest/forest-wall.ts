@@ -54,19 +54,15 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> {
         });
     }
 
-    generate(
-        worldWidth: number,
-        worldDepth: number,
-        mapData: MazeMap,
-        offsets: Vector3[],
-        physicsWorld: World,
-        characterPosition: Vector3
-    ): LazyBodyCollection {
+    generate(mapData: MazeMap, physicsWorld: World, characterPosition: Vector3): LazyBodyCollection {
         const positions: number[] = [];
         const uvPositions: number[] = [];
         const bodies: Body[] = [];
 
-        for (const offset of offsets) {
+        const worldWidth = mapData.width;
+        const worldDepth = mapData.depth;
+
+        for (const offset of mapData.wrappingOffsets) {
             for (const wall of mapData.walls) {
                 const polygon = wall.polygon;
                 const vertices: Vec3[] = [];

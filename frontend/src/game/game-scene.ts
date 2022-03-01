@@ -15,7 +15,7 @@ import {
     Vector3,
     WebGLRenderer,
 } from 'three';
-import { AxisHelper, makeGround, makeSkybox, projectOntoCamera, wrap } from './util/three-util';
+import { AxisHelper, makeGround, makeSkybox, projectOntoCamera } from './util/three-util';
 import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
 import { Settings, addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './util/auto-follow';
@@ -28,6 +28,7 @@ import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
 import { LazyBodyCollection } from './util/lazy-body-collection';
 import { MapDataMessage } from './entities/messages/map-data-message';
+import { MazeMap } from './entities/world/maze-map';
 import { Moon } from './moon';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
 import { PlayerJoinMessage } from './entities/messages/player-join-message';
@@ -36,7 +37,6 @@ import { PlayerUpdateMessage } from './entities/messages/player-update-message';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Updatable } from './util/updatable';
-import { Wrappable } from './util/wrappable';
 import { degToRad } from 'three/src/math/MathUtils';
 
 enum MessageType {
@@ -55,21 +55,6 @@ addCredit({
     thing: { text: 'cannon-es', url: 'https://github.com/pmndrs/cannon-es' },
     author: { text: 'Stefan Hedman (and Poimandres)', url: 'https://github.com/schteppe' },
 });
-
-const WORLD_WIDTH = 4096;
-const WORLD_DEPTH = WORLD_WIDTH;
-
-const MIN_X = -WORLD_WIDTH / 2;
-const MAX_X = WORLD_WIDTH / 2;
-const MIN_Z = -WORLD_DEPTH / 2;
-const MAX_Z = WORLD_DEPTH / 2;
-
-const WRAP_X_OFFSETS = [-WORLD_WIDTH, 0, WORLD_WIDTH];
-const WRAP_Z_OFFSETS = [-WORLD_DEPTH, 0, WORLD_DEPTH];
-
-const WRAP_OFFSETS: Vector3[] = WRAP_X_OFFSETS.flatMap((xOffset) =>
-    WRAP_Z_OFFSETS.map((zOffset) => new Vector3(xOffset, 0, zOffset))
-);
 
 const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
@@ -94,7 +79,7 @@ export class GameScene {
     private readonly clock = new Clock();
     private readonly elapsedTimeClock = new Clock();
 
-    private readonly charactersById = new Map<number, Character[]>();
+    private readonly charactersById = new Map<number, Character>();
 
     readonly input = new Input();
 
@@ -102,6 +87,7 @@ export class GameScene {
 
     private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0), allowSleep: true });
 
+    private mapData?: MazeMap;
     readonly forest: ForestObject;
     readonly forestWalls = new ForestWall();
     private forestWallBodyCollection?: LazyBodyCollection;
@@ -130,8 +116,6 @@ export class GameScene {
         this.camera.rotation.reorder('YXZ');
 
         this.forest = new ForestObject(
-            WORLD_WIDTH,
-            WORLD_DEPTH,
             this.input,
             this.settings.plantsReceiveShadows,
             this.settings.plantVisibility,
@@ -146,7 +130,7 @@ export class GameScene {
         this.currentRenderer.setPixelRatio(window.devicePixelRatio * this.settings.quality);
         this.currentRenderer.shadowMap.enabled = this.settings.shadows;
 
-        const centralLight = new PointLight(0xffdd44, 1, WORLD_WIDTH / 4, 0.9);
+        const centralLight = new PointLight(0xffdd44, 1, 100.0, 0.9);
         centralLight.position.set(0, 10, 0);
         centralLight.castShadow = true;
         const lightSphere = new Mesh(new SphereBufferGeometry(1, 16, 16), new MeshBasicMaterial({ color: 0xffdd44 }));
@@ -159,8 +143,6 @@ export class GameScene {
         this.add(new AmbientLight(this.scene.background, 3));
         this.add(new AmbientLight(0x112255, 1));
         this.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
-        const ground = makeGround(WORLD_WIDTH, WORLD_DEPTH);
-        this.add(ground);
         this.physicsWorld.addBody(
             new Body({
                 shape: new Plane(),
@@ -171,7 +153,7 @@ export class GameScene {
 
         this.add(this.forest);
 
-        const cameraIntersectionObjects: Object3D[] = [ground];
+        const cameraIntersectionObjects: Object3D[] = [];
 
         const physicsDummyBoxRotation = Math.PI * 0.15;
         const physicsDummyBoxRotationMatrix = new Matrix4().makeRotationY(physicsDummyBoxRotation);
@@ -305,42 +287,48 @@ export class GameScene {
 
     private onPlayerJoined(reader: SignedBinaryReader): void {
         const message = PlayerJoinMessage.decodeFromBinary(reader);
-        const characters = this.getOrCreatePlayerCharacters(
+        const character = this.getOrCreatePlayerCharacter(
             message.player.id,
             message.player.username,
             message.player.isReisen
         );
-        for (const character of characters) {
-            character.setState(message.player.state);
-        }
+        character.setState(message.player.state);
     }
 
     private onPlayerUpdate(reader: SignedBinaryReader): void {
         const message = PlayerUpdateMessage.decodeFromBinary(reader);
-        const characters = this.getOrCreatePlayerCharacters(message.playerId, 'Unknown', undefined);
-        for (const character of characters) {
-            character.setState(message.newState);
+        const character = this.getOrCreatePlayerCharacter(message.playerId, 'Unknown', undefined);
+        character.setState(message.newState);
+    }
+
+    private wrapPositionTowardsPlayer(position: Vector3): void {
+        if (this.mapData) {
+            position.x = this.mapData.wrapClosestToX(position.x, this.character.position.x);
+            position.z = this.mapData.wrapClosestToZ(position.z, this.character.position.z);
         }
     }
 
     private onPlayerDisconnected(reader: SignedBinaryReader): void {
         const message = PlayerDisconnectMessage.decodeFromBinary(reader);
-        const characters = this.charactersById.get(message.playerId);
-        if (!characters) {
+        const character = this.charactersById.get(message.playerId);
+        if (!character) {
             return;
         }
-        this.remove(...characters);
+        this.remove(character);
         this.charactersById.delete(message.playerId);
     }
 
     private onForestData(reader: SignedBinaryReader): void {
         const message = MapDataMessage.decodeFromBinary(reader);
+        this.mapData = message.map;
         this.forest.setMapData(message.map);
+
+        const ground = makeGround(message.map.width, message.map.depth);
+        this.add(ground);
+        this.cameraControls.intersectionObjects.push(ground);
+
         this.forestWallBodyCollection = this.forestWalls.generate(
-            WORLD_WIDTH,
-            WORLD_DEPTH,
             message.map,
-            WRAP_OFFSETS,
             this.physicsWorld,
             this.character.position
         );
@@ -349,23 +337,15 @@ export class GameScene {
         this.add(this.forestWalls, this.forestWallBodyCollection);
     }
 
-    private getOrCreatePlayerCharacters(
-        playerId: number,
-        username: string,
-        isReisen: boolean | undefined
-    ): Character[] {
-        const existingCharacters = this.charactersById.get(playerId);
-        if (existingCharacters) {
-            return existingCharacters;
+    private getOrCreatePlayerCharacter(playerId: number, username: string, isReisen: boolean | undefined): Character {
+        const existingCharacter = this.charactersById.get(playerId);
+        if (existingCharacter) {
+            return existingCharacter;
         }
-        const characters: Character[] = [];
-        for (const offset of WRAP_OFFSETS) {
-            const newCharacter = new Character(username, isReisen, offset);
-            this.add(newCharacter);
-            characters.push(newCharacter);
-        }
-        this.charactersById.set(playerId, characters);
-        return characters;
+        const newCharacter = new Character(username, isReisen);
+        this.add(newCharacter);
+        this.charactersById.set(playerId, newCharacter);
+        return newCharacter;
     }
 
     animate(): void {
@@ -376,6 +356,9 @@ export class GameScene {
             this.character.requestJump(now);
         }
 
+        for (const character of this.charactersById.values()) {
+            this.wrapPositionTowardsPlayer(character.position);
+        }
         if (delta > 0) {
             for (const updatable of this.updatableById.values()) {
                 updatable.beforePhysics(delta, now);
@@ -384,16 +367,10 @@ export class GameScene {
             this.physicsWorld.step(delta, delta);
             for (const updatable of this.updatableById.values()) {
                 updatable.afterPhysics(delta, now);
-                if (this.isWrappable(updatable)) {
-                    const position = updatable.position;
-                    const offset = updatable.offset;
-                    if (position.x < MIN_X + offset.x || position.x > MAX_X + offset.x) {
-                        position.setX(wrap(position.x, MIN_X + offset.x, MAX_X + offset.x));
-                    }
-                    if (position.z < MIN_Z + offset.z || position.z > MAX_Z + offset.z) {
-                        position.setZ(wrap(position.z, MIN_Z + offset.z, MAX_Z + offset.z));
-                    }
-                }
+            }
+            if (this.mapData) {
+                this.character.position.x = this.mapData.wrapX(this.character.position.x);
+                this.character.position.z = this.mapData.wrapZ(this.character.position.z);
             }
         }
 
@@ -414,10 +391,6 @@ export class GameScene {
         }
     }
 
-    private isWrappable(object: unknown): object is Wrappable {
-        return !!(object as Wrappable).isWrappable;
-    }
-
     private render() {
         this.currentRenderer.render(this.scene, this.camera);
     }
@@ -434,12 +407,10 @@ export class GameScene {
     }
 
     forEveryPlayerLabel(callback: (position: Vector3, username: string) => void): void {
-        for (const characters of this.charactersById.values()) {
-            for (const character of characters) {
-                const projectedPoint = projectOntoCamera(character.getHoverTextPosition(), this.camera);
-                if (projectedPoint) {
-                    callback(projectedPoint, character.username);
-                }
+        for (const character of this.charactersById.values()) {
+            const projectedPoint = projectOntoCamera(character.getHoverTextPosition(), this.camera);
+            if (projectedPoint) {
+                callback(projectedPoint, character.username);
             }
         }
     }

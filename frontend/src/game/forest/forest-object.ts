@@ -53,8 +53,6 @@ export class ForestObject extends Object3D implements Updatable {
     private currentRenderedDummyPlants = 0;
 
     constructor(
-        private readonly worldWidth: number,
-        private readonly worldDepth: number,
         private readonly input: Input,
         private receivingShadows: boolean,
         public visiblePlants: number,
@@ -193,31 +191,37 @@ export class ForestObject extends Object3D implements Updatable {
                 max.max(tmpVector2);
             }
         }
-        const topRow = Math.max(Math.floor((min.y / this.worldDepth + 0.5) * height) - 1, -this.mapData.height + 1);
-        const bottomRow = Math.min(
-            Math.ceil((max.y / this.worldDepth + 0.5) * height) + 1,
-            topRow + this.mapData.height - 1
+        const topRow = Math.max(
+            Math.floor((min.y / this.mapData.depth + 0.5) * height) - 1,
+            -this.mapData.rowCount + 1
         );
-        const leftColumn = Math.max(Math.floor((min.x / this.worldWidth + 0.5) * width) - 1, -this.mapData.width + 1);
+        const bottomRow = Math.min(
+            Math.ceil((max.y / this.mapData.depth + 0.5) * height) + 1,
+            topRow + this.mapData.rowCount - 1
+        );
+        const leftColumn = Math.max(
+            Math.floor((min.x / this.mapData.width + 0.5) * width) - 1,
+            -this.mapData.columnCount + 1
+        );
         const rightColumn = Math.min(
-            Math.ceil((max.x / this.worldWidth + 0.5) * width) + 1,
-            leftColumn + this.mapData.width - 1
+            Math.ceil((max.x / this.mapData.width + 0.5) * width) + 1,
+            leftColumn + this.mapData.columnCount - 1
         );
 
         let nextCellIndex = 0;
-        const cellWidth = this.worldWidth / this.mapData.width;
-        const cellDepth = this.worldDepth / this.mapData.height;
+        const cellWidth = this.mapData.width / this.mapData.columnCount;
+        const cellDepth = this.mapData.depth / this.mapData.rowCount;
 
         let offsetX = 0;
         let offsetZ = 0;
         for (let i = topRow; i <= bottomRow; i++) {
-            offsetZ = (i < 0 ? -this.worldDepth : 0) + (i >= height ? this.worldDepth : 0);
+            offsetZ = (i < 0 ? -this.mapData.depth : 0) + (i >= height ? this.mapData.depth : 0);
             for (let j = leftColumn; j <= rightColumn; j++) {
                 const cellData = this.cellGrid[this.mapData.wrapRow(i)][this.mapData.wrapColumn(j)];
                 if (!cellData) {
                     continue;
                 }
-                offsetX = (j < 0 ? -this.worldWidth : 0) + (j >= width ? this.worldWidth : 0);
+                offsetX = (j < 0 ? -this.mapData.width : 0) + (j >= width ? this.mapData.width : 0);
                 cellData.reposition(offsetX, offsetZ);
                 this.currentRenderedDetailedPlants += cellData.cull(
                     frustum,
@@ -254,17 +258,15 @@ export class ForestObject extends Object3D implements Updatable {
         const memorizedPlants: Map<number, BufferAttribute[]> = new Map();
         const memorizedDirtMaterials: Map<number, Material> = new Map();
         this.cellGrid = [];
-        for (let i = 0; i < this.mapData.height; i++) {
+        for (let i = 0; i < this.mapData.rowCount; i++) {
             this.cellGrid.push([]);
-            for (let j = 0; j < this.mapData.width; j++) {
+            for (let j = 0; j < this.mapData.columnCount; j++) {
                 const cell = ForestCellData.fromMapData(
                     this.mapData,
                     i,
                     j,
                     memorizedPlants,
                     memorizedDirtMaterials,
-                    this.worldWidth,
-                    this.worldDepth,
                     this.bambooModels,
                     dirtTexturePromise
                 );

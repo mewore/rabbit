@@ -117,14 +117,6 @@ export async function makeSkybox(): Promise<CubeTexture> {
     });
 }
 
-export function wrap(value: number, min: number, max: number): number {
-    let normalized = ((value - min) / (max - min)) % 1;
-    if (normalized < 0) {
-        normalized++;
-    }
-    return min + (max - min) * normalized;
-}
-
 export function wrapAngle(angle: number): number {
     if (angle >= TAU) {
         return angle - Math.floor(angle / TAU) * TAU;

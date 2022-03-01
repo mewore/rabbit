@@ -78,14 +78,13 @@ export class ForestCellData {
         private readonly z: number,
         readonly plantScaleX: number,
         readonly plantScaleZ: number,
-        cellWidth: number,
-        cellDepth: number,
+        cellSize: number,
         readonly row: number,
         readonly column: number
     ) {
         this.boundingBox = new Box3(
-            new Vector3(x - cellWidth / 2 - PLANT_PADDING, 0, z - cellDepth / 2 - PLANT_PADDING),
-            new Vector3(x + cellWidth / 2 + PLANT_PADDING, PLANT_HEIGHT, z + cellDepth / 2 + PLANT_PADDING)
+            new Vector3(x - cellSize / 2 - PLANT_PADDING, 0, z - cellSize / 2 - PLANT_PADDING),
+            new Vector3(x + cellSize / 2 + PLANT_PADDING, PLANT_HEIGHT, z + cellSize / 2 + PLANT_PADDING)
         );
 
         this.totalCountPerPlantType = allPlantMatrices.map((matrices) => matrices.count);
@@ -108,8 +107,6 @@ export class ForestCellData {
         column: number,
         memorizedPlants: Map<number, BufferAttribute[]>,
         memorizedDirtMaterials: Map<number, Material>,
-        worldWidth: number,
-        worldDepth: number,
         bambooModels: BambooModel[],
         dirtTexturePromise: Promise<Texture>
     ): ForestCellData | undefined {
@@ -152,10 +149,10 @@ export class ForestCellData {
 
         let matricesToUse: BufferAttribute[];
 
-        const cellWidth = worldWidth / mapData.width;
-        const cellDepth = worldDepth / mapData.height;
-        const x = (column / mapData.width - 0.5) * worldWidth;
-        const z = (row / mapData.height - 0.5) * worldDepth;
+        const worldWidth = mapData.width;
+        const worldDepth = mapData.depth;
+        const x = (column / mapData.columnCount - 0.5) * worldWidth;
+        const z = (row / mapData.rowCount - 0.5) * worldDepth;
         if (reusedMatrices) {
             // Attaching meshes to multiple parents doesn't work so they must be copied/
             // However, reusing matrices between instanced meshes *is* allowed.
@@ -177,12 +174,11 @@ export class ForestCellData {
         const cell = new ForestCellData(
             matricesToUse,
             dirtMaterialToUse,
-            x + cellWidth / 2,
-            z + cellDepth / 2,
+            x + mapData.cellSize / 2,
+            z + mapData.cellSize / 2,
             actualScaleX,
             actualScaleZ,
-            cellWidth,
-            cellDepth,
+            mapData.cellSize,
             row,
             column
         );
@@ -198,18 +194,20 @@ export class ForestCellData {
         bambooModels: BambooModel[]
     ): BufferAttribute[] {
         // Normalized
-        const minX = column / mapData.width;
-        const rangeX = 1 / mapData.width;
-        const minZ = row / mapData.height;
-        const rangeZ = 1 / mapData.height;
+        const minX = column / mapData.columnCount;
+        const rangeX = 1 / mapData.columnCount;
+        const minZ = row / mapData.rowCount;
+        const rangeZ = 1 / mapData.rowCount;
 
         let plantX: number;
         let plantZ: number;
         let fertility: number;
         let height: number;
-        const offsetsX = [0, column === 0 ? 1 : NaN, column === mapData.width - 1 ? -1 : NaN].filter((a) => !isNaN(a));
-        const offsetsZ = [0, row === 0 ? 1 : NaN, row === mapData.height - 1 ? -1 : NaN].filter((a) => !isNaN(a));
-        const distanceDivisor = MAX_DISTANCE_FROM_WALL / Math.max(mapData.width, mapData.height);
+        const offsetsX = [0, column === 0 ? 1 : NaN, column === mapData.columnCount - 1 ? -1 : NaN].filter(
+            (a) => !isNaN(a)
+        );
+        const offsetsZ = [0, row === 0 ? 1 : NaN, row === mapData.rowCount - 1 ? -1 : NaN].filter((a) => !isNaN(a));
+        const distanceDivisor = MAX_DISTANCE_FROM_WALL / Math.max(mapData.columnCount, mapData.rowCount);
         const distanceDivisorSquared = distanceDivisor * distanceDivisor;
 
         const plants: number[][] = bambooModels.map(() => []);
@@ -258,15 +256,17 @@ export class ForestCellData {
         dirtTexturePromise: Promise<Texture>
     ): Material {
         // Normalized
-        const minX = column / mapData.width;
-        const rangeX = 1 / mapData.width;
-        const minZ = row / mapData.height;
-        const rangeZ = 1 / mapData.height;
+        const minX = column / mapData.columnCount;
+        const rangeX = 1 / mapData.columnCount;
+        const minZ = row / mapData.rowCount;
+        const rangeZ = 1 / mapData.rowCount;
 
         let fertility: number;
-        const offsetsX = [0, column === 0 ? 1 : NaN, column === mapData.width - 1 ? -1 : NaN].filter((a) => !isNaN(a));
-        const offsetsZ = [0, row === 0 ? 1 : NaN, row === mapData.height - 1 ? -1 : NaN].filter((a) => !isNaN(a));
-        const distanceDivisor = MAX_DISTANCE_FROM_WALL / Math.max(mapData.width, mapData.height);
+        const offsetsX = [0, column === 0 ? 1 : NaN, column === mapData.columnCount - 1 ? -1 : NaN].filter(
+            (a) => !isNaN(a)
+        );
+        const offsetsZ = [0, row === 0 ? 1 : NaN, row === mapData.rowCount - 1 ? -1 : NaN].filter((a) => !isNaN(a));
+        const distanceDivisor = MAX_DISTANCE_FROM_WALL / Math.max(mapData.columnCount, mapData.rowCount);
         const distanceDivisorSquared = distanceDivisor * distanceDivisor;
 
         const relevantPolygons: ReadonlyArray<ConvexPolygonEntity> = mapData.getRelevantPolygons(row, column);

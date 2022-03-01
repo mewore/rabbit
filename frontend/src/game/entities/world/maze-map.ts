@@ -3,23 +3,36 @@ import { ConvexPolygonEntity } from '../geometry/convex-polygon-entity';
 import { MazeWall } from './maze-wall';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
+import { Vector3 } from 'three';
 
+const CELL_SIZE = 80;
 const wallReach = 1;
+
+const WRAP_X_OFFSETS = [-1, 0, 1];
+const WRAP_Z_OFFSETS = [-1, 0, 1];
 
 export class MazeMap extends BinaryEntity {
     private readonly relevantPolygons: ReadonlyArray<ConvexPolygonEntity>[][];
 
+    readonly cellSize = CELL_SIZE;
+    readonly width: number;
+    readonly depth: number;
+    readonly wrappingOffsets: Vector3[];
+
     constructor(
-        readonly width: number,
-        readonly height: number,
+        readonly columnCount: number,
+        readonly rowCount: number,
         private readonly map: ReadonlyArray<ReadonlyArray<boolean>>,
         readonly walls: ReadonlyArray<MazeWall>
     ) {
         super();
+        this.width = columnCount * CELL_SIZE;
+        this.depth = rowCount * CELL_SIZE;
+
         const relevantPolygons: ConvexPolygonEntity[][][] = [];
-        for (let i = 0; i < height; i++) {
+        for (let i = 0; i < rowCount; i++) {
             relevantPolygons.push([]);
-            for (let j = 0; j < width; j++) {
+            for (let j = 0; j < columnCount; j++) {
                 relevantPolygons[i].push([]);
             }
         }
@@ -31,6 +44,10 @@ export class MazeMap extends BinaryEntity {
             }
         }
         this.relevantPolygons = relevantPolygons;
+
+        this.wrappingOffsets = WRAP_X_OFFSETS.flatMap((xOffset) =>
+            WRAP_Z_OFFSETS.map((zOffset) => new Vector3(xOffset * this.width, 0, zOffset * this.depth))
+        );
     }
 
     getCell(row: number, column: number): boolean {
@@ -42,18 +59,34 @@ export class MazeMap extends BinaryEntity {
     }
 
     wrapRow(row: number): number {
-        return row - Math.floor(row / this.height) * this.height;
+        return row - Math.floor(row / this.rowCount) * this.rowCount;
     }
 
     wrapColumn(column: number): number {
-        return column - Math.floor(column / this.width) * this.width;
+        return column - Math.floor(column / this.columnCount) * this.columnCount;
+    }
+
+    wrapX(x: number): number {
+        return x - Math.floor(x / this.width + 0.5) * this.width;
+    }
+
+    wrapZ(z: number): number {
+        return z - Math.floor(z / this.depth + 0.5) * this.depth;
+    }
+
+    wrapClosestToX(x: number, target: number): number {
+        return x - Math.floor((x - target) / this.width + 0.5) * this.width;
+    }
+
+    wrapClosestToZ(z: number, target: number): number {
+        return z - Math.floor((z - target) / this.depth + 0.5) * this.depth;
     }
 
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
-        writer.writeInt(this.height);
-        writer.writeInt(this.width);
-        for (let i = 0; i < this.height; i++) {
-            for (let j = 0; j < this.width; j++) {
+        writer.writeInt(this.rowCount);
+        writer.writeInt(this.columnCount);
+        for (let i = 0; i < this.rowCount; i++) {
+            for (let j = 0; j < this.columnCount; j++) {
                 writer.writeBoolean(this.map[i][j]);
             }
         }

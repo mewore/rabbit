@@ -15,7 +15,6 @@ import { PlayerState } from './entities/player-state';
 import { Updatable } from './util/updatable';
 import { Vector2Entity } from './entities/geometry/vector2-entity';
 import { Vector3Entity } from './entities/geometry/vector3-entity';
-import { Wrappable } from './util/wrappable';
 import { addCredit } from '@/temp-util';
 import { lerp } from 'three/src/math/MathUtils';
 import { loadGltfWithCaching } from './util/gltf-util';
@@ -72,9 +71,7 @@ const groundRayOptions: RayOptions = { skipBackfaces: true };
 const GROUND_CHECK_DX = [-RADIUS / 2, 0, RADIUS / 2];
 const GROUND_CHECK_DZ = [-RADIUS / 2, 0, RADIUS / 2];
 
-export class Character extends Object3D implements Updatable, Wrappable {
-    readonly isWrappable = true;
-
+export class Character extends Object3D implements Updatable {
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
