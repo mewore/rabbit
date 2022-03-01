@@ -11,7 +11,6 @@ export class LazyLoadAllocation {
         if (this.allocated < amount) {
             return false;
         }
-        window.console.log(`${this.allocated} -> ${this.allocated - amount}`);
         this.allocated -= amount;
         return true;
     }

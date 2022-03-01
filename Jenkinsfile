@@ -28,8 +28,8 @@ pipeline {
         stage('Build + Test') {
             steps {
                 script {
-                    tasksToRun = ['frontend:frontendLint', 'frontend:frontendTest', 'editor:jar', 'editor:packageAll',
-                        'jar']
+                    tasksToRun = ['frontend:frontendCheckDisabledLintRules', 'frontend:frontendLint',
+                        'editor:jar', 'jar', 'frontend:frontendTest', 'editor:packageAll']
                     spotbugsCommands = []
                     for (javaModule in ['core', 'backend', 'editor']) {
                         tasksToRun.add(javaModule + ':spotbugsMain')

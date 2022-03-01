@@ -28,6 +28,36 @@ val frontendLint = tasks.create<com.github.gradle.node.npm.task.NpmTask>("fronte
     description = "Lints the frontend code."
 }
 
+tasks.create<Task>("frontendCheckDisabledLintRules") {
+    val sourceDirectory = projectDir.resolve("src")
+    inputs.dir(sourceDirectory)
+    outputs.upToDateWhen { true }
+    val rulesThatShouldNotBeDisabled = listOf("no-debugger", "no-console")
+    description =
+        "Ensures that the following ESLint rules have not been disabled: ${rulesThatShouldNotBeDisabled.joinToString(", ")}"
+
+    val disablePattern = Regex("eslint-disable(-next-line)?\\s+(.*)\\s*$")
+
+    doLast("Check for commonly disabled ESLint rules") {
+        val disabledRuleLocations = mutableListOf<String>()
+
+        sourceDirectory.walk().filter { it.isFile }.forEach { file ->
+            var line = 1
+            file.forEachLine(Charsets.UTF_8) {
+                val match = disablePattern.find(it)
+                val rule = match?.groups?.get(2)?.value
+                if (match != null && rulesThatShouldNotBeDisabled.contains(rule)) {
+                    disabledRuleLocations.add("${file.absolutePath}:$line:${match.range.first + 1}")
+                }
+                line++
+            }
+        }
+        if (disabledRuleLocations.isNotEmpty()) {
+            error("Found possibly disabled rules at:\n${disabledRuleLocations.joinToString("\n") { "\t- $it" }}")
+        }
+    }
+}
+
 tasks.create<com.github.gradle.node.npm.task.NpmTask>("frontendBuild") {
     setDependsOn(listOf(tasks.npmInstall))
     inputs.dir("src")

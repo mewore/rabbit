@@ -1,6 +1,7 @@
 #!/bin/bash
 
-tasks_to_run=('frontend:frontendLint' 'frontend:frontendTest' 'editor:jar' 'jar')
+tasks_to_run=('frontend:frontendCheckDisabledLintRules' 'frontend:frontendLint' 'editor:jar' \
+    'jar' 'frontend:frontendTest')
 for java_module in 'core' 'backend' 'editor'; do
     tasks_to_run+=("${java_module}:spotbugsMain" "${java_module}:test")
 done
