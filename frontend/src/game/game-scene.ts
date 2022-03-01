@@ -26,6 +26,7 @@ import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
 import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
+import { LazyLoadAllocation } from './util/lazy-load-allocation';
 import { MapDataMessage } from './entities/messages/map-data-message';
 import { MazeMap } from './entities/world/maze-map';
 import { Moon } from './moon';
@@ -62,6 +63,9 @@ const FOV = 60;
 const FOG_END = Math.cos(degToRad(FOV / 2)) * 300;
 const FOG_START = FOG_END * 0;
 
+const RESOURCES_PER_FRAME = 100;
+const RESOURCES_PER_LAZY_LOAD = 10;
+
 export class GameScene {
     private readonly MAX_DELTA = 0.5;
 
@@ -72,6 +76,7 @@ export class GameScene {
         return this.currentRenderer;
     }
 
+    private readonly loadAllocations: LazyLoadAllocation[] = [];
     private readonly updatableById = new Map<number | string, Updatable>();
     private readonly character = new Character('', isReisen());
 
@@ -119,6 +124,7 @@ export class GameScene {
             this.settings.plantVisibility,
             this.camera
         );
+        this.loadAllocations.push(this.forest.cellLazyLoad);
         this.forestWalls.padding = this.settings.forestWallActiveRadius;
         this.cameraControls.offset = new Vector3(0, 20, 0);
 
@@ -339,6 +345,11 @@ export class GameScene {
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
         if (this.character.visible && this.input.wantsToJump) {
             this.character.requestJump(now);
+        }
+
+        let resources = RESOURCES_PER_FRAME;
+        for (const lazyLoad of this.loadAllocations) {
+            resources -= lazyLoad.allocateUpTo(RESOURCES_PER_LAZY_LOAD, resources);
         }
 
         if (this.mapData) {

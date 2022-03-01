@@ -17,6 +17,7 @@ import { ForestCellData } from './forest-cell-data';
 import { ForestCellObject } from './forest-cell-object';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Input } from '../util/input';
+import { LazyLoadAllocation } from '../util/lazy-load-allocation';
 import { MazeMap } from '../entities/world/maze-map';
 import { Updatable } from '../util/updatable';
 import { addCredit } from '@/temp-util';
@@ -42,7 +43,11 @@ export class ForestObject extends Object3D implements Updatable {
     private dummyBambooModels: BambooModel[] = [];
     private mapData?: MazeMap;
 
+    readonly cellLazyLoad = new LazyLoadAllocation();
     private cellGrid: (ForestCellData | undefined)[][] | undefined;
+    private readonly memorizedPlants: Map<number, BufferAttribute[]> = new Map();
+    private readonly memorizedDirtMaterials: Map<number, Material> = new Map();
+    private readonly leafTexturePromise = new TextureLoader().loadAsync('./assets/leaves.jpg');
     private readonly cellPool: ForestCellObject[] = [];
 
     private forestUpdateTimeout = 0;
@@ -107,8 +112,6 @@ export class ForestObject extends Object3D implements Updatable {
 
                 this.dummyBambooModels = dummyBambooModels.sort((first, second) => first.maxHeight - second.maxHeight);
                 this.dummyBambooModels[0].maxDepth = 0;
-
-                this.generateIfPossible();
             });
     }
 
@@ -136,7 +139,8 @@ export class ForestObject extends Object3D implements Updatable {
 
     setMapData(mapData: MazeMap): void {
         this.mapData = mapData;
-        this.generateIfPossible();
+        const rowInfo = { length: this.mapData.columnCount };
+        this.cellGrid = Array.from({ length: this.mapData.rowCount }, () => Array.from(rowInfo));
     }
 
     beforePhysics(): void {}
@@ -212,10 +216,34 @@ export class ForestObject extends Object3D implements Updatable {
         const cellWidth = this.mapData.width / this.mapData.columnCount;
         const cellDepth = this.mapData.depth / this.mapData.rowCount;
 
+        let row: number;
+        let column: number;
         for (let i = topRow; i <= bottomRow; i++) {
+            row = this.mapData.wrapRow(i);
             for (let j = leftColumn; j <= rightColumn; j++) {
-                const cellData = this.cellGrid[this.mapData.wrapRow(i)][this.mapData.wrapColumn(j)];
+                column = this.mapData.wrapColumn(j);
+                let cellData = this.cellGrid[row][column];
                 if (!cellData) {
+                    if (!this.cellLazyLoad.tryToUse(1)) {
+                        continue;
+                    }
+
+                    cellData = ForestCellData.fromMapData(
+                        this.mapData,
+                        i,
+                        j,
+                        this.memorizedPlants,
+                        this.memorizedDirtMaterials,
+                        this.bambooModels,
+                        this.leafTexturePromise
+                    );
+                    if (cellData !== ForestCellData.EMPTY) {
+                        this.cellLazyLoad.useRetroactively(10);
+                    }
+                    this.cellGrid[row][column] = cellData;
+                    this.currentTotalPlants += cellData.count;
+                }
+                if (cellData === ForestCellData.EMPTY) {
                     continue;
                 }
                 this.mapData.wrapTowards(cellData.position, this.camera.position);
@@ -241,39 +269,6 @@ export class ForestObject extends Object3D implements Updatable {
         while (nextCellIndex < this.cellPool.length) {
             this.cellPool[nextCellIndex++].visible = false;
         }
-    }
-
-    private generateIfPossible(): void {
-        if (!this.bambooModels || !this.mapData || this.children.length > 0) {
-            return;
-        }
-
-        const textureLoader = new TextureLoader();
-        const dirtTexturePromise = textureLoader.loadAsync('./assets/leaves.jpg');
-
-        let totalPlantCount = 0;
-        const memorizedPlants: Map<number, BufferAttribute[]> = new Map();
-        const memorizedDirtMaterials: Map<number, Material> = new Map();
-        this.cellGrid = [];
-        for (let i = 0; i < this.mapData.rowCount; i++) {
-            this.cellGrid.push([]);
-            for (let j = 0; j < this.mapData.columnCount; j++) {
-                const cell = ForestCellData.fromMapData(
-                    this.mapData,
-                    i,
-                    j,
-                    memorizedPlants,
-                    memorizedDirtMaterials,
-                    this.bambooModels,
-                    dirtTexturePromise
-                );
-                if (cell) {
-                    totalPlantCount += cell.count;
-                }
-                this.cellGrid[i].push(cell);
-            }
-        }
-        this.currentTotalPlants = totalPlantCount;
     }
 
     static createInstances(bambooModels: BambooModel[]): InstancedMesh[] {

@@ -5,6 +5,7 @@ import {
     Frustum,
     LinearFilter,
     Material,
+    MeshBasicMaterial,
     MeshStandardMaterial,
     RGBFormat,
     Texture,
@@ -57,6 +58,8 @@ let minPlantDistanceSquared: number;
 const tmpVector3 = new Vector3();
 
 export class ForestCellData {
+    static readonly EMPTY = new ForestCellData([], new MeshBasicMaterial(), 0, 0, 0, 0, 0, -1, -1);
+
     private readonly boundingBox = new Box3();
 
     readonly count: number;
@@ -110,7 +113,7 @@ export class ForestCellData {
         memorizedDirtMaterials: Map<number, Material>,
         bambooModels: BambooModel[],
         dirtTexturePromise: Promise<Texture>
-    ): ForestCellData | undefined {
+    ): ForestCellData {
         let neighbouringWalls = 0;
         for (let i = 0; i < 4; i++) {
             neighbouringWalls += mapData.getCell(row + dy[i], column + dx[i]) ? 0 : 1;
@@ -123,7 +126,7 @@ export class ForestCellData {
             (mapData.getCell(row, column) && neighbouringWalls + diagonalNeighbouringWalls <= 0) ||
             (!mapData.getCell(row, column) && neighbouringWalls >= 3)
         ) {
-            return undefined;
+            return ForestCellData.EMPTY;
         }
 
         let cellKind = 0;
