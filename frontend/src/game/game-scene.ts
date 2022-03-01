@@ -26,7 +26,6 @@ import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
 import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
-import { LazyBodyCollection } from './util/lazy-body-collection';
 import { MapDataMessage } from './entities/messages/map-data-message';
 import { MazeMap } from './entities/world/maze-map';
 import { Moon } from './moon';
@@ -89,8 +88,7 @@ export class GameScene {
 
     private mapData?: MazeMap;
     readonly forest: ForestObject;
-    readonly forestWalls = new ForestWall();
-    private forestWallBodyCollection?: LazyBodyCollection;
+    readonly forestWalls = new ForestWall(this.character.position, this.physicsWorld);
 
     readonly physicsDebugger = new CannonDebugRenderer(this.scene, this.physicsWorld);
 
@@ -121,6 +119,7 @@ export class GameScene {
             this.settings.plantVisibility,
             this.camera
         );
+        this.forestWalls.padding = this.settings.forestWallActiveRadius;
         this.cameraControls.offset = new Vector3(0, 20, 0);
 
         makeSkybox().then((skybox) => (this.scene.background = skybox));
@@ -225,11 +224,11 @@ export class GameScene {
     }
 
     get activeForestWallBodyCount(): number {
-        return this.forestWallBodyCollection?.activeBodyCount || 0;
+        return this.forestWalls.activeBodyCount;
     }
 
     get totalForestWallBodyCount(): number {
-        return this.forestWallBodyCollection?.bodies.length || 0;
+        return this.forestWalls.totalBodyCount;
     }
 
     get time(): number {
@@ -254,9 +253,7 @@ export class GameScene {
         }
         this.forest.setReceiveShadow(newSettings.plantsReceiveShadows);
         this.forest.visiblePlants = newSettings.plantVisibility;
-        if (this.forestWallBodyCollection) {
-            this.forestWallBodyCollection.padding = newSettings.forestWallActiveRadius;
-        }
+        this.forestWalls.padding = newSettings.forestWallActiveRadius;
         this.physicsDebugger.active = newSettings.debugPhysics;
 
         if (shouldRefreshSize) {
@@ -301,13 +298,6 @@ export class GameScene {
         character.setState(message.newState);
     }
 
-    private wrapPositionTowardsPlayer(position: Vector3): void {
-        if (this.mapData) {
-            position.x = this.mapData.wrapClosestToX(position.x, this.character.position.x);
-            position.z = this.mapData.wrapClosestToZ(position.z, this.character.position.z);
-        }
-    }
-
     private onPlayerDisconnected(reader: SignedBinaryReader): void {
         const message = PlayerDisconnectMessage.decodeFromBinary(reader);
         const character = this.charactersById.get(message.playerId);
@@ -327,14 +317,9 @@ export class GameScene {
         this.add(ground);
         this.cameraControls.intersectionObjects.push(ground);
 
-        this.forestWallBodyCollection = this.forestWalls.generate(
-            message.map,
-            this.physicsWorld,
-            this.character.position
-        );
-        this.forestWallBodyCollection.padding = this.settings.forestWallActiveRadius;
+        this.forestWalls.generate(message.map);
         this.cameraControls.intersectionObjects.push(this.forestWalls);
-        this.add(this.forestWalls, this.forestWallBodyCollection);
+        this.add(this.forestWalls);
     }
 
     private getOrCreatePlayerCharacter(playerId: number, username: string, isReisen: boolean | undefined): Character {
@@ -356,8 +341,10 @@ export class GameScene {
             this.character.requestJump(now);
         }
 
-        for (const character of this.charactersById.values()) {
-            this.wrapPositionTowardsPlayer(character.position);
+        if (this.mapData) {
+            for (const character of this.charactersById.values()) {
+                this.mapData.wrapTowards(character.position, this.character.position);
+            }
         }
         if (delta > 0) {
             for (const updatable of this.updatableById.values()) {

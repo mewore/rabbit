@@ -212,17 +212,14 @@ export class ForestObject extends Object3D implements Updatable {
         const cellWidth = this.mapData.width / this.mapData.columnCount;
         const cellDepth = this.mapData.depth / this.mapData.rowCount;
 
-        let offsetX = 0;
-        let offsetZ = 0;
         for (let i = topRow; i <= bottomRow; i++) {
-            offsetZ = (i < 0 ? -this.mapData.depth : 0) + (i >= height ? this.mapData.depth : 0);
             for (let j = leftColumn; j <= rightColumn; j++) {
                 const cellData = this.cellGrid[this.mapData.wrapRow(i)][this.mapData.wrapColumn(j)];
                 if (!cellData) {
                     continue;
                 }
-                offsetX = (j < 0 ? -this.mapData.width : 0) + (j >= width ? this.mapData.width : 0);
-                cellData.reposition(offsetX, offsetZ);
+                this.mapData.wrapTowards(cellData.position, this.camera.position);
+                cellData.refreshBoundingBox();
                 this.currentRenderedDetailedPlants += cellData.cull(
                     frustum,
                     fadeOutPortion,

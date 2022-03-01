@@ -28,7 +28,7 @@ const ALPHA_TEXTURE_HEIGHT = ALPHA_TEXTURE_WIDTH;
 
 const invisibleAlphaTexture = new DataTexture(new Uint8Array([0, 0, 0]), 1, 1, RGBFormat, UnsignedByteType);
 
-const PLANT_PADDING = 15;
+const PLANT_PADDING = 30;
 const PLANT_HEIGHT = 100;
 
 const MAX_DISTANCE_FROM_WALL = 0.7;
@@ -57,7 +57,7 @@ let minPlantDistanceSquared: number;
 const tmpVector3 = new Vector3();
 
 export class ForestCellData {
-    private readonly boundingBox: Box3;
+    private readonly boundingBox = new Box3();
 
     readonly count: number;
     readonly totalCountPerPlantType: number[];
@@ -71,6 +71,8 @@ export class ForestCellData {
     readonly name: string;
     visible = false;
 
+    private readonly boundingBoxSize: Vector3;
+
     constructor(
         readonly allPlantMatrices: BufferAttribute[],
         readonly dirtMaterial: Material,
@@ -82,10 +84,8 @@ export class ForestCellData {
         readonly row: number,
         readonly column: number
     ) {
-        this.boundingBox = new Box3(
-            new Vector3(x - cellSize / 2 - PLANT_PADDING, 0, z - cellSize / 2 - PLANT_PADDING),
-            new Vector3(x + cellSize / 2 + PLANT_PADDING, PLANT_HEIGHT, z + cellSize / 2 + PLANT_PADDING)
-        );
+        this.boundingBoxSize = new Vector3(cellSize + PLANT_PADDING, PLANT_HEIGHT / 2, cellSize + PLANT_PADDING);
+        this.boundingBox = new Box3();
 
         this.totalCountPerPlantType = allPlantMatrices.map((matrices) => matrices.count);
         this.countPerPlantType = this.totalCountPerPlantType.slice();
@@ -95,10 +95,11 @@ export class ForestCellData {
         this.name = `ForestCell(${row},${column})`;
     }
 
-    reposition(offsetX: number, offsetZ: number): void {
-        tmpVector3.set(this.x + offsetX, 0, this.z + offsetZ).sub(this.position);
-        this.position.add(tmpVector3);
-        this.boundingBox.translate(tmpVector3);
+    refreshBoundingBox(): void {
+        this.boundingBox.setFromCenterAndSize(
+            tmpVector3.set(this.position.x, PLANT_HEIGHT / 2, this.position.z),
+            this.boundingBoxSize
+        );
     }
 
     static fromMapData(

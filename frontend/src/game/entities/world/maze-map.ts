@@ -58,6 +58,14 @@ export class MazeMap extends BinaryEntity {
         return this.relevantPolygons[this.wrapRow(row)][this.wrapColumn(column)];
     }
 
+    getRow(z: number): number {
+        return Math.floor((this.wrapZ(z) / this.depth + 0.5) * this.rowCount);
+    }
+
+    getColumn(x: number): number {
+        return Math.floor((this.wrapX(x) / this.width + 0.5) * this.columnCount);
+    }
+
     wrapRow(row: number): number {
         return row - Math.floor(row / this.rowCount) * this.rowCount;
     }
@@ -74,11 +82,16 @@ export class MazeMap extends BinaryEntity {
         return z - Math.floor(z / this.depth + 0.5) * this.depth;
     }
 
-    wrapClosestToX(x: number, target: number): number {
+    wrapTowards(source: { x: number; z: number }, target: { x: number; z: number }): void {
+        source.x = this.wrapTowardsX(source.x, target.x);
+        source.z = this.wrapTowardsZ(source.z, target.z);
+    }
+
+    private wrapTowardsX(x: number, target: number): number {
         return x - Math.floor((x - target) / this.width + 0.5) * this.width;
     }
 
-    wrapClosestToZ(z: number, target: number): number {
+    private wrapTowardsZ(z: number, target: number): number {
         return z - Math.floor((z - target) / this.depth + 0.5) * this.depth;
     }
 
