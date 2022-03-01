@@ -76,7 +76,7 @@ export function makeGround(worldWidth: number, worldDepth: number): Object3D {
         groundMaterial.needsUpdate = true;
 
         const actualTextureSize = new Vector2().copy(meshSize).divide(groundTexture.repeat);
-        if (!actualTextureSize.equals(scaledTextureSize)) {
+        if (!actualTextureSize.equals(scaledTextureSize) && process.env.NODE_ENV === 'development') {
             const actualTextureSizePercentage = new Vector2()
                 .copy(actualTextureSize)
                 .divide(scaledTextureSize)
