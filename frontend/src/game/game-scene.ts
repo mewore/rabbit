@@ -22,6 +22,7 @@ import { Settings } from '@/settings';
 
 import { addCredit, isReisen } from '../temp-util';
 import { Character } from './character';
+import { BinaryEntity } from './entities/binary-entity';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { MapDataMessage } from './entities/messages/map-data-message';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
@@ -209,19 +210,10 @@ export class GameScene {
         this.add(this.physicsDebugger);
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
-            const reader = new SignedBinaryReader(message.data);
-            const messageType = reader.readByte();
-            switch (messageType) {
-                case MessageType.JOIN:
-                    return this.onPlayerJoined(reader);
-                case MessageType.UPDATE:
-                    return this.onPlayerUpdate(reader);
-                case MessageType.DISCONNECT:
-                    return this.onPlayerDisconnected(reader);
-                case MessageType.FOREST_DATA:
-                    return this.onForestData(reader);
-                default:
-                    throw new Error('Unrecognized message type: ' + messageType);
+            if (this.settings.artificialLatency > 0) {
+                setTimeout(() => this.receiveData(message), this.settings.artificialLatency);
+            } else {
+                this.receiveData(message);
             }
         };
 
@@ -288,8 +280,33 @@ export class GameScene {
     }
 
     private sendInitialPlayerInfo(): void {
-        this.webSocket.send(new PlayerJoinMutation(isReisen()).encodeToBinary());
-        this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
+        this.sendData(new PlayerJoinMutation(isReisen()));
+        this.sendData(new PlayerUpdateMutation(this.character.getState()));
+    }
+
+    private sendData(data: BinaryEntity): void {
+        if (this.settings.artificialLatency > 0) {
+            setTimeout(() => this.webSocket.send(data.encodeToBinary()), this.settings.artificialLatency);
+        } else {
+            this.webSocket.send(data.encodeToBinary());
+        }
+    }
+
+    private receiveData(message: MessageEvent<ArrayBuffer>): void {
+        const reader = new SignedBinaryReader(message.data);
+        const messageType = reader.readByte();
+        switch (messageType) {
+            case MessageType.JOIN:
+                return this.onPlayerJoined(reader);
+            case MessageType.UPDATE:
+                return this.onPlayerUpdate(reader);
+            case MessageType.DISCONNECT:
+                return this.onPlayerDisconnected(reader);
+            case MessageType.FOREST_DATA:
+                return this.onForestData(reader);
+            default:
+                throw new Error('Unrecognized message type: ' + messageType);
+        }
     }
 
     private onPlayerJoined(reader: SignedBinaryReader): void {
@@ -388,7 +405,7 @@ export class GameScene {
         this.input.clearMouseDelta();
         if (this.character.visible) {
             if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
-                this.webSocket.send(new PlayerUpdateMutation(this.character.getState()).encodeToBinary());
+                this.sendData(new PlayerUpdateMutation(this.character.getState()));
             }
         }
     }

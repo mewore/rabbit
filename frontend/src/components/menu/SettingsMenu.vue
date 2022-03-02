@@ -54,10 +54,7 @@
                         switch-label-side
                         color="purple-4"
                     />
-                    <div
-                        class="text-purple-4 right-icon"
-                        style="font-size: 2em"
-                    >
+                    <div class="text-purple-4 right-icon">
                         <q-icon name="info" />
                         <q-tooltip>
                             A lower clarity results in a blurry/jagged
@@ -111,10 +108,7 @@
                         @update:model-value="onUpdated()"
                         color="purple-4"
                     />
-                    <div
-                        class="text-purple-4 right-icon"
-                        style="font-size: 2em"
-                    >
+                    <div class="text-purple-4 right-icon">
                         <q-icon name="info" />
                         <q-tooltip>
                             The physics bodies of forest walls far away from
@@ -128,6 +122,29 @@
             </q-tab-panel>
 
             <q-tab-panel name="debug">
+                <div class="input-with-label">
+                    <div class="text-subtitle1">Artificial latency</div>
+                    <q-slider
+                        v-model="settings.artificialLatency"
+                        :min="0"
+                        :max="10000"
+                        :step="50"
+                        label
+                        :label-value="settings.artificialLatency + ' ms'"
+                        switch-label-side
+                        @update:model-value="onUpdated()"
+                        color="purple-4"
+                    />
+                    <div class="text-purple-4 right-icon">
+                        <q-icon name="info" />
+                        <q-tooltip>
+                            Delay the data between yourself and the server in
+                            order to test extreme scenarios. This affects only
+                            the data sent in the WebSocket; the normal HTTP
+                            requests are not affected.
+                        </q-tooltip>
+                    </div>
+                </div>
                 <q-toggle
                     v-model="settings.showPerformance"
                     label="Show performance info"
@@ -268,6 +285,7 @@ export default class SettingsMenu extends Vue {
         }
         .right-icon {
             padding-left: 0.5em;
+            font-size: 2em;
         }
     }
     height: 15em;

@@ -21,6 +21,7 @@ export interface Settings {
     forestWallActiveRadius: number;
     showPerformance: boolean;
     debugPhysics: boolean;
+    artificialLatency: number;
 }
 
 let currentSettings: Settings = {
@@ -33,6 +34,7 @@ let currentSettings: Settings = {
     forestWallActiveRadius: 200,
     showPerformance: false,
     debugPhysics: false,
+    artificialLatency: 0,
     ...initialSettings,
 };
 
