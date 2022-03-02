@@ -17,7 +17,7 @@ import {
 } from 'three';
 import { AxisHelper, makeGround, makeSkybox, projectOntoCamera } from './util/three-util';
 import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
-import { Settings, addCredit, isReisen } from '../temp-util';
+import { addCredit, isReisen } from '../temp-util';
 import { AutoFollow } from './util/auto-follow';
 import { CannonDebugRenderer } from './util/cannon-debug-renderer';
 import { Character } from './character';
@@ -35,6 +35,7 @@ import { PlayerJoinMessage } from './entities/messages/player-join-message';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
 import { PlayerUpdateMessage } from './entities/messages/player-update-message';
 import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
+import { Settings } from '@/settings';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { Updatable } from './util/updatable';
 import { degToRad } from 'three/src/math/MathUtils';

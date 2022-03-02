@@ -172,7 +172,7 @@ import {
     QToggle,
     QTooltip,
 } from 'quasar';
-import { SaveLocation, getSettings, setSettings } from '@/temp-util';
+import { SaveLocation, getSettings, setSettings } from '@/settings';
 
 @Options({
     components: {

@@ -56,7 +56,7 @@
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
-import { Settings, getSettings } from '@/temp-util';
+import { Settings, getSettings } from '@/settings';
 import { GameScene } from '../game/game-scene';
 import Menu from '@/components/menu/Menu.vue';
 import PerformanceDisplay from '@/components/PerformanceDisplay.vue';

@@ -83,10 +83,11 @@
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
 import { QBar, QBtn, QBtnGroup, QCard, QCardSection, QSpace } from 'quasar';
-import { Settings, getTitle } from '@/temp-util';
 import Credits from '@/components/menu/Credits.vue';
 import EditorDownloadMenu from '@/components/menu/EditorDownloadMenu.vue';
+import { Settings } from '@/settings';
 import SettingsMenu from '@/components/menu/SettingsMenu.vue';
+import { getTitle } from '@/temp-util';
 
 type MenuId = 'MAIN_MENU' | 'SETTINGS' | 'WORLD_EDITOR' | 'CREDITS';
 
