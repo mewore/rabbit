@@ -1,8 +1,9 @@
+import { Vec3 } from 'cannon-es';
+import { Vector3 } from 'three';
+
 import { BinaryEntity } from '../binary-entity';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
-import { Vec3 } from 'cannon-es';
-import { Vector3 } from 'three';
 
 export class Vector3Entity extends BinaryEntity {
     constructor(readonly x: number, readonly y: number, readonly z: number) {

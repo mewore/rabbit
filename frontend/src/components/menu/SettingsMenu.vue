@@ -153,7 +153,6 @@
 </template>
 
 <script lang="ts">
-import { Options, Vue } from 'vue-class-component';
 import {
     QBtn,
     QCard,
@@ -172,7 +171,9 @@ import {
     QToggle,
     QTooltip,
 } from 'quasar';
-import { SaveLocation, getSettings, setSettings } from '@/settings';
+import { Options, Vue } from 'vue-class-component';
+
+import { getSettings, SaveLocation, setSettings } from '@/settings';
 
 @Options({
     components: {

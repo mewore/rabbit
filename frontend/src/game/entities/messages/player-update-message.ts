@@ -1,7 +1,7 @@
 import { BinaryEntity } from '../binary-entity';
-import { PlayerState } from '../player-state';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
+import { PlayerState } from '../player-state';
 
 export class PlayerUpdateMessage extends BinaryEntity {
     constructor(readonly playerId: number, readonly newState: PlayerState) {

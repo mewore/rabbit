@@ -81,12 +81,13 @@
 </template>
 
 <script lang="ts">
-import { Options, Vue } from 'vue-class-component';
 import { QBar, QBtn, QBtnGroup, QCard, QCardSection, QSpace } from 'quasar';
+import { Options, Vue } from 'vue-class-component';
+
 import Credits from '@/components/menu/Credits.vue';
 import EditorDownloadMenu from '@/components/menu/EditorDownloadMenu.vue';
-import { Settings } from '@/settings';
 import SettingsMenu from '@/components/menu/SettingsMenu.vue';
+import { Settings } from '@/settings';
 import { getTitle } from '@/temp-util';
 
 type MenuId = 'MAIN_MENU' | 'SETTINGS' | 'WORLD_EDITOR' | 'CREDITS';

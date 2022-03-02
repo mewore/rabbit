@@ -1,3 +1,4 @@
+import { Body, Box, ConvexPolyhedron, Material, Vec3, World } from 'cannon-es';
 import {
     BackSide,
     BufferAttribute,
@@ -6,16 +7,16 @@ import {
     Mesh,
     MeshStandardMaterial,
     MirroredRepeatWrapping,
+    sRGBEncoding,
     TextureLoader,
     Vector2,
     Vector3,
-    sRGBEncoding,
 } from 'three';
-import { Body, Box, ConvexPolyhedron, Material, Vec3, World } from 'cannon-es';
-import { CannonDebugRenderer } from '../util/cannon-debug-renderer';
-import { LazyLoadAllocation } from '../util/lazy-load-allocation';
+
 import { MazeMap } from '../entities/world/maze-map';
 import { MazeWall } from '../entities/world/maze-wall';
+import { CannonDebugRenderer } from '../util/cannon-debug-renderer';
+import { LazyLoadAllocation } from '../util/lazy-load-allocation';
 import { Updatable } from '../util/updatable';
 
 const HEIGHT = 100.0;

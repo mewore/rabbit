@@ -1,3 +1,4 @@
+import { createToast } from 'mosha-vue-toastify';
 import {
     BufferAttribute,
     Frustum,
@@ -12,16 +13,17 @@ import {
     Vector2,
     Vector3,
 } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+
+import { addCredit } from '@/temp-util';
+
+import { MazeMap } from '../entities/world/maze-map';
+import { Input } from '../util/input';
+import { LazyLoadAllocation } from '../util/lazy-load-allocation';
+import { Updatable } from '../util/updatable';
 import { BambooModel } from './bamboo-model';
 import { ForestCellData } from './forest-cell-data';
 import { ForestCellObject } from './forest-cell-object';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { Input } from '../util/input';
-import { LazyLoadAllocation } from '../util/lazy-load-allocation';
-import { MazeMap } from '../entities/world/maze-map';
-import { Updatable } from '../util/updatable';
-import { addCredit } from '@/temp-util';
-import { createToast } from 'mosha-vue-toastify';
 
 const matrix4 = new Matrix4();
 const frustum = new Frustum();

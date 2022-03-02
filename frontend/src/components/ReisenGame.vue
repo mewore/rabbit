@@ -55,12 +55,14 @@
 </template>
 
 <script lang="ts">
+import { QDialog } from 'quasar';
 import { Options, Vue } from 'vue-class-component';
-import { Settings, getSettings } from '@/settings';
-import { GameScene } from '../game/game-scene';
+
 import Menu from '@/components/menu/Menu.vue';
 import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
-import { QDialog } from 'quasar';
+import { getSettings, Settings } from '@/settings';
+
+import { GameScene } from '../game/game-scene';
 
 interface LabelInfo {
     id: number;

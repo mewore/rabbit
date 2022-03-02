@@ -3,9 +3,10 @@
 </template>
 
 <script lang="ts">
-import { Options, Vue } from 'vue-class-component';
-import ReisenGame from './components/ReisenGame.vue';
 import { useQuasar } from 'quasar';
+import { Options, Vue } from 'vue-class-component';
+
+import ReisenGame from './components/ReisenGame.vue';
 
 @Options({
     components: {

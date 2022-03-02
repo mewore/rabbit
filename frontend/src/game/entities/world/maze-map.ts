@@ -1,9 +1,10 @@
+import { Vector3 } from 'three';
+
 import { BinaryEntity } from '../binary-entity';
-import { ConvexPolygonEntity } from '../geometry/convex-polygon-entity';
-import { MazeWall } from './maze-wall';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
-import { Vector3 } from 'three';
+import { ConvexPolygonEntity } from '../geometry/convex-polygon-entity';
+import { MazeWall } from './maze-wall';
 
 const CELL_SIZE = 80;
 const wallReach = 1;

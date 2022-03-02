@@ -1,6 +1,7 @@
+import { expect } from 'chai';
+
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
-import { expect } from 'chai';
 
 describe('Vector3Entity', () => {
     describe('when encoded and decoded', () => {

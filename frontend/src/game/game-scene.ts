@@ -1,3 +1,4 @@
+import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
 import {
     AmbientLight,
     Clock,
@@ -15,30 +16,31 @@ import {
     Vector3,
     WebGLRenderer,
 } from 'three';
-import { AxisHelper, makeGround, makeSkybox, projectOntoCamera } from './util/three-util';
-import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
+import { degToRad } from 'three/src/math/MathUtils';
+
+import { Settings } from '@/settings';
+
 import { addCredit, isReisen } from '../temp-util';
-import { AutoFollow } from './util/auto-follow';
-import { CannonDebugRenderer } from './util/cannon-debug-renderer';
 import { Character } from './character';
-import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
+import { SignedBinaryReader } from './entities/data/signed-binary-reader';
+import { MapDataMessage } from './entities/messages/map-data-message';
+import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
+import { PlayerJoinMessage } from './entities/messages/player-join-message';
+import { PlayerUpdateMessage } from './entities/messages/player-update-message';
+import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
+import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
+import { MazeMap } from './entities/world/maze-map';
 import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
+import { Moon } from './moon';
+import { AutoFollow } from './util/auto-follow';
+import { CannonDebugRenderer } from './util/cannon-debug-renderer';
+import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
 import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
 import { LazyLoadAllocation } from './util/lazy-load-allocation';
-import { MapDataMessage } from './entities/messages/map-data-message';
-import { MazeMap } from './entities/world/maze-map';
-import { Moon } from './moon';
-import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
-import { PlayerJoinMessage } from './entities/messages/player-join-message';
-import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
-import { PlayerUpdateMessage } from './entities/messages/player-update-message';
-import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
-import { Settings } from '@/settings';
-import { SignedBinaryReader } from './entities/data/signed-binary-reader';
+import { AxisHelper, makeGround, makeSkybox, projectOntoCamera } from './util/three-util';
 import { Updatable } from './util/updatable';
-import { degToRad } from 'three/src/math/MathUtils';
 
 enum MessageType {
     JOIN,

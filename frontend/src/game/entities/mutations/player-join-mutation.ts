@@ -1,6 +1,6 @@
 import { BinaryEntity } from '../binary-entity';
-import { MutationType } from './mutation-type';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
+import { MutationType } from './mutation-type';
 
 export class PlayerJoinMutation extends BinaryEntity {
     constructor(readonly isReisen: boolean) {

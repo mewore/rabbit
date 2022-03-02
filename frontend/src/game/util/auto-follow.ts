@@ -1,4 +1,5 @@
 import { Object3D, Vector3 } from 'three';
+
 import { Updatable } from './updatable';
 
 export class AutoFollow implements Updatable {

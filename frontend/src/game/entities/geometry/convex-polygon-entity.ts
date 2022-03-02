@@ -1,8 +1,9 @@
 import { Box2, Vector2 } from 'three';
+
 import { BinaryEntity } from '../binary-entity';
-import { Segment2D } from './segment-2d';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
+import { Segment2D } from './segment-2d';
 import { Vector2Entity } from './vector2-entity';
 
 let result: number;

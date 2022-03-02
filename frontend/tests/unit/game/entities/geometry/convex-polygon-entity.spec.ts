@@ -1,7 +1,8 @@
-import { ConvexPolygonEntity } from '@/game/entities/geometry/convex-polygon-entity';
-import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
-import { Vector2Entity } from '@/game/entities/geometry/vector2-entity';
 import { expect } from 'chai';
+
+import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
+import { ConvexPolygonEntity } from '@/game/entities/geometry/convex-polygon-entity';
+import { Vector2Entity } from '@/game/entities/geometry/vector2-entity';
 
 describe('Vector2Entity', () => {
     describe('when encoded and decoded', () => {

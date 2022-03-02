@@ -2,6 +2,7 @@ module.exports = {
     root: true,
     env: {
         node: true,
+        es6: true,
     },
     extends: [
         'eslint:recommended',
@@ -12,8 +13,10 @@ module.exports = {
     parserOptions: {
         ecmaVersion: 2020,
     },
-    plugins: ['prettier'],
+    plugins: ['prettier', 'simple-import-sort'],
     rules: {
+        'simple-import-sort/imports': 'error',
+        'simple-import-sort/exports': 'error',
         'prettier/prettier': ['error'],
         '@typescript-eslint/no-empty-function': 'off',
         'no-console': 'error',
@@ -30,7 +33,6 @@ module.exports = {
                 imports: 'always-multiline',
             },
         ],
-        'sort-imports': 'error',
         'max-len': [
             'error',
             {
@@ -46,9 +48,6 @@ module.exports = {
             files: ['**/__tests__/*.{j,t}s?(x)', '**/tests/unit/**/*.spec.{j,t}s?(x)'],
             env: {
                 mocha: true,
-            },
-            rules: {
-                'sort-imports': 'error',
             },
         },
     ],

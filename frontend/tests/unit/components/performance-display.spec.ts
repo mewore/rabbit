@@ -1,6 +1,7 @@
-import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
-import { expect } from 'chai';
 import { shallowMount } from '@vue/test-utils';
+import { expect } from 'chai';
+
+import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
 
 describe('PerformanceDisplay.vue', () => {
     it('should be rendered properly', () => {

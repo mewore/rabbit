@@ -1,6 +1,7 @@
-import { PlayerDisconnectMessage } from '@/game/entities/messages/player-disconnect-message';
-import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { expect } from 'chai';
+
+import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
+import { PlayerDisconnectMessage } from '@/game/entities/messages/player-disconnect-message';
 
 describe('PlayerDisconnectMessage', () => {
     describe('when encoded and decoded', () => {

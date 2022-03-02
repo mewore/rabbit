@@ -1,4 +1,5 @@
 import { InstancedMesh, Mesh, Object3D, PlaneBufferGeometry } from 'three';
+
 import { ForestCellData } from './forest-cell-data';
 
 const DIRT_PLANE_OFFSET = 0.1;

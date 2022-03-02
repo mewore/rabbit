@@ -1,7 +1,9 @@
+import { expect } from 'chai';
+
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { SignedBinaryWriter } from '@/game/entities/data/signed-binary-writer';
+
 import { TestEntity } from './test-entity';
-import { expect } from 'chai';
 
 describe('SignedBinaryReader and SignedBinaryWriter', () => {
     let writer: SignedBinaryWriter;

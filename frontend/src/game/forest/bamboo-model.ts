@@ -1,3 +1,4 @@
+import { createToast } from 'mosha-vue-toastify';
 import {
     BufferAttribute,
     BufferGeometry,
@@ -14,7 +15,6 @@ import {
     Quaternion,
     Vector3,
 } from 'three';
-import { createToast } from 'mosha-vue-toastify';
 
 const MAX_LEANING_ANGLE = 0.05 * Math.PI;
 const DEFAULT_MAX_DEPTH = 5.0;

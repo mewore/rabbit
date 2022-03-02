@@ -15,10 +15,10 @@ import {
     PerspectiveCamera,
     PlaneBufferGeometry,
     RepeatWrapping,
+    sRGBEncoding,
     TextureLoader,
     Vector2,
     Vector3,
-    sRGBEncoding,
 } from 'three';
 
 const GROUND_TEXTURE_SCALE = 1 / 16;

@@ -1,6 +1,7 @@
-import Credits from '@/components/menu/Credits.vue';
-import { expect } from 'chai';
 import { shallowMount } from '@vue/test-utils';
+import { expect } from 'chai';
+
+import Credits from '@/components/menu/Credits.vue';
 
 describe('Credits.vue', () => {
     it('should be rendered properly', () => {

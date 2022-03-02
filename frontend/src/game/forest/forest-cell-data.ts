@@ -8,14 +8,15 @@ import {
     MeshBasicMaterial,
     MeshStandardMaterial,
     RGBFormat,
+    sRGBEncoding,
     Texture,
     UnsignedByteType,
     Vector3,
-    sRGBEncoding,
 } from 'three';
-import { BambooModel } from './bamboo-model';
+
 import { ConvexPolygonEntity } from '../entities/geometry/convex-polygon-entity';
 import { MazeMap } from '../entities/world/maze-map';
+import { BambooModel } from './bamboo-model';
 
 // There are a little more than 1 + 2^2 + 2^6 = 69 unique plant formations (based on the cell and its surrounding cells)
 // The memory required to store the precalculated positions of all of the plants in all possible cells is

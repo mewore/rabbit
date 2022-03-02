@@ -1,7 +1,7 @@
 import { BinaryEntity } from '../binary-entity';
-import { MazeMap } from '../world/maze-map';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
+import { MazeMap } from '../world/maze-map';
 
 export class MapDataMessage extends BinaryEntity {
     constructor(readonly map: MazeMap) {

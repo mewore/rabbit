@@ -69,7 +69,7 @@
 </template>
 
 <script lang="ts">
-import { Options, Vue } from 'vue-class-component';
+import axios from 'axios';
 import {
     QBtn,
     QCard,
@@ -80,7 +80,7 @@ import {
     QSpinner,
 } from 'quasar';
 import { QSelectOption } from 'quasar/dist/types/api';
-import axios from 'axios';
+import { Options, Vue } from 'vue-class-component';
 
 const LOADING_OPTION: QSelectOption<number> = {
     value: -1,

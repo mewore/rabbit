@@ -1,7 +1,7 @@
 import { BinaryEntity } from '../binary-entity';
-import { ConvexPolygonEntity } from '../geometry/convex-polygon-entity';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
+import { ConvexPolygonEntity } from '../geometry/convex-polygon-entity';
 
 export class MazeWall extends BinaryEntity {
     constructor(

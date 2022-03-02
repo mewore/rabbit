@@ -1,7 +1,8 @@
+import { Vector2 } from 'three';
+
 import { BinaryEntity } from '../binary-entity';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
-import { Vector2 } from 'three';
 
 export class Vector2Entity extends BinaryEntity {
     constructor(readonly x: number, readonly y: number) {

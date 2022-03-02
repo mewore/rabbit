@@ -1,10 +1,11 @@
+import { expect } from 'chai';
+
+import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { ConvexPolygonEntity } from '@/game/entities/geometry/convex-polygon-entity';
+import { Vector2Entity } from '@/game/entities/geometry/vector2-entity';
 import { MapDataMessage } from '@/game/entities/messages/map-data-message';
 import { MazeMap } from '@/game/entities/world/maze-map';
 import { MazeWall } from '@/game/entities/world/maze-wall';
-import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
-import { Vector2Entity } from '@/game/entities/geometry/vector2-entity';
-import { expect } from 'chai';
 
 describe('MapDataMessage', () => {
     describe('when encoded and decoded', () => {

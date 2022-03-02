@@ -1,8 +1,9 @@
-import { PlayerState } from '@/game/entities/player-state';
+import { expect } from 'chai';
+
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { Vector2Entity } from '@/game/entities/geometry/vector2-entity';
 import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
-import { expect } from 'chai';
+import { PlayerState } from '@/game/entities/player-state';
 
 describe('PlayerState', () => {
     describe('when encoded and decoded', () => {

@@ -1,10 +1,11 @@
-import { Player } from '@/game/entities/player';
-import { PlayerJoinMessage } from '@/game/entities/messages/player-join-message';
-import { PlayerState } from '@/game/entities/player-state';
+import { expect } from 'chai';
+
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { Vector2Entity } from '@/game/entities/geometry/vector2-entity';
 import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
-import { expect } from 'chai';
+import { PlayerJoinMessage } from '@/game/entities/messages/player-join-message';
+import { Player } from '@/game/entities/player';
+import { PlayerState } from '@/game/entities/player-state';
 
 describe('PlayerJoinMessage', () => {
     describe('when encoded and decoded', () => {

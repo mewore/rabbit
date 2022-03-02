@@ -1,3 +1,4 @@
+import { Body, Cylinder, Material, Ray, RaycastResult, RayOptions, Vec3, World } from 'cannon-es';
 import {
     AnimationAction,
     AnimationMixer,
@@ -9,15 +10,16 @@ import {
     Vector2,
     Vector3,
 } from 'three';
-import { Body, Cylinder, Material, Ray, RayOptions, RaycastResult, Vec3, World } from 'cannon-es';
-import { getAngleDifference, makeAllCastAndReceiveShadow, moveAngle } from './util/three-util';
-import { PlayerState } from './entities/player-state';
-import { Updatable } from './util/updatable';
+import { lerp } from 'three/src/math/MathUtils';
+
+import { addCredit } from '@/temp-util';
+
 import { Vector2Entity } from './entities/geometry/vector2-entity';
 import { Vector3Entity } from './entities/geometry/vector3-entity';
-import { addCredit } from '@/temp-util';
-import { lerp } from 'three/src/math/MathUtils';
+import { PlayerState } from './entities/player-state';
 import { loadGltfWithCaching } from './util/gltf-util';
+import { getAngleDifference, makeAllCastAndReceiveShadow, moveAngle } from './util/three-util';
+import { Updatable } from './util/updatable';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;

@@ -10,6 +10,7 @@ import {
     Scene,
     SphereGeometry,
 } from 'three';
+
 import { Updatable } from './updatable';
 
 interface ShapeDebugData {
