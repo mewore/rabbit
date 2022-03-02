@@ -28,9 +28,10 @@ val frontendLint = tasks.create<com.github.gradle.node.npm.task.NpmTask>("fronte
     description = "Lints the frontend code."
 }
 
-tasks.create<Task>("frontendCheckDisabledLintRules") {
-    val sourceDirectory = projectDir.resolve("src")
-    inputs.dir(sourceDirectory)
+tasks.create<SourceTask>("frontendCheckDisabledLintRules") {
+    source(listOf("src", "test", "tests").map { projectDir.resolve(it) })
+    include(listOf("js", "ts", "jsx", "tsx", "vue").map { "**/*.$it" })
+
     outputs.upToDateWhen { true }
     val rulesThatShouldNotBeDisabled = listOf("no-debugger", "no-console")
     description =
@@ -41,7 +42,7 @@ tasks.create<Task>("frontendCheckDisabledLintRules") {
     doLast("Check for commonly disabled ESLint rules") {
         val disabledRuleLocations = mutableListOf<String>()
 
-        sourceDirectory.walk().filter { it.isFile }.forEach { file ->
+        source.forEach { file ->
             var line = 1
             file.forEachLine(Charsets.UTF_8) {
                 val match = disablePattern.find(it)
@@ -53,7 +54,7 @@ tasks.create<Task>("frontendCheckDisabledLintRules") {
             }
         }
         if (disabledRuleLocations.isNotEmpty()) {
-            error("Found possibly disabled rules at:\n${disabledRuleLocations.joinToString("\n") { "\t- $it" }}")
+            error("Found possibly disabled rules at:\n${disabledRuleLocations.joinToString("\n") { "\t- $it\n\t\t(file://$it)" }}")
         }
     }
 }
