@@ -77,8 +77,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             DiamondSquareNoise.createSeamless(worldProperties.getNoiseResolution(), new Random(seed + 1), 1.0,
                 worldProperties.getNoiseSharpness()), CompositeNoise.XNOR_BLENDING);
 
-        final MazeMap map = MazeMap.createSeamless(worldProperties.getWidth(), worldProperties.getHeight(),
-            new Random(seed), 1, opennessNoise, worldProperties.getFlippedCellSet());
+        final MazeMap map = MazeMap.createSeamless(worldProperties, new Random(seed), opennessNoise);
 
         javalin.get("editors", externalStaticLocation != null
             ? new EditorVersionHandler(externalStaticLocation)

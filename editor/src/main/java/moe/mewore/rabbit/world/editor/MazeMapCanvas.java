@@ -79,8 +79,8 @@ class MazeMapCanvas extends Canvas {
     }
 
     public void setUp(final MazeMap map, final Collection<Integer> flippedCells, final Noise noise) {
-        int imageWidth = PIXELS_PER_CELL * map.getWidth();
-        int imageHeight = PIXELS_PER_CELL * map.getHeight();
+        int imageWidth = PIXELS_PER_CELL * map.getColumnCount();
+        int imageHeight = PIXELS_PER_CELL * map.getRowCount();
         if (imageWidth * imageHeight > MAX_IMAGE_PIXELS) {
             final double overhead = (double) (imageWidth * imageHeight) / MAX_IMAGE_PIXELS;
             imageWidth = (int) (imageWidth / Math.sqrt(overhead));
@@ -146,7 +146,8 @@ class MazeMapCanvas extends Canvas {
                 final int newHoveredCell = getHoveredCell(e, imageData);
                 if (hoveredCell == null || hoveredCell != newHoveredCell) {
                     hoveredCell = newHoveredCell;
-                    if (map.getCell(hoveredCell / map.getWidth(), hoveredCell % map.getWidth()) != currentPaint) {
+                    if (map.getCell(hoveredCell / map.getColumnCount(), hoveredCell % map.getColumnCount()) !=
+                        currentPaint) {
                         paintedCells.add(hoveredCell);
                     }
                     imageData.updateUiIndicators(paintedCells, currentPaint, hoveredCell);
@@ -187,7 +188,7 @@ class MazeMapCanvas extends Canvas {
             if (e.getButton() == LEFT_MOUSE_BUTTON && imageData != null) {
                 final int hoveredCell = getHoveredCell(e, imageData);
                 final MazeMap map = imageData.getMap();
-                currentPaint = !map.getCell(hoveredCell / map.getWidth(), hoveredCell % map.getWidth());
+                currentPaint = !map.getCell(hoveredCell / map.getColumnCount(), hoveredCell % map.getColumnCount());
                 paintedCells.add(hoveredCell);
                 paint(getGraphics());
             } else if (e.getButton() == RIGHT_MOUSE_BUTTON) {
@@ -201,7 +202,7 @@ class MazeMapCanvas extends Canvas {
             if (imageData != null && currentPaint != null && !paintedCells.isEmpty()) {
                 final MazeMap map = imageData.getMap();
                 for (final int cell : paintedCells) {
-                    map.setCell(cell / map.getWidth(), cell % map.getWidth(), currentPaint);
+                    map.setCell(cell / map.getColumnCount(), cell % map.getColumnCount(), currentPaint);
                     if (flippedCells.contains(cell)) {
                         flippedCells.remove(cell);
                     } else {

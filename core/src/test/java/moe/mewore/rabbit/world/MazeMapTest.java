@@ -3,7 +3,6 @@ package moe.mewore.rabbit.world;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -28,36 +27,36 @@ class MazeMapTest {
         final Random random = new Random(11L);
         final Noise opennessNoise = mock(Noise.class);
         when(opennessNoise.get(anyDouble(), anyDouble())).thenReturn(.5);
+        final WorldProperties properties = new WorldProperties("", 30, 30, 2.5, 2.5, 3, 3, "");
 
         // ~20KB
-        assertEquals(20044,
-            MazeMap.createSeamless(30, 30, random, 3, opennessNoise, Collections.emptySet()).encodeToBinary().length);
+        assertEquals(20052, MazeMap.createSeamless(properties, random, opennessNoise).encodeToBinary().length);
     }
 
     @Test
     void testEncode() {
-        final MazeMap map = new MazeMap(3, 3, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
-        assertEquals(21, map.encodeToBinary().length);
+        final MazeMap map = new MazeMap(3, 3, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        assertEquals(29, map.encodeToBinary().length);
     }
 
     @Test
     void testSetCell() {
-        final MazeMap map = new MazeMap(3, 3, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        final MazeMap map = new MazeMap(3, 3, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
         assertFalse(map.getCell(1, 1));
         map.setCell(1, 1, true);
         assertTrue(map.getCell(1, 1));
     }
 
     @Test
-    void testGetWidth() {
-        final MazeMap map = new MazeMap(3, 2, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
-        assertEquals(3, map.getWidth());
+    void testGetRowCount() {
+        final MazeMap map = new MazeMap(3, 2, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        assertEquals(3, map.getRowCount());
     }
 
     @Test
-    void testGetHeight() {
-        final MazeMap map = new MazeMap(3, 2, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
-        assertEquals(2, map.getHeight());
+    void testGetColumnCount() {
+        final MazeMap map = new MazeMap(3, 2, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        assertEquals(2, map.getColumnCount());
     }
 
     @Test
@@ -86,7 +85,7 @@ class MazeMapTest {
                 relevantPolygons[i][j] = new int[]{0, 1};
             }
         }
-        final MazeMap map = new MazeMap(cells.length, cells[0].length, cells, walls, relevantPolygons);
+        final MazeMap map = new MazeMap(cells.length, cells[0].length, 2.5, cells, walls, relevantPolygons);
 
         final BufferedImage image = map.render(256, 250);
         assertEquals(256, image.getWidth());

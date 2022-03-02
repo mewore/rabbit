@@ -78,8 +78,8 @@ public class MapCompositeImage {
         this.imageHeight = imageHeight;
         this.map = map;
         this.noise = noise;
-        this.stroke = new BasicStroke(
-            STROKE_PER_CELL * Math.min((float) imageWidth / map.getWidth(), (float) imageHeight / map.getHeight()));
+        this.stroke = new BasicStroke(STROKE_PER_CELL *
+            Math.min((float) imageWidth / map.getColumnCount(), (float) imageHeight / map.getRowCount()));
         lineThickness = (int) Math.ceil(stroke.getLineWidth());
 
         fertilityImage = new BufferedImage(imageWidth, imageHeight, IMAGE_TYPE);
@@ -154,8 +154,8 @@ public class MapCompositeImage {
         int maxY = 0;
 
         for (final int cell : flippedCells) {
-            final CellRenderInfo cellRenderInfo = new CellRenderInfo(cell, map.getWidth(), map.getHeight(), imageWidth,
-                imageHeight);
+            final CellRenderInfo cellRenderInfo = new CellRenderInfo(cell, map.getColumnCount(), map.getRowCount(),
+                imageWidth, imageHeight);
             minX = Math.min(minX, cellRenderInfo.getX() - cellRenderInfo.getWidth());
             maxX = Math.max(maxX, cellRenderInfo.getX() + cellRenderInfo.getWidth() * 2 - 1);
             minY = Math.min(minY, cellRenderInfo.getY() - cellRenderInfo.getHeight());
@@ -328,12 +328,12 @@ public class MapCompositeImage {
      * @return The cell index.
      */
     public int getHoveredCell(final int x, final int y) {
-        final int col = (((x + imageWidth) % imageWidth) * map.getWidth()) / imageWidth;
-        final int row = (((y + imageHeight) % imageHeight) * map.getHeight()) / imageHeight;
-        return row * map.getWidth() + col;
+        final int col = (((x + imageWidth) % imageWidth) * map.getColumnCount()) / imageWidth;
+        final int row = (((y + imageHeight) % imageHeight) * map.getRowCount()) / imageHeight;
+        return row * map.getColumnCount() + col;
     }
 
     private CellRenderInfo getCellRenderInfo(final int cell) {
-        return new CellRenderInfo(cell, map.getWidth(), map.getHeight(), imageWidth, imageHeight);
+        return new CellRenderInfo(cell, map.getColumnCount(), map.getRowCount(), imageWidth, imageHeight);
     }
 }

@@ -34,8 +34,8 @@ class MapCompositeImageTest {
     @Test
     void testRedrawFlippedCells() {
         final MazeMap map = mock(MazeMap.class);
-        when(map.getWidth()).thenReturn(2);
-        when(map.getHeight()).thenReturn(25);
+        when(map.getColumnCount()).thenReturn(2);
+        when(map.getRowCount()).thenReturn(25);
         final MapCompositeImage compositeImage = new MapCompositeImage(20, 20, map, new FakeNoise());
         compositeImage.redrawFlippedCells(List.of(0), List.of(0));
         verify(map, never()).applyFertilityToImage(any(), anyInt(), anyInt(), anyInt(), anyInt());
@@ -45,8 +45,8 @@ class MapCompositeImageTest {
     @Test
     void testRedrawFlippedCells_drawFertility() {
         final MazeMap map = mock(MazeMap.class);
-        when(map.getWidth()).thenReturn(5000);
-        when(map.getHeight()).thenReturn(5);
+        when(map.getColumnCount()).thenReturn(5000);
+        when(map.getRowCount()).thenReturn(5);
         final MapCompositeImage compositeImage = new MapCompositeImage(20, 20, map, new FakeNoise());
         compositeImage.setFertilityVisible(true);
         compositeImage.redrawFlippedCells(List.of(0), List.of(0));
@@ -113,16 +113,16 @@ class MapCompositeImageTest {
     @Test
     void updateUiIndicators_withHoveredCell() {
         final MazeMap map = mock(MazeMap.class);
-        when(map.getWidth()).thenReturn(1);
-        when(map.getHeight()).thenReturn(2);
+        when(map.getColumnCount()).thenReturn(1);
+        when(map.getRowCount()).thenReturn(2);
         new MapCompositeImage(20, 20, map, mock(Noise.class)).updateUiIndicators(null, null, 0);
     }
 
     @Test
     void updateUiIndicators_withHoveredCell_multiple() {
         final MazeMap map = mock(MazeMap.class);
-        when(map.getWidth()).thenReturn(1);
-        when(map.getHeight()).thenReturn(2);
+        when(map.getColumnCount()).thenReturn(1);
+        when(map.getRowCount()).thenReturn(2);
         new MapCompositeImage(20, 20, map, mock(Noise.class)).updateUiIndicators(null, null, 0);
         new MapCompositeImage(20, 20, map, mock(Noise.class)).updateUiIndicators(null, null, 0);
     }
@@ -131,16 +131,16 @@ class MapCompositeImageTest {
     @Test
     void updateUiIndicators_withAll() {
         final MazeMap map = mock(MazeMap.class);
-        when(map.getWidth()).thenReturn(2);
-        when(map.getHeight()).thenReturn(1);
+        when(map.getColumnCount()).thenReturn(2);
+        when(map.getRowCount()).thenReturn(1);
         new MapCompositeImage(20, 20, map, mock(Noise.class)).updateUiIndicators(Set.of(0), false, 0);
     }
 
     @Test
     void testGetHoveredCell() {
         final MazeMap map = mock(MazeMap.class);
-        when(map.getWidth()).thenReturn(3);
-        when(map.getHeight()).thenReturn(2);
+        when(map.getColumnCount()).thenReturn(3);
+        when(map.getRowCount()).thenReturn(2);
         final MapCompositeImage mapCompositeImage = new MapCompositeImage(30, 20, map, mock(Noise.class));
         assertEquals(0, mapCompositeImage.getHoveredCell(0, 0));
         assertEquals(5, mapCompositeImage.getHoveredCell(-5, -5));

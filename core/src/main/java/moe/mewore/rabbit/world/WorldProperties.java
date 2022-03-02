@@ -25,9 +25,11 @@ public class WorldProperties {
 
     private static final String SEED_PROPERTY = "seed";
 
-    private static final String WIDTH_PROPERTY = "width";
+    private static final String COLUMN_COUNT_PROPERTY = "columnCount";
 
-    private static final String HEIGHT_PROPERTY = "height";
+    private static final String ROW_COUNT_PROPERTY = "rowCount";
+
+    private static final String CELL_SIZE_PROPERTY = "cellSize";
 
     private static final String NOISE_RESOLUTION_PROPERTY = "noiseResolution";
 
@@ -39,9 +41,11 @@ public class WorldProperties {
 
     private final String seed;
 
-    private final int width;
+    private final int columnCount;
 
-    private final int height;
+    private final int rowCount;
+
+    private final double cellSize;
 
     private final double noiseSharpness;
 
@@ -53,8 +57,9 @@ public class WorldProperties {
 
     private WorldProperties(final Properties properties) {
         seed = properties.getProperty(SEED_PROPERTY, "");
-        width = Integer.parseInt(properties.getProperty(WIDTH_PROPERTY, "1"));
-        height = Integer.parseInt(properties.getProperty(HEIGHT_PROPERTY, "1"));
+        columnCount = Integer.parseInt(properties.getProperty(COLUMN_COUNT_PROPERTY, "1"));
+        rowCount = Integer.parseInt(properties.getProperty(ROW_COUNT_PROPERTY, "1"));
+        cellSize = Double.parseDouble(properties.getProperty(CELL_SIZE_PROPERTY, "1.0"));
         noiseResolution = Integer.parseInt(properties.getProperty(NOISE_RESOLUTION_PROPERTY, "1"));
         noiseSharpness = Double.parseDouble(properties.getProperty(NOISE_SHARPNESS_PROPERTY, "0.5"));
         smoothingPasses = Integer.parseInt(properties.getProperty(SMOOTHING_PASSES_PROPERTY, "1"));
@@ -112,8 +117,9 @@ public class WorldProperties {
     String asString() {
         final List<String> lines = new ArrayList<>();
         lines.add(makePropertyLine(SEED_PROPERTY, seed));
-        lines.add(makePropertyLine(WIDTH_PROPERTY, width));
-        lines.add(makePropertyLine(HEIGHT_PROPERTY, height));
+        lines.add(makePropertyLine(COLUMN_COUNT_PROPERTY, columnCount));
+        lines.add(makePropertyLine(ROW_COUNT_PROPERTY, rowCount));
+        lines.add(makePropertyLine(CELL_SIZE_PROPERTY, cellSize));
         lines.add(makePropertyLine(NOISE_RESOLUTION_PROPERTY, noiseResolution));
         lines.add(makePropertyLine(NOISE_SHARPNESS_PROPERTY, noiseSharpness));
         lines.add(makePropertyLine(SMOOTHING_PASSES_PROPERTY, smoothingPasses));

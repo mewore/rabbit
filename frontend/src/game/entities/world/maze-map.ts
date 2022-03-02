@@ -6,7 +6,6 @@ import { SignedBinaryWriter } from '../data/signed-binary-writer';
 import { ConvexPolygonEntity } from '../geometry/convex-polygon-entity';
 import { MazeWall } from './maze-wall';
 
-const CELL_SIZE = 80;
 const wallReach = 1;
 
 const WRAP_X_OFFSETS = [-1, 0, 1];
@@ -15,20 +14,20 @@ const WRAP_Z_OFFSETS = [-1, 0, 1];
 export class MazeMap extends BinaryEntity {
     private readonly relevantPolygons: ReadonlyArray<ConvexPolygonEntity>[][];
 
-    readonly cellSize = CELL_SIZE;
     readonly width: number;
     readonly depth: number;
     readonly wrappingOffsets: Vector3[];
 
     constructor(
-        readonly columnCount: number,
         readonly rowCount: number,
+        readonly columnCount: number,
+        readonly cellSize: number,
         private readonly map: ReadonlyArray<ReadonlyArray<boolean>>,
         readonly walls: ReadonlyArray<MazeWall>
     ) {
         super();
-        this.width = columnCount * CELL_SIZE;
-        this.depth = rowCount * CELL_SIZE;
+        this.width = columnCount * this.cellSize;
+        this.depth = rowCount * this.cellSize;
 
         const relevantPolygons: ConvexPolygonEntity[][][] = [];
         for (let i = 0; i < rowCount; i++) {
@@ -91,6 +90,7 @@ export class MazeMap extends BinaryEntity {
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
         writer.writeInt(this.rowCount);
         writer.writeInt(this.columnCount);
+        writer.writeDouble(this.cellSize);
         for (let i = 0; i < this.rowCount; i++) {
             for (let j = 0; j < this.columnCount; j++) {
                 writer.writeBoolean(this.map[i][j]);
@@ -100,14 +100,15 @@ export class MazeMap extends BinaryEntity {
     }
 
     static decodeFromBinary(reader: SignedBinaryReader): MazeMap {
-        const height = reader.readInt();
-        const width = reader.readInt();
-        const map: boolean[][] = Array.from({ length: height }, () => []);
-        for (let i = 0; i < height; i++) {
-            for (let j = 0; j < width; j++) {
+        const rowCount = reader.readInt();
+        const columnCount = reader.readInt();
+        const cellSize = reader.readDouble();
+        const map: boolean[][] = Array.from({ length: rowCount }, () => []);
+        for (let i = 0; i < rowCount; i++) {
+            for (let j = 0; j < columnCount; j++) {
                 map[i].push(reader.readBoolean());
             }
         }
-        return new MazeMap(width, height, map, reader.readEntityArray(MazeWall));
+        return new MazeMap(rowCount, columnCount, cellSize, map, reader.readEntityArray(MazeWall));
     }
 }

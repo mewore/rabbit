@@ -14,6 +14,7 @@ describe('MapDataMessage', () => {
                 new MazeMap(
                     3,
                     3,
+                    80.5,
                     [
                         [true, false, false],
                         [true, true, false],

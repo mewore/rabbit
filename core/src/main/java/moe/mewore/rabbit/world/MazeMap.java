@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Random;
-import java.util.Set;
 import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,10 +44,12 @@ public class MazeMap extends BinaryEntity {
     private static final double SMOOTHING = 0.3;
 
     @Getter
-    private final int width;
+    private final int rowCount;
 
     @Getter
-    private final int height;
+    private final int columnCount;
+
+    private final double cellSize;
 
     private final boolean[][] map;
 
@@ -56,34 +57,36 @@ public class MazeMap extends BinaryEntity {
 
     private final int[][][] relevantPolygonIndices;
 
-    public static MazeMap createSeamless(final int width, final int height, final Random random,
-        final int clearOutPasses, final Noise opennessNoise, final Set<Integer> flippedCells) {
-        final boolean[][] map = createSeamlessLabyrinth(width, height, random);
+    public static MazeMap createSeamless(final WorldProperties properties, final Random random,
+        final Noise opennessNoise) {
+        final int rowCount = properties.getRowCount();
+        final int columnCount = properties.getColumnCount();
+        final boolean[][] map = createSeamlessLabyrinth(columnCount, rowCount, random);
 
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
-                map[Math.min(Math.max(height / 2 + i, 0), height - 1)][Math.min(Math.max(width / 2 + j, 0),
-                    width - 1)] = true;
+                map[Math.min(Math.max(rowCount / 2 + i, 0), rowCount - 1)][Math.min(Math.max(columnCount / 2 + j, 0),
+                    columnCount - 1)] = true;
             }
         }
-        final boolean[][] oldMap = new boolean[height][width];
-        for (int i = 0; i < height; i++) {
+        final boolean[][] oldMap = new boolean[rowCount][columnCount];
+        for (int i = 0; i < rowCount; i++) {
             System.arraycopy(map[i], 0, oldMap[i], 0, map[i].length);
         }
-        for (int pass = 0; pass < clearOutPasses; pass++) {
-            for (int i = 0; i < height; i++) {
+        for (int pass = 0; pass < properties.getSmoothingPasses(); pass++) {
+            for (int i = 0; i < rowCount; i++) {
                 System.arraycopy(map[i], 0, oldMap[i], 0, map[i].length);
             }
-            for (int i = 0; i < height; i++) {
-                for (int j = 0; j < width; j++) {
-                    final double openness = opennessNoise.get((double) (j) / width, (double) (i) / height);
+            for (int i = 0; i < rowCount; i++) {
+                for (int j = 0; j < columnCount; j++) {
+                    final double openness = opennessNoise.get((double) (j) / columnCount, (double) (i) / rowCount);
                     if (map[i][j] == openness > 0.5) {
                         continue;
                     }
                     final double baseFlipChance = Math.abs(openness - 0.5) * 2;
                     int neighbouringWalls = 0;
                     for (int d = 0; d < 8; d++) {
-                        if (!oldMap[wrap(i + dy[d], height)][wrap(j + dx[d], width)]) {
+                        if (!oldMap[wrap(i + dy[d], rowCount)][wrap(j + dx[d], columnCount)]) {
                             neighbouringWalls += Math.abs(dy[d]) + Math.abs(dx[d]);
                         }
                     }
@@ -98,27 +101,27 @@ public class MazeMap extends BinaryEntity {
             }
         }
 
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width; j++) {
+        for (int i = 0; i < rowCount; i++) {
+            for (int j = 0; j < columnCount; j++) {
                 if (map[i][j]) {
                     // Smooth walls out
                     int neighbouringWalls = 0;
                     for (int d = 0; d < 4; d++) {
-                        if (!oldMap[wrap(i + dy[d], height)][wrap(j + dx[d], width)]) {
+                        if (!oldMap[wrap(i + dy[d], rowCount)][wrap(j + dx[d], columnCount)]) {
                             neighbouringWalls++;
                         }
                     }
                     if (neighbouringWalls >= 3) {
                         map[i][j] = false;
                     }
-                } else if ((oldMap[wrap(i - 1, height)][wrap(j - 1, width)] &&
-                    oldMap[wrap(i + 1, height)][wrap(j + 1, width)]) ||
-                    oldMap[wrap(i - 1, height)][wrap(j + 1, width)] &&
-                        oldMap[wrap(i + 1, height)][wrap(j - 1, width)]) {
+                } else if ((oldMap[wrap(i - 1, rowCount)][wrap(j - 1, columnCount)] &&
+                    oldMap[wrap(i + 1, rowCount)][wrap(j + 1, columnCount)]) ||
+                    oldMap[wrap(i - 1, rowCount)][wrap(j + 1, columnCount)] &&
+                        oldMap[wrap(i + 1, rowCount)][wrap(j - 1, columnCount)]) {
                     // Add a small diagonal passage
                     int neighbouringWalls = 0;
                     for (int d = 0; d < 8; d++) {
-                        if (!oldMap[wrap(i + dy[d], height)][wrap(j + dx[d], width)]) {
+                        if (!oldMap[wrap(i + dy[d], rowCount)][wrap(j + dx[d], columnCount)]) {
                             neighbouringWalls++;
                         }
                     }
@@ -130,19 +133,19 @@ public class MazeMap extends BinaryEntity {
         }
 
 
-        final @Nullable CellTraversal[][] traversals = traverse(map, height / 2, width / 2);
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width; j++) {
+        final @Nullable CellTraversal[][] traversals = traverse(map, rowCount / 2, columnCount / 2);
+        for (int i = 0; i < rowCount; i++) {
+            for (int j = 0; j < columnCount; j++) {
                 map[i][j] = traversals[i][j] != null;
-                if (flippedCells.contains(i * width + j)) {
-                    map[i][j] = !map[i][j];
-                }
             }
         }
+        for (final int cell : properties.getFlippedCellSet()) {
+            map[cell / columnCount][cell % columnCount] = !map[cell / columnCount][cell % columnCount];
+        }
 
-        final int[][][] relevantPolygonIndices = new int[height][width][];
-        final List<MazeWall> walls = generateWallsFromMap(width, height, map, relevantPolygonIndices);
-        return new MazeMap(width, height, map, walls, relevantPolygonIndices);
+        final int[][][] relevantPolygonIndices = new int[rowCount][columnCount][];
+        final List<MazeWall> walls = generateWallsFromMap(columnCount, rowCount, map, relevantPolygonIndices);
+        return new MazeMap(rowCount, columnCount, properties.getCellSize(), map, walls, relevantPolygonIndices);
     }
 
     private static List<MazeWall> generateWallsFromMap(final int width, final int height, final boolean[][] map,
@@ -382,15 +385,15 @@ public class MazeMap extends BinaryEntity {
     }
 
     public boolean getCell(final int row, final int col) {
-        return map[wrap(row, height)][wrap(col, width)];
+        return map[wrap(row, rowCount)][wrap(col, columnCount)];
     }
 
     public void setCell(final int row, final int col, final boolean value) {
-        map[wrap(row, height)][wrap(col, width)] = value;
+        map[wrap(row, rowCount)][wrap(col, columnCount)] = value;
     }
 
     public void recomputeWalls() {
-        final List<MazeWall> walls = generateWallsFromMap(width, height, map, relevantPolygonIndices);
+        final List<MazeWall> walls = generateWallsFromMap(columnCount, rowCount, map, relevantPolygonIndices);
         this.walls.clear();
         this.walls.addAll(walls);
     }
@@ -398,8 +401,8 @@ public class MazeMap extends BinaryEntity {
     public double get(double x, double y) {
         x = (x + 1.0) % 1.0;
         y = (y + 1.0) % 1.0;
-        final int row = Math.min((int) (y * height), height);
-        final int col = Math.min((int) (x * width), width);
+        final int row = Math.min((int) (y * rowCount), rowCount);
+        final int col = Math.min((int) (x * columnCount), columnCount);
         final int[] wallIndices = relevantPolygonIndices[row][col];
         for (final int wallIndex : wallIndices) {
             if (walls.get(wallIndex).getPolygon().containsPoint(new Vector2(x, y))) {
@@ -407,13 +410,13 @@ public class MazeMap extends BinaryEntity {
             }
         }
 
-        final double requiredDistance = .8 / Math.max(height, width);
+        final double requiredDistance = .8 / Math.max(rowCount, columnCount);
         final double requiredDistanceSquared = requiredDistance * requiredDistance;
-        final double[] offsetsX = Stream.of(0, col == 0 ? 1 : -10, (col == width - 1) ? -1 : -10)
+        final double[] offsetsX = Stream.of(0, col == 0 ? 1 : -10, (col == columnCount - 1) ? -1 : -10)
             .filter(value -> value > -10)
             .mapToDouble(a -> a)
             .toArray();
-        final double[] offsetsY = Stream.of(0, row == 0 ? 1 : -10, (row == height - 1) ? -1 : -10)
+        final double[] offsetsY = Stream.of(0, row == 0 ? 1 : -10, (row == rowCount - 1) ? -1 : -10)
             .filter(value -> value > -10)
             .mapToDouble(a -> a)
             .toArray();
@@ -438,8 +441,9 @@ public class MazeMap extends BinaryEntity {
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeInt(height);
-        output.writeInt(width);
+        output.writeInt(rowCount);
+        output.writeInt(columnCount);
+        output.writeDouble(cellSize);
         for (final boolean[] row : map) {
             for (final boolean value : row) {
                 output.writeBoolean(value);
@@ -453,7 +457,7 @@ public class MazeMap extends BinaryEntity {
         final int imageWidth = image.getWidth();
         final int imageHeight = image.getHeight();
 
-        if (Math.max((double) (imageHeight) / height, (double) (imageWidth) / width) <= 15.0) {
+        if (Math.max((double) (imageHeight) / rowCount, (double) (imageWidth) / columnCount) <= 15.0) {
             return;
         }
 
@@ -506,7 +510,7 @@ public class MazeMap extends BinaryEntity {
     public void render(final BufferedImage image) {
         final int imageWidth = image.getWidth();
         final int imageHeight = image.getHeight();
-        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", width, height,
+        System.out.printf("Rendering a %dx%d map with %d polygons into a %dx%d px image...%n", columnCount, rowCount,
             walls.size(), imageWidth, imageHeight);
 
         final List<Polygon> polygonsToDraw = getPolygonsToDraw(imageWidth, imageHeight);
@@ -531,7 +535,7 @@ public class MazeMap extends BinaryEntity {
         final int imageWidth = image.getWidth();
         final int imageHeight = image.getHeight();
         System.out.printf("Applying the polygons and paths of a %dx%d map with %d polygons into a %dx%d px image...%n",
-            width, height, walls.size(), imageWidth, imageHeight);
+            columnCount, rowCount, walls.size(), imageWidth, imageHeight);
 
         final Graphics2D graphics = image.createGraphics();
         graphics.setColor(SOLID_COLOR);
@@ -541,15 +545,15 @@ public class MazeMap extends BinaryEntity {
             new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON));
 
         graphics.setColor(SOLID_CENTER);
-        graphics.setStroke(new BasicStroke(Math.min((imageHeight * .1f) / height, (imageWidth * .1f) / width)));
+        graphics.setStroke(new BasicStroke(Math.min((imageHeight * .1f) / rowCount, (imageWidth * .1f) / columnCount)));
         polygonsToDraw.forEach(graphics::drawPolygon);
 
-        final double centerHorizontalSize = .25 * imageWidth / (width * 2);
-        final double centerVerticalSize = .25 * imageHeight / (height * 2);
-        final double centerYStep = (double) (imageHeight) / height;
-        final double centerXStep = (double) (imageWidth) / width;
+        final double centerHorizontalSize = .25 * imageWidth / (columnCount * 2);
+        final double centerVerticalSize = .25 * imageHeight / (rowCount * 2);
+        final double centerYStep = (double) (imageHeight) / rowCount;
+        final double centerXStep = (double) (imageWidth) / columnCount;
         double centerY = 0.5 * centerYStep;
-        for (int i = 0; i < height; i++, centerY += centerYStep) {
+        for (int i = 0; i < rowCount; i++, centerY += centerYStep) {
             double centerX = 0.5 * centerXStep;
             for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
                 graphics.setColor(map[i][j] ? WALKABLE_CENTER : SOLID_CENTER);
@@ -563,7 +567,7 @@ public class MazeMap extends BinaryEntity {
         graphics.setStroke(new BasicStroke((float) (centerYStep * .2)));
 
         double maxDistance = -1;
-        final @Nullable CellTraversal[][] traversals = traverse(map, height / 2, width / 2);
+        final @Nullable CellTraversal[][] traversals = traverse(map, rowCount / 2, columnCount / 2);
         for (final CellTraversal[] row : traversals) {
             for (final CellTraversal traversal : row) {
                 if (traversal != null) {
@@ -588,10 +592,10 @@ public class MazeMap extends BinaryEntity {
                     (int) (centerX - centerXStep * traversals[i][j].getDx()),
                     (int) (centerY - centerYStep * traversals[i][j].getDy()));
 
-                if (i - traversals[i][j].getDy() < 0 || i - traversals[i][j].getDy() >= height ||
-                    j - traversals[i][j].getDx() < 0 || j - traversals[i][j].getDx() >= width) {
-                    final double otherCenterX = (wrap(j - traversals[i][j].getDx(), width) + 0.5) * centerXStep;
-                    final double otherCenterY = (wrap(i - traversals[i][j].getDy(), height) + 0.5) * centerYStep;
+                if (i - traversals[i][j].getDy() < 0 || i - traversals[i][j].getDy() >= rowCount ||
+                    j - traversals[i][j].getDx() < 0 || j - traversals[i][j].getDx() >= columnCount) {
+                    final double otherCenterX = (wrap(j - traversals[i][j].getDx(), columnCount) + 0.5) * centerXStep;
+                    final double otherCenterY = (wrap(i - traversals[i][j].getDy(), rowCount) + 0.5) * centerYStep;
                     graphics.drawLine((int) (otherCenterX), (int) (otherCenterY),
                         (int) (otherCenterX + centerXStep * traversals[i][j].getDx()),
                         (int) (otherCenterY + centerYStep * traversals[i][j].getDy()));

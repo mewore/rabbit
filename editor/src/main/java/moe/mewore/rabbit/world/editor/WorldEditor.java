@@ -25,9 +25,11 @@ public class WorldEditor {
 
     private final JTextField seedField = new JTextField("11", 8);
 
-    private final JSpinner widthField = new JSpinner(new SpinnerNumberModel(50, 1, 1000, 5));
+    private final JSpinner columnCountField = new JSpinner(new SpinnerNumberModel(50, 1, 1000, 5));
 
-    private final JSpinner heightField = new JSpinner(new SpinnerNumberModel(50, 1, 1000, 5));
+    private final JSpinner rowCountField = new JSpinner(new SpinnerNumberModel(50, 1, 1000, 5));
+
+    private final JSpinner cellSizeField = new JSpinner(new SpinnerNumberModel(80.0, 1.0, 1000.0, 1.0));
 
     private final JSpinner smoothingPassesField = new JSpinner(new SpinnerNumberModel(1, 0, 10, 1));
 
@@ -66,11 +68,15 @@ public class WorldEditor {
         seedField.setText(worldProperties.getSeed());
         addField(upperPanel, "Seed", seedField);
 
-        widthField.setValue(worldProperties.getWidth());
-        addField(upperPanel, "Width", widthField);
+        columnCountField.setValue(worldProperties.getColumnCount());
+        addField(upperPanel, "Columns", columnCountField);
 
-        heightField.setValue(worldProperties.getHeight());
-        addField(upperPanel, "Height", heightField);
+        rowCountField.setValue(worldProperties.getRowCount());
+        addField(upperPanel, "Rows", rowCountField);
+
+        cellSizeField.setValue(worldProperties.getCellSize());
+        addField(upperPanel, "Cell size", cellSizeField);
+        cellSizeField.setToolTipText("Changing this doesn't make anything in the editor look different at the moment.");
 
         final JPanel lowerPanel = new JPanel();
 
@@ -122,10 +128,12 @@ public class WorldEditor {
     private void addField(final JPanel panel, final String label, final JComponent component) {
         panel.add(new JLabel(label));
         panel.add(component);
-        if (component instanceof JSpinner) {
-            ((JSpinner) component).addChangeListener((a) -> this.updateCanvasMap());
-        } else if (component instanceof JTextField) {
-            ((JTextField) component).addActionListener((a) -> this.updateCanvasMap());
+        if (component != cellSizeField) {
+            if (component instanceof JSpinner) {
+                ((JSpinner) component).addChangeListener((a) -> this.updateCanvasMap());
+            } else if (component instanceof JTextField) {
+                ((JTextField) component).addActionListener((a) -> this.updateCanvasMap());
+            }
         }
     }
 
@@ -138,8 +146,7 @@ public class WorldEditor {
             DiamondSquareNoise.createSeamless(resolution, new Random(seed), 1.0, sharpness),
             DiamondSquareNoise.createSeamless(resolution, new Random(seed + 1), 1.0, sharpness),
             CompositeNoise.XNOR_BLENDING);
-        final MazeMap map = MazeMap.createSeamless(worldProperties.getWidth(), worldProperties.getHeight(),
-            new Random(seed), worldProperties.getSmoothingPasses(), opennessNoise, worldProperties.getFlippedCellSet());
+        final MazeMap map = MazeMap.createSeamless(worldProperties, new Random(seed), opennessNoise);
         canvas.setNoiseVisibility(getNoiseVisibility());
         canvas.setFertilityVisible(visibleFertilityCheckbox.isSelected());
         canvas.setUp(map, worldProperties.getFlippedCellSet(), opennessNoise);
@@ -151,7 +158,8 @@ public class WorldEditor {
     }
 
     private WorldProperties makeWorldProperties() {
-        return new WorldProperties(seedField.getText(), (int) widthField.getValue(), (int) heightField.getValue(),
+        return new WorldProperties(seedField.getText(), (int) columnCountField.getValue(),
+            (int) rowCountField.getValue(), (double) cellSizeField.getValue(),
             (double) noiseSharpnessField.getValue() / NOISE_SHARPNESS_INPUT_MULTIPLIER,
             (int) noiseResolutionField.getValue(), (int) smoothingPassesField.getValue(),
             canvas.getFlippedCells().stream().map(Object::toString).collect(Collectors.joining(",")));
