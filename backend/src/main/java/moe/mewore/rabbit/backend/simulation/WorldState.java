@@ -24,6 +24,8 @@ public class WorldState extends BinaryEntity {
     // int(uid), int(input ID) + [5 x boolean](input directions, wants to jump)
     private static final int INT_DATA_PER_PLAYER = 3;
 
+    public static final int BYTES_PER_STORED_STATE = DOUBLE_DATA_PER_PLAYER * 8 + INT_DATA_PER_PLAYER * 4 + 8;
+
     private static final long PARALLELISM_THRESHOLD = 5L;
 
     private final ConcurrentHashMap<Integer, Player> players = new ConcurrentHashMap<>();

@@ -30,13 +30,16 @@ import io.javalin.websocket.WsConnectHandler;
 import io.javalin.websocket.WsContext;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.backend.editor.EditorVersionHandler;
+import moe.mewore.rabbit.backend.messages.HeartbeatRequest;
 import moe.mewore.rabbit.backend.messages.MapDataMessage;
 import moe.mewore.rabbit.backend.messages.PlayerDisconnectMessage;
 import moe.mewore.rabbit.backend.messages.PlayerJoinMessage;
 import moe.mewore.rabbit.backend.messages.WorldUpdateMessage;
+import moe.mewore.rabbit.backend.mutations.HeartbeatResponse;
 import moe.mewore.rabbit.backend.mutations.MutationType;
 import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.mutations.PlayerJoinMutation;
+import moe.mewore.rabbit.backend.net.MultiPlayerHeart;
 import moe.mewore.rabbit.backend.simulation.WorldSimulation;
 import moe.mewore.rabbit.backend.simulation.WorldState;
 import moe.mewore.rabbit.data.BinaryEntity;
@@ -51,9 +54,13 @@ import moe.mewore.rabbit.world.WorldProperties;
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
 
+    private static final int MAXIMUM_NUMBER_OF_PLAYERS = 10;
+
     private static final int UPDATES_PER_SECOND = 10;
 
     private final Map<String, Player> playerBySessionId = new ConcurrentHashMap<>();
+
+    private final Map<Integer, Session> sessionByPlayerId = new ConcurrentHashMap<>();
 
     private final Map<String, Session> sessionById = new ConcurrentHashMap<>();
 
@@ -63,11 +70,15 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final MazeMap map;
 
-    private final WorldState worldState = new WorldState(10);
+    private final WorldState worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS);
 
     private final WorldSimulation worldSimulation = new WorldSimulation(worldState);
 
     private final ScheduledExecutorService timeStepThread = Executors.newSingleThreadScheduledExecutor();
+
+    private final ScheduledExecutorService heartbeatThread = Executors.newSingleThreadScheduledExecutor();
+
+    private final MultiPlayerHeart heart = new MultiPlayerHeart(MAXIMUM_NUMBER_OF_PLAYERS, this::sendHeartbeat);
 
     public static void main(final String[] args) throws IOException {
         start(new ServerSettings(args, System.getenv()));
@@ -117,6 +128,15 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 throw e;
             }
         }, 0, 1000L / UPDATES_PER_SECOND, TimeUnit.MILLISECONDS);
+        heartbeatThread.scheduleAtFixedRate(() -> {
+            try {
+                heart.doStep();
+            } catch (final RuntimeException e) {
+                System.err.println(e.getMessage());
+                e.printStackTrace();
+                throw e;
+            }
+        }, 0, heart.getStepTimeInterval(), TimeUnit.MILLISECONDS);
         return javalin.start(serverSettings.getPort());
     }
 
@@ -137,8 +157,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         final MutationType mutationType = Arrays.stream(MutationType.values())
             .filter(type -> type.getIndex() == mutationTypeIndex)
             .findAny()
-            .orElseThrow(
-                () -> new IllegalArgumentException("There is no mutation type with index " + mutationTypeIndex));
+            .orElseThrow(() -> new IllegalArgumentException("There is no mutation type with index " + mutationTypeIndex));
         switch (mutationType) {
             case PLAYER_JOIN:
                 if (player != null) {
@@ -152,6 +171,19 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                     throw new IllegalArgumentException("There is no player for session " + sender.getSessionId());
                 }
                 handleInput(player, PlayerInputMutation.decodeFromBinary(dataInput));
+                return;
+            case HEARTBEAT_RESPONSE:
+                if (player != null) {
+                    final HeartbeatResponse response = HeartbeatResponse.decodeFromBinary(dataInput);
+                    heart.receive(player, response.getId());
+                }
+        }
+    }
+
+    private void sendHeartbeat(final int playerId, final int heartbeatId) {
+        final @Nullable Session session = sessionByPlayerId.get(playerId);
+        if (session != null && session.isOpen()) {
+            session.getRemote().sendBytesByFuture(ByteBuffer.wrap(new HeartbeatRequest(heartbeatId).encodeToBinary()));
         }
     }
 
@@ -160,8 +192,10 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         // TODO: Change the joining to a normal HTTP request so that there can be a [400] response
         if (newPlayer != null) {
             playerBySessionId.put(sender.getSessionId(), newPlayer);
+            sessionByPlayerId.put(newPlayer.getId(), sender.session);
             broadcast(sender, new PlayerJoinMessage(newPlayer, false));
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(newPlayer, true).encodeToBinary()));
+            heart.addPlayer(newPlayer);
         } else {
             System.err.println("Failed to create player!");
         }
@@ -178,6 +212,8 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         if (player != null) {
             worldState.removePlayer(player);
             broadcast(sender, new PlayerDisconnectMessage(player));
+            heart.removePlayer(player);
+            sessionByPlayerId.remove(player.getId());
         }
     }
 
