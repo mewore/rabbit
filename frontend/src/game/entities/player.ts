@@ -1,10 +1,9 @@
 import { BinaryEntity } from './binary-entity';
 import { SignedBinaryReader } from './data/signed-binary-reader';
 import { SignedBinaryWriter } from './data/signed-binary-writer';
-import { PlayerState } from './player-state';
 
 export class Player extends BinaryEntity {
-    constructor(readonly id: number, readonly username: string, public isReisen: boolean, readonly state: PlayerState) {
+    constructor(readonly id: number, readonly username: string, public isReisen: boolean, readonly latency: number) {
         super();
     }
 
@@ -12,15 +11,10 @@ export class Player extends BinaryEntity {
         writer.writeInt(this.id);
         writer.writeAsciiString(this.username);
         writer.writeBoolean(this.isReisen);
-        this.state.appendToBinaryOutput(writer);
+        writer.writeInt(this.latency);
     }
 
     static decodeFromBinary(reader: SignedBinaryReader): Player {
-        return new Player(
-            reader.readInt(),
-            reader.readAsciiString(),
-            reader.readBoolean(),
-            PlayerState.decodeFromBinary(reader)
-        );
+        return new Player(reader.readInt(), reader.readAsciiString(), reader.readBoolean(), reader.readInt());
     }
 }

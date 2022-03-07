@@ -9,13 +9,14 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-class PlayerUpdateMutationTest {
+class PlayerInputMutationTest {
 
     @Test
     void testDecodeEncode() throws IOException {
-        final byte[] initialData = new byte[8 * 8];
-        Arrays.fill(initialData, (byte) 25);
-        final PlayerUpdateMutation decoded = PlayerUpdateMutation.decodeFromBinary(
+        final byte[] initialData = new byte[2 * 4 + 1];
+        Arrays.fill(initialData, (byte) 1);
+        Arrays.fill(initialData, 0, 2 * 4, (byte) 25);
+        final PlayerInputMutation decoded = PlayerInputMutation.decodeFromBinary(
             new DataInputStream(new ByteArrayInputStream(initialData)));
 
         final byte[] encoded = decoded.encodeToBinary();

@@ -3,25 +3,46 @@ package moe.mewore.rabbit.geometry;
 import java.io.DataInput;
 import java.io.IOException;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.data.SafeDataOutput;
 
 @Getter
-@RequiredArgsConstructor
-public class Vector2 extends BinaryEntity {
+@Setter
+@AllArgsConstructor
+public class Vector2 extends BinaryEntity implements GeometricVector {
 
-    public static final Vector2 ZERO = new Vector2(0, 0);
+    private double x;
 
-    private final double x;
+    private double y;
 
-    private final double y;
+    public Vector2() {
+        this(0, 0);
+    }
 
     public double distanceToSquared(final Vector2 other) {
         final double dx = other.getX() - getX();
         final double dy = other.getY() - getY();
         return dx * dx + dy * dy;
+    }
+
+    public int store(final double[] source, int position) {
+        source[position] = x;
+        source[++position] = y;
+        return ++position;
+    }
+
+    public int load(final double[] source, int position) {
+        x = source[position];
+        y = source[++position];
+        return ++position;
+    }
+
+    public void set(final double newX, final double newY) {
+        x = newX;
+        y = newY;
     }
 
     public Vector2 plus(final double deltaX, final double deltaY) {

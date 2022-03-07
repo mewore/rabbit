@@ -10,6 +10,6 @@ class PlayerDisconnectMessageTest {
 
     @Test
     void testEncode() {
-        assertEquals(5, new PlayerDisconnectMessage(new Player(1, "User", true)).encodeToBinary().length);
+        assertEquals(5, new PlayerDisconnectMessage(new Player(1, 1, "User", true)).encodeToBinary().length);
     }
 }
