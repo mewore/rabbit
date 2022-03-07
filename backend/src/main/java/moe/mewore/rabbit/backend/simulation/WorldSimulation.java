@@ -12,7 +12,9 @@ public class WorldSimulation {
 
     private static final double SECONDS_PER_FRAME = MILLISECONDS_PER_FRAME / 1000.0;
 
-    private static final int FRAME_BUFFER_SIZE = 300;
+    private static final int MAXIMUM_ROLLBACK_MILLISECONDS = 1000;
+
+    private static final int FRAME_BUFFER_SIZE = MAXIMUM_ROLLBACK_MILLISECONDS * 2 * FPS / 1000;
 
     private final WorldSnapshot[] frames = new WorldSnapshot[FRAME_BUFFER_SIZE];
 
@@ -29,6 +31,8 @@ public class WorldSimulation {
         for (int i = 0; i < FRAME_BUFFER_SIZE; i++) {
             frames[i] = state.createEmptySnapshot();
         }
+        System.out.println(
+            "Memory used for the frames: " + FRAME_BUFFER_SIZE * WorldState.BYTES_PER_STORED_STATE / 1024 + " KB");
     }
 
     private int getLowerIndex(final int first, final int second) {
@@ -39,11 +43,21 @@ public class WorldSimulation {
     // TODO: Make it less synchronized
     @Synchronized
     public synchronized void acceptInput(final Player player, final PlayerInputMutation input) {
-        final int inputTimestamp = Math.max((int) (System.currentTimeMillis() - createdAt) - player.getLatency(), 0);
+        final int inputTimestamp = (int) (System.currentTimeMillis() - createdAt) -
+            Math.min(player.getLatency(), MAXIMUM_ROLLBACK_MILLISECONDS);
         int from = frameIndex + 1;
+        int newReplayIndex = from % FRAME_BUFFER_SIZE;
+        if (frames[newReplayIndex].getTimestamp() > inputTimestamp) {
+            // The input is older than the oldest frame timestamp
+            // This should never happen
+            System.err.printf(
+                "An input sent by player %d (T: %d) seems to be older than what the frame buffer can handle!",
+                player.getId(), inputTimestamp);
+            return;
+        }
+
         int to = frameIndex + FRAME_BUFFER_SIZE;
         int mid;
-        int newReplayIndex = to;
         while (from <= to) {
             mid = (from + to) / 2;
             if (frames[mid % FRAME_BUFFER_SIZE].getTimestamp() > inputTimestamp) {
@@ -90,10 +104,6 @@ public class WorldSimulation {
         int normalizedTime = (int) (System.currentTimeMillis() - createdAt);
 
         if (frameToReplayFrom > -1) {
-            System.out.printf("Replaying %d frames (T: %d -> %d)%n",
-                (frameIndex + FRAME_BUFFER_SIZE - frameToReplayFrom) % FRAME_BUFFER_SIZE,
-                frames[frameToReplayFrom].getTimestamp(), frames[frameIndex].getTimestamp());
-
             state.load(frames[frameToReplayFrom]);
             final int frameToStopAt = (frameIndex + 1) % FRAME_BUFFER_SIZE;
             for (int i = (frameToReplayFrom + 1) % FRAME_BUFFER_SIZE;

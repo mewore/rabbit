@@ -25,10 +25,12 @@ import { Character } from './character';
 import { FrameAnalysis } from './debug/frame-analysis';
 import { BinaryEntity } from './entities/binary-entity';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
+import { HeartbeatRequest } from './entities/messages/heartbeat-request';
 import { MapDataMessage } from './entities/messages/map-data-message';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
 import { PlayerJoinMessage } from './entities/messages/player-join-message';
 import { WorldUpdateMessage } from './entities/messages/world-update-message';
+import { HeartbeatResponse } from './entities/mutations/heartbeat-response';
 import { PlayerInputMutation } from './entities/mutations/player-input-mutation';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
 import { MazeMap } from './entities/world/maze-map';
@@ -49,6 +51,7 @@ enum MessageType {
     FOREST_DATA,
     UPDATE,
     DISCONNECT,
+    HEARTBEAT_REQUEST,
 }
 
 addCredit({
@@ -67,6 +70,9 @@ const FOV = 60;
 //  Fog is implemented like this in every 3D engine and it's so unrealistic, but I guess it's easier to calculate.
 const FOG_END = Math.cos(degToRad(FOV / 2)) * 300;
 const FOG_START = FOG_END * 0;
+
+// const PHYSICS_FPS = 60;
+// const PHYSICS_MS_PER_FRAME = Math.floor(1000 / PHYSICS_FPS);
 
 const RESOURCES_PER_FRAME = 100;
 const RESOURCES_PER_LAZY_LOAD = 10;
@@ -102,6 +108,8 @@ export class GameScene {
     readonly forestWalls = new ForestWall(this.character.position, this.physicsWorld);
 
     readonly physicsDebugger = new CannonDebugRenderer(this.scene, this.physicsWorld);
+
+    // private readonly worldStatesToApply: [number, WorldUpdateMessage][] = [];
 
     private width = 0;
     private height = 0;
@@ -306,6 +314,8 @@ export class GameScene {
                 return this.onPlayerDisconnected(reader);
             case MessageType.FOREST_DATA:
                 return this.onForestData(reader);
+            case MessageType.HEARTBEAT_REQUEST:
+                return this.onHeartbeat(reader);
             default:
                 throw new Error('Unrecognized message type: ' + messageType);
         }
@@ -326,6 +336,9 @@ export class GameScene {
 
     private onWorldUpdate(reader: SignedBinaryReader): void {
         const message = WorldUpdateMessage.decodeFromBinary(reader);
+        // const latency = message.playerStates.find((state) => state.playerId === this.character.id)?.latency;
+        // const timestamp = this.time - (latency || 0);
+        // this.worldStatesToApply.push([]);
         for (const state of message.playerStates) {
             const character = this.getOrCreatePlayerCharacter(state.playerId, 'Unknown', undefined);
             character.registerState(state);
@@ -354,6 +367,11 @@ export class GameScene {
         this.forestWalls.generate(message.map, 50);
         this.cameraControls.intersectionObjects.push(this.forestWalls);
         this.add(this.forestWalls);
+    }
+
+    private onHeartbeat(reader: SignedBinaryReader): void {
+        const message = HeartbeatRequest.decodeFromBinary(reader);
+        this.sendData(new HeartbeatResponse(message.id));
     }
 
     private getOrCreatePlayerCharacter(playerId: number, username: string, isReisen: boolean | undefined): Character {
