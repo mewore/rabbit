@@ -28,9 +28,9 @@ import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { MapDataMessage } from './entities/messages/map-data-message';
 import { PlayerDisconnectMessage } from './entities/messages/player-disconnect-message';
 import { PlayerJoinMessage } from './entities/messages/player-join-message';
-import { PlayerUpdateMessage } from './entities/messages/player-update-message';
+import { WorldUpdateMessage } from './entities/messages/world-update-message';
+import { PlayerInputMutation } from './entities/mutations/player-input-mutation';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
-import { PlayerUpdateMutation } from './entities/mutations/player-update-mutation';
 import { MazeMap } from './entities/world/maze-map';
 import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
@@ -90,6 +90,7 @@ export class GameScene {
 
     private readonly charactersById = new Map<number, Character>();
 
+    private lastSentInputId = -1;
     readonly input = new Input();
 
     private readonly cameraControls: FixedDistanceOrbitControls;
@@ -283,7 +284,6 @@ export class GameScene {
 
     private sendInitialPlayerInfo(): void {
         this.sendData(new PlayerJoinMutation(isReisen()));
-        this.sendData(new PlayerUpdateMutation(this.character.getState()));
     }
 
     private sendData(data: BinaryEntity): void {
@@ -301,7 +301,7 @@ export class GameScene {
             case MessageType.JOIN:
                 return this.onPlayerJoined(reader);
             case MessageType.UPDATE:
-                return this.onPlayerUpdate(reader);
+                return this.onWorldUpdate(reader);
             case MessageType.DISCONNECT:
                 return this.onPlayerDisconnected(reader);
             case MessageType.FOREST_DATA:
@@ -313,18 +313,23 @@ export class GameScene {
 
     private onPlayerJoined(reader: SignedBinaryReader): void {
         const message = PlayerJoinMessage.decodeFromBinary(reader);
-        const character = this.getOrCreatePlayerCharacter(
-            message.player.id,
-            message.player.username,
-            message.player.isReisen
-        );
-        character.setState(message.player.state);
+        if (message.isSelf) {
+            const existing = this.charactersById.get(message.playerId);
+            if (existing) {
+                this.remove(existing);
+            }
+            this.character.username = message.username;
+            this.charactersById.set(message.playerId, this.character);
+        }
+        this.getOrCreatePlayerCharacter(message.playerId, message.username, message.isReisen);
     }
 
-    private onPlayerUpdate(reader: SignedBinaryReader): void {
-        const message = PlayerUpdateMessage.decodeFromBinary(reader);
-        const character = this.getOrCreatePlayerCharacter(message.playerId, 'Unknown', undefined);
-        character.setState(message.newState);
+    private onWorldUpdate(reader: SignedBinaryReader): void {
+        const message = WorldUpdateMessage.decodeFromBinary(reader);
+        for (const state of message.playerStates) {
+            const character = this.getOrCreatePlayerCharacter(state.playerId, 'Unknown', undefined);
+            character.registerState(state);
+        }
     }
 
     private onPlayerDisconnected(reader: SignedBinaryReader): void {
@@ -364,6 +369,22 @@ export class GameScene {
 
     animate(): void {
         this.requestMovement(this.input.movementRight, this.input.movementForwards);
+        this.character.inputId = this.input.id;
+        if (this.character.visible && this.input.id > this.lastSentInputId) {
+            if (this.webSocket.readyState === WebSocket.OPEN) {
+                this.sendData(
+                    new PlayerInputMutation(
+                        this.input.id,
+                        this.camera.rotation.y,
+                        this.input.isUpPressed,
+                        this.input.isDownPressed,
+                        this.input.isLeftPressed,
+                        this.input.isRightPressed
+                    )
+                );
+                this.lastSentInputId = this.input.id;
+            }
+        }
         const now = this.time;
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
         if (this.character.visible && this.input.wantsToJump) {
@@ -409,11 +430,6 @@ export class GameScene {
         }
 
         this.input.clearMouseDelta();
-        if (this.character.visible) {
-            if (this.webSocket.readyState === WebSocket.OPEN && this.character.hasChanged()) {
-                this.sendData(new PlayerUpdateMutation(this.character.getState()));
-            }
-        }
     }
 
     private render() {

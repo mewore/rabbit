@@ -14,8 +14,6 @@ import { lerp } from 'three/src/math/MathUtils';
 
 import { addCredit } from '@/temp-util';
 
-import { Vector2Entity } from './entities/geometry/vector2-entity';
-import { Vector3Entity } from './entities/geometry/vector3-entity';
 import { PlayerState } from './entities/player-state';
 import { loadGltfWithCaching } from './util/gltf-util';
 import { getAngleDifference, makeAllCastAndReceiveShadow, moveAngle } from './util/three-util';
@@ -54,6 +52,7 @@ const MIN_Y_SPEED = -JUMP_SPEED * 2;
 
 const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 20];
 
+const tmpVec3 = new Vec3();
 const tmpVector3 = new Vector3();
 const horizontalMotion = new Vector2();
 const tmpVector2 = new Vector2();
@@ -77,13 +76,18 @@ export class Character extends Object3D implements Updatable {
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
+    playerId = -1;
+
     private state = CharacterState.IDLE;
 
     private readonly targetHorizontalMotion = new Vector2();
     private jumpWantedAt = -Infinity;
-    private hasChangedSinceLastQuery = true;
 
     private hasBeenSetUp = false;
+
+    public inputId = -1;
+
+    private currentState?: PlayerState;
 
     readonly body = new Body({
         fixedRotation: true,
@@ -92,7 +96,14 @@ export class Character extends Object3D implements Updatable {
         material: new Material({ friction: 0, restitution: 0 }),
     });
 
-    constructor(readonly username: string, isReisen: boolean | undefined, readonly offset = new Vector3()) {
+    private readonly horizontalMotionToAdd = new Vector2();
+
+    constructor(
+        public username: string,
+        isReisen: boolean | undefined,
+        readonly offset = new Vector3(),
+        readonly isSelf = true
+    ) {
         super();
         this.name = username ? 'Character:' + username : 'Character';
 
@@ -180,16 +191,42 @@ export class Character extends Object3D implements Updatable {
         newMesh.rotation.set(0, 0, 0);
     }
 
-    setState(newState: PlayerState): void {
+    registerState(newState: PlayerState): void {
+        this.currentState = newState;
+        if (this.isSelf) {
+            if (newState.inputId >= this.inputId) {
+                this.currentState = newState;
+            }
+        } else {
+            setTimeout(() => (this.currentState = newState), newState.latency);
+        }
+    }
+
+    private moveTowardsState(state: PlayerState, delta: number): void {
         this.body.wakeUp();
-        this.position.set(newState.position.x, newState.position.y, newState.position.z);
-        this.body.position.set(newState.position.x, newState.position.y, newState.position.z);
-        this.body.velocity.set(newState.motion.x, newState.motion.y, newState.motion.z);
-        this.targetHorizontalMotion.set(newState.targetMotion.x, newState.targetMotion.y);
-        this.hasChangedSinceLastQuery = true;
+        const multiplier = Math.min(delta * (this.isSelf ? 12 : 3), 1);
+        const toAddToPos = tmpVector3
+            .set(state.position.x, state.position.y, state.position.z)
+            .sub(this.position)
+            .multiplyScalar(multiplier);
+        this.position.add(toAddToPos);
+        this.body.position.set(this.position.x, this.position.y, this.position.z);
+
+        const toAddToVelocity = tmpVec3
+            .set(state.motion.x, state.motion.y, state.motion.z)
+            .vsub(this.body.velocity)
+            .scale(multiplier);
+        this.body.velocity.vadd(toAddToVelocity);
     }
 
     beforePhysics(delta: number, now: number): void {
+        if (this.currentState && (!this.isSelf || this.currentState.inputId >= this.inputId)) {
+            this.moveTowardsState(this.currentState, delta);
+        }
+        if (!this.isSelf) {
+            return;
+        }
+
         const maxFrameAcceleration = ACCELERATION * delta;
         horizontalMotion.set(this.body.velocity.x, this.body.velocity.z);
         const motionToTargetMotionDistanceSquared = horizontalMotion.distanceToSquared(this.targetHorizontalMotion);
@@ -201,8 +238,12 @@ export class Character extends Object3D implements Updatable {
             );
         }
 
-        this.body.velocity.x = horizontalMotion.x;
-        this.body.velocity.z = horizontalMotion.y;
+        this.horizontalMotionToAdd.set(
+            horizontalMotion.x - this.body.velocity.x,
+            horizontalMotion.y - this.body.velocity.z
+        );
+        this.body.velocity.x += this.horizontalMotionToAdd.x * 0.5;
+        this.body.velocity.z += this.horizontalMotionToAdd.y * 0.5;
 
         if (this.isOnGround()) {
             this.body.velocity.y = 0;
@@ -210,7 +251,6 @@ export class Character extends Object3D implements Updatable {
             if (now - this.jumpWantedAt < JUMP_CONTROL_LENIENCY) {
                 this.jumpWantedAt = -Infinity;
                 this.body.velocity.y = JUMP_SPEED;
-                this.hasChangedSinceLastQuery = true;
             }
         }
         this.body.position.set(this.position.x, this.position.y, this.position.z);
@@ -223,6 +263,8 @@ export class Character extends Object3D implements Updatable {
         } else if (this.body.velocity.y < MIN_Y_SPEED) {
             this.body.velocity.y = MIN_Y_SPEED;
         }
+        this.body.velocity.x += this.horizontalMotionToAdd.x * 0.5;
+        this.body.velocity.z += this.horizontalMotionToAdd.y * 0.5;
         this.position.set(this.body.position.x, this.body.position.y, this.body.position.z);
     }
 
@@ -312,22 +354,7 @@ export class Character extends Object3D implements Updatable {
             TARGET_MOTION_CHANGE_THRESHOLD
         ) {
             this.targetHorizontalMotion.set(x, z);
-            this.hasChangedSinceLastQuery = true;
         }
-    }
-
-    hasChanged(): boolean {
-        const result = this.hasChangedSinceLastQuery;
-        this.hasChangedSinceLastQuery = false;
-        return result;
-    }
-
-    getState(): PlayerState {
-        return new PlayerState(
-            Vector3Entity.fromVector3(this.position),
-            Vector3Entity.fromVector3(this.body.velocity),
-            Vector2Entity.fromVector2(this.targetHorizontalMotion)
-        );
     }
 
     /**

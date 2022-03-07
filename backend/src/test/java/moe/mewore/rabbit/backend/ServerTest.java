@@ -20,12 +20,11 @@ import moe.mewore.rabbit.backend.messages.MessageType;
 import moe.mewore.rabbit.backend.mock.FakeMap;
 import moe.mewore.rabbit.backend.mock.ws.FakeWsSession;
 import moe.mewore.rabbit.backend.mutations.MutationType;
-import moe.mewore.rabbit.data.ByteArrayDataOutput;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 class ServerTest {
@@ -38,13 +37,6 @@ class ServerTest {
             result[i] = eventInput.readDouble();
         }
         return result;
-    }
-
-    private static void writeDoubles(final ByteArrayOutputStream byteArrayOutputStream, final double... values) {
-        final ByteArrayDataOutput dataOutput = new ByteArrayDataOutput(byteArrayOutputStream);
-        for (final double value : values) {
-            dataOutput.writeDouble(value);
-        }
     }
 
     @BeforeEach
@@ -79,20 +71,31 @@ class ServerTest {
         simulateConnect(otherSession);
         simulateJoin(session, false);
 
-        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());
-        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(1)));
+        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN), session.getSentMessageTypes());
+        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(session.getSentData().get(1)));
         assertEquals(MessageType.JOIN.getIndex(), eventInput.readByte());
-        assertEquals(1, eventInput.readInt());
-        assertEquals(8, eventInput.readInt());
+        assertEquals(0, eventInput.readInt()); // playerId
+        assertEquals(8, eventInput.readInt()); // username length
         final byte[] stringBytes = new byte[8];
         eventInput.readFully(stringBytes);
         assertEquals("Player 1", new String(stringBytes, StandardCharsets.US_ASCII));
-        assertFalse(eventInput.readBoolean());
-        assertArrayEquals(new double[]{0, 0, 0, 0, 0, 0, 0, 0}, readEightDoubles(eventInput));
+        assertFalse(eventInput.readBoolean()); // isReisen
+        assertTrue(eventInput.readBoolean()); // isSelf
+
+        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());
+        final DataInput otherEventInput = new DataInputStream(
+            new ByteArrayInputStream(otherSession.getSentData().get(1)));
+        assertEquals(MessageType.JOIN.getIndex(), otherEventInput.readByte());
+        assertEquals(0, otherEventInput.readInt()); // playerId
+        assertEquals(8, otherEventInput.readInt()); // username length
+        otherEventInput.readFully(stringBytes);
+        assertEquals("Player 1", new String(stringBytes, StandardCharsets.US_ASCII));
+        assertFalse(otherEventInput.readBoolean()); // isReisen
+        assertFalse(otherEventInput.readBoolean()); // isSelf
     }
 
     @Test
-    void testHandleBinaryMessage_update() throws IOException {
+    void testHandleBinaryMessage_playerInput() throws IOException {
         final FakeWsSession session = new FakeWsSession("session");
         simulateConnect(session);
         simulateJoin(session);
@@ -101,16 +104,12 @@ class ServerTest {
         simulateConnect(otherSession);
 
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        byteArrayOutputStream.write(MutationType.UPDATE.getIndex());
-        writeDoubles(byteArrayOutputStream, 1, 2, 3, 4, 5, 6, 7, 8);
+        byteArrayOutputStream.write(MutationType.PLAYER_INPUT.getIndex());
+        byteArrayOutputStream.writeBytes(new byte[2 * 4 + 4]);
         simulateBinaryData(session, byteArrayOutputStream.toByteArray());
 
-        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN, MessageType.UPDATE),
-            otherSession.getSentMessageTypes());
-        final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(2)));
-        assertEquals(MessageType.UPDATE.getIndex(), eventInput.readByte());
-        assertEquals(1, eventInput.readInt());
-        assertArrayEquals(new double[]{1, 2, 3, 4, 5, 6, 7, 8}, readEightDoubles(eventInput));
+        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());
+        // The new state is not sent immediately; instead, it is sent at every world step
     }
 
     @Test
@@ -127,7 +126,7 @@ class ServerTest {
         final FakeWsSession session = new FakeWsSession("session");
         simulateJoin(session);
         final Exception exception = assertThrows(IllegalArgumentException.class,
-            () -> simulateBinaryData(session, new byte[]{MutationType.JOIN.getIndex()}));
+            () -> simulateBinaryData(session, new byte[]{MutationType.PLAYER_JOIN.getIndex()}));
         assertEquals("There is already a player for session session! Cannot join again.", exception.getMessage());
     }
 
@@ -135,7 +134,7 @@ class ServerTest {
     void testHandleBinaryMessage_update_notConnected() {
         final FakeWsSession session = new FakeWsSession("session");
         final Exception exception = assertThrows(IllegalArgumentException.class,
-            () -> simulateBinaryData(session, new byte[]{MutationType.UPDATE.getIndex()}));
+            () -> simulateBinaryData(session, new byte[]{MutationType.PLAYER_INPUT.getIndex()}));
         assertEquals("There is no player for session session", exception.getMessage());
     }
 
@@ -161,7 +160,7 @@ class ServerTest {
             otherSession.getSentMessageTypes());
         final DataInput eventInput = new DataInputStream(new ByteArrayInputStream(otherSession.getSentData().get(2)));
         assertEquals(MessageType.DISCONNECT.getIndex(), eventInput.readByte());
-        assertEquals(1, eventInput.readInt());
+        assertEquals(0, eventInput.readInt());
     }
 
     @Test
@@ -182,7 +181,7 @@ class ServerTest {
 
     private void simulateJoin(final FakeWsSession session, final boolean isReisen) throws IOException {
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        byteArrayOutputStream.write(MutationType.JOIN.getIndex());
+        byteArrayOutputStream.write(MutationType.PLAYER_JOIN.getIndex());
         byteArrayOutputStream.write(isReisen ? 1 : 0);
         simulateBinaryData(session, byteArrayOutputStream.toByteArray());
     }

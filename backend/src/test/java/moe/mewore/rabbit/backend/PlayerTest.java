@@ -8,6 +8,6 @@ class PlayerTest {
 
     @Test
     void testEncode() {
-        assertEquals(82, new Player(18, "Player 18", true).encodeToBinary().length);
+        assertEquals(70, new Player(51, 18, "Player 18", true).encodeToBinary().length);
     }
 }

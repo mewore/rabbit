@@ -1,18 +1,30 @@
 import { BinaryEntity } from '../binary-entity';
 import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
-import { Player } from '../player';
 
 export class PlayerJoinMessage extends BinaryEntity {
-    constructor(readonly player: Player) {
+    constructor(
+        readonly playerId: number,
+        readonly username: string,
+        public isReisen: boolean,
+        readonly isSelf: boolean
+    ) {
         super();
     }
 
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
-        this.player.appendToBinaryOutput(writer);
+        writer.writeInt(this.playerId);
+        writer.writeAsciiString(this.username);
+        writer.writeBoolean(this.isReisen);
+        writer.writeBoolean(this.isSelf);
     }
 
     static decodeFromBinary(reader: SignedBinaryReader): PlayerJoinMessage {
-        return new PlayerJoinMessage(Player.decodeFromBinary(reader));
+        return new PlayerJoinMessage(
+            reader.readInt(),
+            reader.readAsciiString(),
+            reader.readBoolean(),
+            reader.readBoolean()
+        );
     }
 }

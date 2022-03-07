@@ -1,4 +1,5 @@
 export class Input {
+    id = 0;
     active = true;
 
     mouseSensitivity = Math.PI / 1000.0;
@@ -19,6 +20,22 @@ export class Input {
 
     get movementForwards(): number {
         return this.active ? (this.down ? 1 : 0) - (this.up ? 1 : 0) : 0;
+    }
+
+    get isUpPressed(): boolean {
+        return this.up;
+    }
+
+    get isDownPressed(): boolean {
+        return this.down;
+    }
+
+    get isLeftPressed(): boolean {
+        return this.left;
+    }
+
+    get isRightPressed(): boolean {
+        return this.right;
     }
 
     /**
@@ -43,7 +60,14 @@ export class Input {
         return this.mouseScrollUp * this.mouseZoomSensitivity;
     }
 
+    get hasMovement(): boolean {
+        return Math.abs(this.movementRight) + Math.abs(this.movementForwards) > 0.001;
+    }
+
     clear(): void {
+        if (this.hasMovement) {
+            this.id++;
+        }
         this.up = this.down = this.left = this.right = this.jump = false;
         this.clearMouseDelta();
     }
@@ -53,6 +77,9 @@ export class Input {
     }
 
     processMouseMovement(movementX: number, movementY: number): void {
+        if (this.hasMovement) {
+            this.id++;
+        }
         this.mouseMovementX += movementX;
         this.mouseMovementY += movementY;
     }
@@ -65,22 +92,37 @@ export class Input {
         switch (keyCode) {
             case 'KeyW':
             case 'ArrowUp':
-                this.up = isDown;
+                if (this.up !== isDown) {
+                    this.id++;
+                    this.up = isDown;
+                }
                 break;
             case 'KeyA':
             case 'ArrowLeft':
-                this.left = isDown;
+                if (this.left !== isDown) {
+                    this.id++;
+                    this.left = isDown;
+                }
                 break;
             case 'KeyS':
             case 'ArrowDown':
-                this.down = isDown;
+                if (this.down !== isDown) {
+                    this.id++;
+                    this.down = isDown;
+                }
                 break;
             case 'KeyD':
             case 'ArrowRight':
-                this.right = isDown;
+                if (this.right !== isDown) {
+                    this.id++;
+                    this.right = isDown;
+                }
                 break;
             case 'Space':
-                this.jump = isDown;
+                if (this.jump !== isDown) {
+                    this.id++;
+                    this.jump = isDown;
+                }
                 break;
         }
     }

@@ -20,7 +20,7 @@ public class PlayerJoinMutation extends BinaryEntity {
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeByte(MutationType.JOIN.getIndex());
+        output.writeByte(MutationType.PLAYER_JOIN.getIndex());
         output.writeBoolean(isReisen);
     }
 }

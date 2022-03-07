@@ -25,6 +25,6 @@ class Vector3Test {
 
     @Test
     void testEncode() {
-        assertEquals(24, Vector3.ZERO.encodeToBinary().length);
+        assertEquals(24, new Vector3().encodeToBinary().length);
     }
 }

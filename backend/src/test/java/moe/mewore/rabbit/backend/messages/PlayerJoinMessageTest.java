@@ -10,6 +10,6 @@ class PlayerJoinMessageTest {
 
     @Test
     void testEncode() {
-        assertEquals(78, new PlayerJoinMessage(new Player(1, "User", true)).encodeToBinary().length);
+        assertEquals(15, new PlayerJoinMessage(new Player(1, 1, "User", true), false).encodeToBinary().length);
     }
 }
