@@ -2,6 +2,8 @@ package moe.mewore.rabbit.backend.preview;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.simulation.WorldState;
@@ -17,11 +19,23 @@ public class ServerPreviewCanvas extends Canvas {
 
     private static final BasicStroke stroke = new BasicStroke((float) (PLAYER_CIRCLE_RADIUS) / 2f);
 
-    private static final Font FONT = new Font(null, Font.BOLD, 16);
+    private static final int FONT_SIZE = 16;
+
+    private static final int FONT_BASELINE = 2;
+
+    private static final int BOTTOM_TEXT_OFFSET_Y = -(PLAYER_CIRCLE_RADIUS * 2 - FONT_BASELINE);
+
+    private static final Font FONT = new Font(null, Font.BOLD, FONT_SIZE);
 
     private static final Color PLAYER_CIRCLE_INNER_COLOR = new Color(255, 255, 255, 200);
 
     private static final Color PLAYER_CIRCLE_OUTER_COLOR = new Color(0, 25, 50, 255);
+
+    private static final Color PLAYER_TEXT_COLOR = PLAYER_CIRCLE_OUTER_COLOR;
+
+    private static final int TEXT_BACKGROUND_PADDING = 2;
+
+    private static final Color PLAYER_TEXT_BACKGROUND_COLOR = new Color(255, 255, 255, 150);
 
     private static final Color MOTION_COLOR = new Color(50, 150, 20, 200);
 
@@ -34,6 +48,8 @@ public class ServerPreviewCanvas extends Canvas {
     private final BufferedImage mapImage;
 
     private final BufferedImage image;
+
+    private int lastPreviewHash = -1;
 
     private int offsetX = 0;
 
@@ -71,62 +87,120 @@ public class ServerPreviewCanvas extends Canvas {
         graphics.dispose();
     }
 
-    @SuppressWarnings("OverlyComplexMethod")
     public void updatePlayerOverlay() {
+        final List<PlayerPreview> playerPreviews = makeCurrentPlayerPreviews();
+        final int newPreviewHash = playerPreviews.hashCode();
+        if (newPreviewHash == lastPreviewHash) {
+            // Assuming it's exactly the same so there's no need to redraw it
+            return;
+        }
+        lastPreviewHash = newPreviewHash;
+
         cloneImage(mapImage, image);
+        drawPlayerPreviews(playerPreviews);
+        paint(getGraphics());
+    }
+
+    private void drawPlayerPreviews(final List<PlayerPreview> playerPreviews) {
+        if (playerPreviews.isEmpty()) {
+            return;
+        }
+
         final Graphics2D graphics = image.createGraphics();
         graphics.setFont(FONT);
         graphics.setStroke(stroke);
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         offsetX = offsetY = 0;
-        int playerCount = 0;
 
-        for (final Player player : worldState.getPlayers().values()) {
-            final int x = (int) (wrapNormalized(player.getState().getPosition().getX() / map.getWidth() + 0.5) *
-                image.getWidth());
-            final int y = (int) (wrapNormalized(player.getState().getPosition().getZ() / map.getDepth() + 0.5) *
-                image.getHeight());
-            offsetX -= x - image.getWidth() / 2;
-            offsetY -= y - image.getHeight() / 2;
-            ++playerCount;
+        for (final PlayerPreview preview : playerPreviews) {
+            offsetX -= preview.getX() - image.getWidth() / 2;
+            offsetY -= preview.getY() - image.getHeight() / 2;
 
-            final int motionX = x + (int) (player.getState().getMotion().getX() * image.getWidth() / map.getWidth());
-            final int motionY = y + (int) (player.getState().getMotion().getZ() * image.getHeight() / map.getDepth());
-            final int targetMotionX =
-                x + (int) (player.getState().getTargetHorizontalMotion().getX() * image.getWidth() / map.getWidth());
-            final int targetMotionY =
-                y + (int) (player.getState().getTargetHorizontalMotion().getY() * image.getHeight() / map.getDepth());
-
-            final String playerText = String.format("%s (%d ms)", player.getUsername(), player.getLatency());
             for (int dx = -image.getWidth(); dx <= image.getWidth(); dx += image.getWidth()) {
                 for (int dy = -image.getHeight(); dy <= image.getHeight(); dy += image.getHeight()) {
+                    final int x = preview.getX() + dx;
+                    final int y = preview.getY() + dy;
+
                     graphics.setColor(PLAYER_CIRCLE_INNER_COLOR);
-                    graphics.fillOval(x + dx - PLAYER_CIRCLE_RADIUS, y + dy - PLAYER_CIRCLE_RADIUS,
-                        PLAYER_CIRCLE_RADIUS * 2, PLAYER_CIRCLE_RADIUS * 2);
+                    graphics.fillOval(x - PLAYER_CIRCLE_RADIUS, y - PLAYER_CIRCLE_RADIUS, PLAYER_CIRCLE_RADIUS * 2,
+                        PLAYER_CIRCLE_RADIUS * 2);
                     graphics.setColor(PLAYER_CIRCLE_OUTER_COLOR);
-                    graphics.drawOval(x + dx - PLAYER_CIRCLE_RADIUS, y + dy - PLAYER_CIRCLE_RADIUS,
-                        PLAYER_CIRCLE_RADIUS * 2, PLAYER_CIRCLE_RADIUS * 2);
-                    if ((targetMotionX != x || targetMotionY != y) &&
-                        (targetMotionX != motionX || targetMotionY != motionY)) {
+                    graphics.drawOval(x - PLAYER_CIRCLE_RADIUS, y - PLAYER_CIRCLE_RADIUS, PLAYER_CIRCLE_RADIUS * 2,
+                        PLAYER_CIRCLE_RADIUS * 2);
+                    if (preview.hasTargetMotionLine()) {
                         graphics.setColor(TARGET_MOTION_COLOR);
-                        graphics.drawLine(x + dx, y + dy, targetMotionX + dx, targetMotionY + dy);
+                        graphics.drawLine(x, y, preview.getTargetMotionX() + dx, preview.getTargetMotionY() + dy);
                     }
-                    if (motionX != x || motionY != y) {
+                    if (preview.hasMotionLine()) {
                         graphics.setColor(MOTION_COLOR);
-                        graphics.drawLine(x + dx, y + dy, motionX + dx, motionY + dy);
+                        graphics.drawLine(x, y, preview.getMotionX() + dx, preview.getMotionY() + dy);
                     }
-                    graphics.setColor(PLAYER_CIRCLE_OUTER_COLOR);
-                    graphics.drawString(playerText, x + dx + PLAYER_CIRCLE_RADIUS * 2, y);
                 }
             }
         }
-        if (playerCount > 0) {
-            offsetX /= playerCount;
-            offsetY /= playerCount;
+
+        final FontMetrics fontMetrics = graphics.getFontMetrics(FONT);
+
+        // The text should be above everything else, so it should be drawn last.
+        for (final PlayerPreview preview : playerPreviews) {
+            final int bottomTextWidth = fontMetrics.stringWidth(preview.getBottomText());
+            final int topTextWidth = fontMetrics.stringWidth(preview.getTopText());
+
+            for (int dx = -image.getWidth(); dx <= image.getWidth(); dx += image.getWidth()) {
+                for (int dy = -image.getHeight(); dy <= image.getHeight(); dy += image.getHeight()) {
+                    final int x = preview.getX() + dx;
+                    final int y = preview.getY() + dy;
+
+                    final int bottomTextX = x - bottomTextWidth / 2;
+                    final int bottomTextY = y + BOTTOM_TEXT_OFFSET_Y;
+
+                    final int topTextX = x - topTextWidth / 2;
+                    final int topTextY = bottomTextY - FONT_SIZE;
+
+                    graphics.setColor(PLAYER_TEXT_BACKGROUND_COLOR);
+                    graphics.fillRoundRect(Math.min(topTextX, bottomTextX) - TEXT_BACKGROUND_PADDING,
+                        Math.min(topTextY, bottomTextY) - FONT_SIZE + FONT_BASELINE - TEXT_BACKGROUND_PADDING,
+                        Math.max(topTextWidth, bottomTextWidth) + TEXT_BACKGROUND_PADDING * 2,
+                        FONT_SIZE * 2 + TEXT_BACKGROUND_PADDING * 2, TEXT_BACKGROUND_PADDING, TEXT_BACKGROUND_PADDING);
+
+                    graphics.setColor(PLAYER_TEXT_COLOR);
+                    graphics.drawString(preview.getTopText(), topTextX, topTextY);
+                    graphics.drawString(preview.getBottomText(), bottomTextX, bottomTextY);
+                }
+            }
         }
 
-        paint(getGraphics());
+        offsetX /= playerPreviews.size();
+        offsetY /= playerPreviews.size();
+    }
+
+    private List<PlayerPreview> makeCurrentPlayerPreviews() {
+        return worldState.getPlayers().values().stream().map(this::makePlayerPreview).collect(Collectors.toList());
+    }
+
+    private PlayerPreview makePlayerPreview(final Player player) {
+        final int x = (int) (wrapNormalized(player.getState().getPosition().getX() / map.getWidth() + 0.5) *
+            image.getWidth());
+        final int y = (int) (wrapNormalized(player.getState().getPosition().getZ() / map.getDepth() + 0.5) *
+            image.getHeight());
+
+        final int motionX = x + (int) (player.getState().getMotion().getX() * image.getWidth() / map.getWidth());
+        final int motionY = y + (int) (player.getState().getMotion().getZ() * image.getHeight() / map.getDepth());
+        final int targetMotionX =
+            x + (int) (player.getState().getTargetHorizontalMotion().getX() * image.getWidth() / map.getWidth());
+        final int targetMotionY =
+            y + (int) (player.getState().getTargetHorizontalMotion().getY() * image.getHeight() / map.getDepth());
+
+        final int latency = player.getLatency();
+        // In order to avoid too frequent updating of the label (and thus redrawing of the preview),
+        final int latencyRounding = latency < 50 ? 5 : 10;
+        final int roundedLatency = (int) Math.round((double) (latency) / latencyRounding) * latencyRounding;
+
+        final String topText = player.getUsername();
+        final String bottomText = String.format("(%d ms)", roundedLatency);
+
+        return new PlayerPreview(x, y, motionX, motionY, targetMotionX, targetMotionY, topText, bottomText);
     }
 
     @Override
@@ -145,5 +219,4 @@ public class ServerPreviewCanvas extends Canvas {
             }
         }
     }
-
 }
