@@ -17,9 +17,7 @@ import java.util.stream.Stream;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.geometry.ConvexPolygon;
@@ -28,7 +26,6 @@ import moe.mewore.rabbit.noise.Noise;
 
 // I'm too retarded to make an algorithmic/geometric class which isn't complex.
 @SuppressWarnings({"OverlyComplexMethod", "OverlyComplexClass"})
-@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class MazeMap extends BinaryEntity {
 
     private static final int[] dx = {-1, 1, 0, 0, -1, -1, 1, 1};
@@ -44,6 +41,12 @@ public class MazeMap extends BinaryEntity {
     private static final double SMOOTHING = 0.3;
 
     @Getter
+    private final double width;
+
+    @Getter
+    private final double depth;
+
+    @Getter
     private final int rowCount;
 
     @Getter
@@ -56,6 +59,18 @@ public class MazeMap extends BinaryEntity {
     private final List<MazeWall> walls;
 
     private final int[][][] relevantPolygonIndices;
+
+    protected MazeMap(final double cellSize, final boolean[][] map, final List<MazeWall> walls,
+        final int[][][] relevantPolygonIndices) {
+        this.rowCount = map.length;
+        this.columnCount = map[0].length;
+        this.cellSize = cellSize;
+        this.width = columnCount * cellSize;
+        this.depth = rowCount * cellSize;
+        this.map = map;
+        this.walls = walls;
+        this.relevantPolygonIndices = relevantPolygonIndices;
+    }
 
     public static MazeMap createSeamless(final WorldProperties properties, final Random random,
         final Noise opennessNoise) {
@@ -145,7 +160,7 @@ public class MazeMap extends BinaryEntity {
 
         final int[][][] relevantPolygonIndices = new int[rowCount][columnCount][];
         final List<MazeWall> walls = generateWallsFromMap(columnCount, rowCount, map, relevantPolygonIndices);
-        return new MazeMap(rowCount, columnCount, properties.getCellSize(), map, walls, relevantPolygonIndices);
+        return new MazeMap(properties.getCellSize(), map, walls, relevantPolygonIndices);
     }
 
     private static List<MazeWall> generateWallsFromMap(final int width, final int height, final boolean[][] map,

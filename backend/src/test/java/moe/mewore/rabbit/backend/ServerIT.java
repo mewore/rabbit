@@ -22,7 +22,7 @@ class ServerIT {
         final int port = 63200 + new SecureRandom().nextInt(100);
         when(settings.getPort()).thenReturn(port);
 
-        final Javalin server = Server.start(settings);
+        final Javalin server = Server.create(settings).start();
         try {
             final HttpURLConnection http = (HttpURLConnection) new URL(
                 String.format("http://localhost:%d/test.txt", port)).openConnection();

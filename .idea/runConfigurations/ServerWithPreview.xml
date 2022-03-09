@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="ServerWithPreview" type="Application" factoryName="Application" nameIsGenerated="true">
+    <envs>
+      <env name="rabbit.static.external" value="frontend/dist" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="moe.mewore.rabbit.backend.preview.ServerWithPreview" />
+    <module name="rabbit.backend.main" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="moe.mewore.rabbit.backend.preview.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
