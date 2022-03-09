@@ -5,6 +5,7 @@ import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -28,6 +30,7 @@ import io.javalin.websocket.WsCloseHandler;
 import io.javalin.websocket.WsConnectContext;
 import io.javalin.websocket.WsConnectHandler;
 import io.javalin.websocket.WsContext;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.backend.editor.EditorVersionHandler;
 import moe.mewore.rabbit.backend.messages.HeartbeatRequest;
@@ -68,8 +71,10 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final Javalin javalin;
 
+    @Getter
     private final MazeMap map;
 
+    @Getter
     private final WorldState worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS);
 
     private final WorldSimulation worldSimulation = new WorldSimulation(worldState);
@@ -80,11 +85,13 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final MultiPlayerHeart heart = new MultiPlayerHeart(MAXIMUM_NUMBER_OF_PLAYERS, this::sendHeartbeat);
 
+    private final List<Consumer<WorldState>> worldUpdateListeners = new ArrayList<>();
+
     public static void main(final String[] args) throws IOException {
-        start(new ServerSettings(args, System.getenv()));
+        create(new ServerSettings(args, System.getenv())).start();
     }
 
-    static Javalin start(final ServerSettings settings) throws IOException {
+    public static Server create(final ServerSettings settings) throws IOException {
         final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
         final Javalin javalin = Javalin.create(config -> {
             config.addStaticFiles("static");
@@ -107,10 +114,14 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             ? new EditorVersionHandler(externalStaticLocation)
             : ctx -> ctx.json(Collections.emptySet()));
 
-        return new Server(settings, javalin, map).start();
+        return new Server(settings, javalin, map);
     }
 
-    private Javalin start() {
+    public void onWorldUpdate(final Consumer<WorldState> handler) {
+        worldUpdateListeners.add(handler);
+    }
+
+    public Javalin start() {
         javalin.ws("/multiplayer", ws -> {
             ws.onConnect(this);
             ws.onBinaryMessage(this);
@@ -121,6 +132,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 final WorldState newState = worldSimulation.step();
                 if (newState.hasPlayers()) {
                     broadcast(new WorldUpdateMessage(newState));
+                }
+                for (final Consumer<WorldState> handler : worldUpdateListeners) {
+                    handler.accept(newState);
                 }
             } catch (final RuntimeException e) {
                 System.err.println(e.getMessage());

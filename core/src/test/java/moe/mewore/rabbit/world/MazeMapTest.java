@@ -35,13 +35,13 @@ class MazeMapTest {
 
     @Test
     void testEncode() {
-        final MazeMap map = new MazeMap(3, 3, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        final MazeMap map = new MazeMap(2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
         assertEquals(29, map.encodeToBinary().length);
     }
 
     @Test
     void testSetCell() {
-        final MazeMap map = new MazeMap(3, 3, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        final MazeMap map = new MazeMap(2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
         assertFalse(map.getCell(1, 1));
         map.setCell(1, 1, true);
         assertTrue(map.getCell(1, 1));
@@ -49,13 +49,13 @@ class MazeMapTest {
 
     @Test
     void testGetRowCount() {
-        final MazeMap map = new MazeMap(3, 2, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        final MazeMap map = new MazeMap(2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
         assertEquals(3, map.getRowCount());
     }
 
     @Test
     void testGetColumnCount() {
-        final MazeMap map = new MazeMap(3, 2, 2.5, new boolean[3][3], new ArrayList<>(), new int[3][3][0]);
+        final MazeMap map = new MazeMap(2.5, new boolean[3][2], new ArrayList<>(), new int[3][3][0]);
         assertEquals(2, map.getColumnCount());
     }
 
@@ -85,7 +85,7 @@ class MazeMapTest {
                 relevantPolygons[i][j] = new int[]{0, 1};
             }
         }
-        final MazeMap map = new MazeMap(cells.length, cells[0].length, 2.5, cells, walls, relevantPolygons);
+        final MazeMap map = new MazeMap(2.5, cells, walls, relevantPolygons);
 
         final BufferedImage image = map.render(256, 250);
         assertEquals(256, image.getWidth());

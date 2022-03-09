@@ -41,6 +41,10 @@ public class WorldState extends BinaryEntity {
         return !players.isEmpty();
     }
 
+    public Map<Integer, Player> getPlayers() {
+        return Collections.unmodifiableMap(players);
+    }
+
     public @Nullable Player createPlayer(final boolean isReisen) {
         final AtomicReference<Player> result = new AtomicReference<>();
         final Function<Integer, Player> mappingFunction = (key) -> {

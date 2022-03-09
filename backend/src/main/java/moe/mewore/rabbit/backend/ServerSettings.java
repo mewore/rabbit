@@ -10,7 +10,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import lombok.Getter;
 
 @Getter
-class ServerSettings {
+public class ServerSettings {
 
     private static final Pattern SETTING_ARGUMENT_PATTERN = Pattern.compile("^--([^-=][^=]*)=([^=]+)$");
 
@@ -22,7 +22,7 @@ class ServerSettings {
 
     private final @Nullable String externalStaticLocation;
 
-    ServerSettings(final String[] arguments, final Map<String, String> environmentVariables) {
+    public ServerSettings(final String[] arguments, final Map<String, String> environmentVariables) {
         final Map<String, String> allProperties = new HashMap<>(environmentVariables);
         for (final String argument : arguments) {
             final Matcher matcher = SETTING_ARGUMENT_PATTERN.matcher(argument);
