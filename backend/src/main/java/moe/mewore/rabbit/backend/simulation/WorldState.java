@@ -18,6 +18,8 @@ import moe.mewore.rabbit.data.SafeDataOutput;
 @RequiredArgsConstructor
 public class WorldState extends BinaryEntity {
 
+    private static final double SECONDS_PER_FRAME = WorldSimulation.MILLISECONDS_PER_FRAME / 1000.0;
+
     // float(input angle) + Vector3 + Vector3 + Vector2
     private static final int DOUBLE_DATA_PER_PLAYER = 3 + 3 + 2 + 1;
 
@@ -34,8 +36,6 @@ public class WorldState extends BinaryEntity {
     private final int maxPlayerCount;
 
     private int playerUid = 0;
-
-    private int timestamp = 0;
 
     public boolean hasPlayers() {
         return !players.isEmpty();
@@ -72,15 +72,13 @@ public class WorldState extends BinaryEntity {
         return new WorldSnapshot(maxPlayerCount, DOUBLE_DATA_PER_PLAYER, INT_DATA_PER_PLAYER);
     }
 
-    void simulate(final double dt, final int dtMilliseconds) {
+    void simulate() {
         // TODO: Wrap player positions?
-        players.forEachValue(PARALLELISM_THRESHOLD, player -> player.getState().applyTime(dt));
-        timestamp += dtMilliseconds;
+        players.forEachValue(PARALLELISM_THRESHOLD, player -> player.getState().applyTime(SECONDS_PER_FRAME));
     }
 
     void load(final WorldSnapshot snapshot) {
         load(snapshot.getPlayerIntData(), snapshot.getPlayerDoubleData());
-        timestamp = snapshot.getTimestamp();
     }
 
     // Assigning new indices helps avoid bugs when rearranging/adding/removing lines
@@ -103,7 +101,6 @@ public class WorldState extends BinaryEntity {
 
     void store(final WorldSnapshot snapshot) {
         store(snapshot.getPlayerIntData(), snapshot.getPlayerDoubleData());
-        snapshot.setTimestamp(timestamp);
     }
 
     // Assigning new indices ensures that bugs can be avoided when rearranging/adding/removing lines

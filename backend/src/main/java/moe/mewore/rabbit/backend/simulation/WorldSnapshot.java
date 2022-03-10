@@ -18,10 +18,6 @@ public class WorldSnapshot {
 
     private final int intDataPerPlayer;
 
-    @Setter
-    @Getter
-    private int timestamp = 0;
-
     public WorldSnapshot(final int maxPlayerCount, final int doubleDataPerPlayer, final int intDataPerPlayer) {
         this.intDataPerPlayer = intDataPerPlayer;
         this.doubleDataPerPlayer = doubleDataPerPlayer;
@@ -41,6 +37,5 @@ public class WorldSnapshot {
     public void copy(final WorldSnapshot previous) {
         System.arraycopy(previous.playerDoubleData, 0, playerDoubleData, 0, playerDoubleData.length);
         System.arraycopy(previous.playerIntData, 0, playerIntData, 0, playerIntData.length);
-        timestamp = previous.timestamp;
     }
 }
