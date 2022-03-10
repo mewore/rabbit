@@ -8,21 +8,24 @@ import java.security.SecureRandom;
 
 import org.junit.jupiter.api.Test;
 
-import io.javalin.Javalin;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ServerIT {
 
+    private static final int MIN_PORT = 63200;
+
+    private static final int PORT_RANGE = 100;
+
     @Test
-    void testInitialize() throws IOException {
+    void testInitialize() throws IOException, InterruptedException {
         final ServerSettings settings = mock(ServerSettings.class);
-        final int port = 63200 + new SecureRandom().nextInt(100);
+        final int port = MIN_PORT + new SecureRandom().nextInt(PORT_RANGE);
         when(settings.getPort()).thenReturn(port);
 
-        final Javalin server = Server.create(settings).start();
+        final Server server = Server.create(settings).start();
         try {
             final HttpURLConnection http = (HttpURLConnection) new URL(
                 String.format("http://localhost:%d/test.txt", port)).openConnection();
@@ -31,5 +34,32 @@ class ServerIT {
         } finally {
             server.stop();
         }
+    }
+
+    @Test
+    void testStartWhileStarted() throws IOException, InterruptedException {
+        final ServerSettings settings = mock(ServerSettings.class);
+        final int port = MIN_PORT + new SecureRandom().nextInt(PORT_RANGE);
+        when(settings.getPort()).thenReturn(port);
+
+        final Server server = Server.create(settings).start();
+        try {
+            final var exception = assertThrows(IllegalStateException.class, server::start);
+            assertEquals("The server expected to transition from state STOPPED to STARTING but its state was RUNNING",
+                exception.getMessage());
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void testStopWhileStopped() throws IOException {
+        final ServerSettings settings = mock(ServerSettings.class);
+        when(settings.getPort()).thenReturn(MIN_PORT);
+
+        final Server server = Server.create(settings);
+        final var exception = assertThrows(IllegalStateException.class, server::stop);
+        assertEquals("The server expected to transition from state RUNNING to STOPPING but its state was STOPPED",
+            exception.getMessage());
     }
 }

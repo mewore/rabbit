@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -57,6 +58,8 @@ import moe.mewore.rabbit.world.WorldProperties;
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
 
+    private final ScheduledExecutorService simulationThread = Executors.newSingleThreadScheduledExecutor();
+
     private static final int MAXIMUM_NUMBER_OF_PLAYERS = 10;
 
     private static final int UPDATES_PER_SECOND = 10;
@@ -79,17 +82,13 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final WorldSimulation worldSimulation = new WorldSimulation(worldState);
 
-    private final ScheduledExecutorService timeStepThread = Executors.newSingleThreadScheduledExecutor();
+    private final AtomicReference<@NonNull ServerState> state = new AtomicReference<>(ServerState.STOPPED);
 
     private final ScheduledExecutorService heartbeatThread = Executors.newSingleThreadScheduledExecutor();
 
     private final MultiPlayerHeart heart = new MultiPlayerHeart(MAXIMUM_NUMBER_OF_PLAYERS, this::sendHeartbeat);
 
     private final List<Consumer<WorldState>> worldUpdateListeners = new ArrayList<>();
-
-    public static void main(final String[] args) throws IOException {
-        create(new ServerSettings(args, System.getenv())).start();
-    }
 
     public static Server create(final ServerSettings settings) throws IOException {
         final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
@@ -114,20 +113,37 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             ? new EditorVersionHandler(externalStaticLocation)
             : ctx -> ctx.json(Collections.emptySet()));
 
-        return new Server(settings, javalin, map);
+        final Server server = new Server(settings, javalin, map);
+        javalin.ws("/multiplayer", ws -> {
+            ws.onConnect(server);
+            ws.onBinaryMessage(server);
+            ws.onClose(server);
+        });
+        return server;
+    }
+
+    public static void main(final String[] args) throws IOException {
+        create(new ServerSettings(args, System.getenv())).start();
+    }
+
+    private void setServerState(final ServerState expectedInitialState, final ServerState resultingState) {
+        final ServerState oldValue = state.getAndUpdate(
+            initialState -> initialState == expectedInitialState ? resultingState : initialState);
+        if (oldValue != expectedInitialState) {
+            throw new IllegalStateException(
+                "The server expected to transition from state " + expectedInitialState + " to " + resultingState +
+                    " but its state was " + oldValue);
+        }
     }
 
     public void onWorldUpdate(final Consumer<WorldState> handler) {
         worldUpdateListeners.add(handler);
     }
 
-    public Javalin start() {
-        javalin.ws("/multiplayer", ws -> {
-            ws.onConnect(this);
-            ws.onBinaryMessage(this);
-            ws.onClose(this);
-        });
-        timeStepThread.scheduleAtFixedRate(() -> {
+    public Server start() {
+        setServerState(ServerState.STOPPED, ServerState.STARTING);
+
+        simulationThread.scheduleAtFixedRate(() -> {
             try {
                 final WorldState newState = worldSimulation.step();
                 if (newState.hasPlayers()) {
@@ -151,16 +167,32 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 throw e;
             }
         }, 0, heart.getStepTimeInterval(), TimeUnit.MILLISECONDS);
-        return javalin.start(serverSettings.getPort());
+        javalin.start(serverSettings.getPort());
+
+        setServerState(ServerState.STARTING, ServerState.RUNNING);
+        return this;
     }
 
-    @Override
-    public void handleConnect(final @NonNull WsConnectContext sender) {
-        sender.send(ByteBuffer.wrap(new MapDataMessage(map).encodeToBinary()));
-        for (final Player player : playerBySessionId.values()) {
-            sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player, false).encodeToBinary()));
+    public void stop() throws InterruptedException {
+        setServerState(ServerState.RUNNING, ServerState.STOPPING);
+
+        try {
+            final var tasksToStop = new ScheduledExecutorService[]{simulationThread, heartbeatThread};
+            for (final ScheduledExecutorService task : tasksToStop) {
+                task.shutdown();
+            }
+            if (!simulationThread.awaitTermination(1, TimeUnit.MINUTES)) {
+                System.err.println("The simulation thread was not terminated even after waiting for 1 minute");
+            }
+            if (!heartbeatThread.awaitTermination(1, TimeUnit.MINUTES)) {
+                System.err.println("The heartbeat thread was not terminated even after waiting for 1 minute");
+            }
+        } finally {
+            javalin.stop();
         }
-        sessionById.put(sender.getSessionId(), sender.session);
+
+        setServerState(ServerState.STOPPING, ServerState.STOPPED);
+
     }
 
     @Override
@@ -171,7 +203,8 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         final MutationType mutationType = Arrays.stream(MutationType.values())
             .filter(type -> type.getIndex() == mutationTypeIndex)
             .findAny()
-            .orElseThrow(() -> new IllegalArgumentException("There is no mutation type with index " + mutationTypeIndex));
+            .orElseThrow(
+                () -> new IllegalArgumentException("There is no mutation type with index " + mutationTypeIndex));
         switch (mutationType) {
             case PLAYER_JOIN:
                 if (player != null) {
@@ -192,6 +225,22 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                     heart.receive(player, response.getId());
                 }
         }
+    }
+
+    @Override
+    public void handleConnect(final @NonNull WsConnectContext sender) {
+        sender.send(ByteBuffer.wrap(new MapDataMessage(map).encodeToBinary()));
+        for (final Player player : playerBySessionId.values()) {
+            sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player, false).encodeToBinary()));
+        }
+        sessionById.put(sender.getSessionId(), sender.session);
+    }
+
+    private enum ServerState {
+        STOPPED,
+        STOPPING,
+        STARTING,
+        RUNNING
     }
 
     private void sendHeartbeat(final int playerId, final int heartbeatId) {
