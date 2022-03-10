@@ -8,9 +8,7 @@ public class WorldSimulation {
 
     private static final int FPS = 60;
 
-    private static final int MILLISECONDS_PER_FRAME = 1000 / FPS;
-
-    private static final double SECONDS_PER_FRAME = MILLISECONDS_PER_FRAME / 1000.0;
+    static final int MILLISECONDS_PER_FRAME = 1000 / FPS;
 
     private static final int MAXIMUM_ROLLBACK_MILLISECONDS = 1000;
 
@@ -23,6 +21,10 @@ public class WorldSimulation {
     private final WorldState state;
 
     private int frameIndex = 0;
+
+    private int currentFrame = 0;
+
+    private int currentTimestamp = 0;
 
     private int frameToReplayFrom = -1;
 
@@ -45,9 +47,10 @@ public class WorldSimulation {
     public synchronized void acceptInput(final Player player, final PlayerInputMutation input) {
         final int inputTimestamp = (int) (System.currentTimeMillis() - createdAt) -
             Math.min(player.getLatency(), MAXIMUM_ROLLBACK_MILLISECONDS);
-        int from = frameIndex + 1;
-        int newReplayIndex = from % FRAME_BUFFER_SIZE;
-        if (frames[newReplayIndex].getTimestamp() > inputTimestamp) {
+        final int inputFrame = Math.min(currentFrame,
+            Math.max(0, (inputTimestamp + MILLISECONDS_PER_FRAME / 2) / MILLISECONDS_PER_FRAME));
+        final int frameDifference = currentFrame - inputFrame;
+        if (frameDifference > FRAME_BUFFER_SIZE) {
             // The input is older than the oldest frame timestamp
             // This should never happen
             System.err.printf(
@@ -55,19 +58,11 @@ public class WorldSimulation {
                 player.getId(), inputTimestamp);
             return;
         }
+        final int newReplayIndex = frameDifference <= frameIndex
+            ? (frameIndex - frameDifference)
+            : (frameIndex + FRAME_BUFFER_SIZE - frameDifference);
 
-        int to = frameIndex + FRAME_BUFFER_SIZE;
-        int mid;
-        while (from <= to) {
-            mid = (from + to) / 2;
-            if (frames[mid % FRAME_BUFFER_SIZE].getTimestamp() > inputTimestamp) {
-                to = mid - 1;
-            } else {
-                from = mid + 1;
-                newReplayIndex = mid % FRAME_BUFFER_SIZE;
-            }
-        }
-        if (newReplayIndex != frameIndex) {
+        if (frameDifference > 0) {
             frameToReplayFrom =
                 frameToReplayFrom < 0 ? newReplayIndex : getLowerIndex(frameToReplayFrom, newReplayIndex);
         }
@@ -83,7 +78,7 @@ public class WorldSimulation {
         final int lastFrameIndex = frameIndex == 0 ? FRAME_BUFFER_SIZE - 1 : frameIndex - 1;
         final WorldSnapshot lastFrame = frames[lastFrameIndex];
         state.load(lastFrame);
-        state.simulate(SECONDS_PER_FRAME, MILLISECONDS_PER_FRAME);
+        state.simulate();
         state.store(frames[frameIndex]);
     }
 
@@ -94,15 +89,16 @@ public class WorldSimulation {
         final WorldSnapshot lastFrame = frames[frameIndex];
         frameIndex = (frameIndex + 1) % FRAME_BUFFER_SIZE;
         state.load(lastFrame);
-        state.simulate(SECONDS_PER_FRAME, MILLISECONDS_PER_FRAME);
+        state.simulate();
         state.store(frames[frameIndex]);
+
+        ++currentFrame;
+        currentTimestamp += MILLISECONDS_PER_FRAME;
     }
 
     // TODO: Make it less synchronized
     @Synchronized
     public WorldState step() {
-        int normalizedTime = (int) (System.currentTimeMillis() - createdAt);
-
         if (frameToReplayFrom > -1) {
             state.load(frames[frameToReplayFrom]);
             final int frameToStopAt = (frameIndex + 1) % FRAME_BUFFER_SIZE;
@@ -111,14 +107,14 @@ public class WorldSimulation {
                 redoFrame(i);
             }
             frameToReplayFrom = -1;
-            normalizedTime = (int) (System.currentTimeMillis() - createdAt);
         }
-        while (frames[frameIndex].getTimestamp() + MILLISECONDS_PER_FRAME <= normalizedTime) {
-            int steps = (normalizedTime - frames[frameIndex].getTimestamp()) / MILLISECONDS_PER_FRAME;
+        int timeDifference = (int) (System.currentTimeMillis() - createdAt) - currentTimestamp;
+        while (timeDifference >= MILLISECONDS_PER_FRAME) {
+            int steps = timeDifference / MILLISECONDS_PER_FRAME;
             while (--steps >= 0) {
                 doFrame();
             }
-            normalizedTime = (int) (System.currentTimeMillis() - createdAt);
+            timeDifference = (int) (System.currentTimeMillis() - createdAt) - currentTimestamp;
         }
 
         return state;
