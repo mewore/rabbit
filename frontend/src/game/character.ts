@@ -16,8 +16,9 @@ import { addCredit } from '@/temp-util';
 
 import { PlayerState } from './entities/player-state';
 import { loadGltfWithCaching } from './util/gltf-util';
+import { PhysicsAware } from './util/physics-aware';
+import { RenderAware } from './util/render-aware';
 import { getAngleDifference, makeAllCastAndReceiveShadow, moveAngle } from './util/three-util';
-import { Updatable } from './util/updatable';
 
 interface AnimationInfo {
     readonly mixer: AnimationMixer;
@@ -72,7 +73,7 @@ const groundRayOptions: RayOptions = { skipBackfaces: true };
 const GROUND_CHECK_DX = [-RADIUS / 2, 0, RADIUS / 2];
 const GROUND_CHECK_DZ = [-RADIUS / 2, 0, RADIUS / 2];
 
-export class Character extends Object3D implements Updatable {
+export class Character extends Object3D implements PhysicsAware, RenderAware {
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
@@ -267,8 +268,6 @@ export class Character extends Object3D implements Updatable {
         this.body.velocity.z += this.horizontalMotionToAdd.y * 0.5;
         this.position.set(this.body.position.x, this.body.position.y, this.body.position.z);
     }
-
-    update(): void {}
 
     beforeRender(delta: number): void {
         const currentSpeedSquared = horizontalMotion.set(this.body.velocity.x, this.body.velocity.z).lengthSq();

@@ -43,8 +43,9 @@ import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls
 import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
 import { LazyLoadAllocation } from './util/lazy-load-allocation';
+import { PhysicsAware } from './util/physics-aware';
+import { RenderAware } from './util/render-aware';
 import { AxisHelper, makeGround, makeSkybox, projectOntoCamera } from './util/three-util';
-import { Updatable } from './util/updatable';
 
 enum MessageType {
     JOIN,
@@ -88,7 +89,8 @@ export class GameScene {
     }
 
     private readonly loadAllocations: LazyLoadAllocation[] = [];
-    private readonly updatableById = new Map<number | string, Updatable>();
+    private readonly physicsAwareById = new Map<number | string, PhysicsAware>();
+    private readonly renderAwareById = new Map<number | string, RenderAware>();
     private readonly character = new Character('', isReisen());
 
     private readonly clock = new Clock();
@@ -282,7 +284,8 @@ export class GameScene {
         }
         this.character.visible = true;
         this.character.position.y = 300;
-        this.updatableById.set(this.character.id, this.character);
+        this.renderAwareById.set(this.character.id, this.character);
+        this.physicsAwareById.set(this.character.id, this.character);
         if (this.webSocket.readyState === WebSocket.OPEN) {
             this.sendInitialPlayerInfo();
         } else {
@@ -420,13 +423,13 @@ export class GameScene {
             }
         }
         if (delta > 0) {
-            for (const updatable of this.updatableById.values()) {
-                updatable.beforePhysics(delta, now);
+            for (const entity of this.physicsAwareById.values()) {
+                entity.beforePhysics(delta, now);
             }
 
             this.physicsWorld.step(delta, delta);
-            for (const updatable of this.updatableById.values()) {
-                updatable.afterPhysics(delta, now);
+            for (const entity of this.physicsAwareById.values()) {
+                entity.afterPhysics(delta, now);
             }
             if (this.mapData) {
                 this.character.position.x = this.mapData.wrapX(this.character.position.x);
@@ -434,12 +437,8 @@ export class GameScene {
             }
         }
 
-        for (const updatable of this.updatableById.values()) {
-            updatable.update(delta, now);
-        }
-
-        for (const updatable of this.updatableById.values()) {
-            updatable.beforeRender(delta, now);
+        for (const entity of this.renderAwareById.values()) {
+            entity.beforeRender(delta, now);
         }
         this.render();
 
@@ -491,14 +490,20 @@ export class GameScene {
     }
 
     private add(
-        ...objects: ((Object3D | Updatable) & { readonly body?: Body; readonly bodies?: ReadonlyArray<Body> })[]
+        ...objects: ((Object3D | PhysicsAware | RenderAware) & {
+            readonly body?: Body;
+            readonly bodies?: ReadonlyArray<Body>;
+        })[]
     ): void {
         for (const object of objects) {
             if (object instanceof Object3D) {
                 this.scene.add(object);
             }
-            if (this.isUpdatable(object)) {
-                this.updatableById.set(object.id, object);
+            if (this.isPhysicsAware(object)) {
+                this.physicsAwareById.set(object.id, object);
+            }
+            if (this.isRenderAware(object)) {
+                this.renderAwareById.set(object.id, object);
             }
             if (object.body) {
                 this.physicsWorld.addBody(object.body);
@@ -511,13 +516,16 @@ export class GameScene {
         }
     }
 
-    private remove(...objects: ((Object3D | Updatable) & { readonly body?: Body })[]): void {
+    private remove(...objects: ((Object3D | PhysicsAware) & { readonly body?: Body })[]): void {
         for (const object of objects) {
             if (object instanceof Object3D) {
                 this.scene.remove(object);
             }
-            if (this.isUpdatable(object)) {
-                this.updatableById.delete(object.id);
+            if (this.isPhysicsAware(object)) {
+                this.physicsAwareById.delete(object.id);
+            }
+            if (this.isRenderAware(object)) {
+                this.renderAwareById.delete(object.id);
             }
             if (object.body) {
                 this.physicsWorld.removeBody(object.body);
@@ -525,7 +533,11 @@ export class GameScene {
         }
     }
 
-    private isUpdatable(object: unknown): object is Updatable {
-        return !!(object as Updatable).beforePhysics;
+    private isPhysicsAware(object: unknown): object is PhysicsAware {
+        return !!(object as PhysicsAware).beforePhysics && !!(object as PhysicsAware).afterPhysics;
+    }
+
+    private isRenderAware(object: unknown): object is RenderAware {
+        return !!(object as RenderAware).beforeRender;
     }
 }

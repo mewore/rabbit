@@ -20,7 +20,7 @@ import { addCredit } from '@/temp-util';
 import { MazeMap } from '../entities/world/maze-map';
 import { Input } from '../util/input';
 import { LazyLoadAllocation } from '../util/lazy-load-allocation';
-import { Updatable } from '../util/updatable';
+import { RenderAware } from '../util/render-aware';
 import { BambooModel } from './bamboo-model';
 import { ForestCellData } from './forest-cell-data';
 import { ForestCellObject } from './forest-cell-object';
@@ -40,7 +40,7 @@ const FOREST_UPDATE_PER_MOVEMENT = 0.3;
 const BAMBOO_MODEL_LOCATION = '/assets/bamboo/';
 const BAMBOO_MODEL_FILENAME = 'bamburro.glb';
 
-export class ForestObject extends Object3D implements Updatable {
+export class ForestObject extends Object3D implements RenderAware {
     private bambooModels?: BambooModel[];
     private dummyBambooModels: BambooModel[] = [];
     private mapData?: MazeMap;
@@ -144,12 +144,6 @@ export class ForestObject extends Object3D implements Updatable {
         const rowInfo = { length: this.mapData.columnCount };
         this.cellGrid = Array.from({ length: this.mapData.rowCount }, () => Array.from(rowInfo));
     }
-
-    beforePhysics(): void {}
-
-    afterPhysics(): void {}
-
-    update(): void {}
 
     beforeRender(delta: number): void {
         if (!this.cellGrid || !this.mapData || !this.bambooModels) {

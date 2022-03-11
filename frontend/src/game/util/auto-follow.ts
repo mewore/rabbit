@@ -1,8 +1,8 @@
 import { Object3D, Vector3 } from 'three';
 
-import { Updatable } from './updatable';
+import { RenderAware } from './render-aware';
 
-export class AutoFollow implements Updatable {
+export class AutoFollow implements RenderAware {
     static lastId = 0;
 
     private readonly offset: Vector3;
@@ -13,15 +13,9 @@ export class AutoFollow implements Updatable {
         this.offset = new Vector3(object.position.x, object.position.y, object.position.z);
     }
 
-    beforePhysics(): void {}
-
-    afterPhysics(): void {}
-
-    update(): void {
+    beforeRender(): void {
         this.object.position.copy(this.target.position);
         this.object.position.add(this.offset);
         this.object.updateMatrix();
     }
-
-    beforeRender(): void {}
 }

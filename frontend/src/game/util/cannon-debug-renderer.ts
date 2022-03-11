@@ -11,7 +11,7 @@ import {
     SphereGeometry,
 } from 'three';
 
-import { Updatable } from './updatable';
+import { RenderAware } from './render-aware';
 
 interface ShapeDebugData {
     debugColor?: number;
@@ -28,7 +28,7 @@ interface ShapeDebugData {
  * @param {World} world
  * @param {object} [options]
  */
-export class CannonDebugRenderer implements Updatable {
+export class CannonDebugRenderer implements RenderAware {
     readonly id = 'CannonDebugRenderer';
 
     active = false;
@@ -47,8 +47,6 @@ export class CannonDebugRenderer implements Updatable {
 
     constructor(private readonly scene: Scene, private readonly world: World) {}
 
-    beforePhysics(): void {}
-    afterPhysics(): void {}
     beforeRender(): void {
         const bodies = this.world.bodies;
         const meshes = this.meshes;
@@ -103,8 +101,6 @@ export class CannonDebugRenderer implements Updatable {
     tmpVec1 = new Vec3();
     tmpVec2 = new Vec3();
     tmpQuat0 = new Quaternion();
-
-    update(): void {}
 
     updateMesh(index: number, shape: Shape): void {
         let mesh = this.meshes[index];

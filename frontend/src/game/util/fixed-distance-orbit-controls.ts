@@ -1,7 +1,7 @@
 import { Object3D, Raycaster, Spherical, Vector3 } from 'three';
 
 import { Input } from './input';
-import { Updatable } from './updatable';
+import { RenderAware } from './render-aware';
 
 const normal = new Vector3();
 const rayDirection = new Vector3();
@@ -12,7 +12,7 @@ const EPSILON = 0.000001;
 const MIN_PHI = EPSILON;
 const MAX_PHI = Math.PI - EPSILON;
 
-export class FixedDistanceOrbitControls implements Updatable {
+export class FixedDistanceOrbitControls implements RenderAware {
     static lastId = 0;
 
     private readonly spherical = new Spherical();
@@ -46,11 +46,7 @@ export class FixedDistanceOrbitControls implements Updatable {
         object.lookAt(this.targetWorldPosition);
     }
 
-    beforePhysics(): void {}
-
-    afterPhysics(): void {}
-
-    update(delta: number): void {
+    beforeRender(delta: number): void {
         if (this.input.zoom) {
             this.spherical.radius = Math.min(
                 Math.max(this.spherical.radius / Math.pow(this.zoomMultiplier, this.input.zoom), this.minDistance),
@@ -78,8 +74,6 @@ export class FixedDistanceOrbitControls implements Updatable {
             this.object.position.add(this.targetWorldPosition);
         }
     }
-
-    beforeRender(): void {}
 
     /**
      * Check for intersections from the target to the wanted object position. If there are any,

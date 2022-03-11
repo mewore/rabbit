@@ -17,7 +17,8 @@ import { MazeMap } from '../entities/world/maze-map';
 import { MazeWall } from '../entities/world/maze-wall';
 import { CannonDebugRenderer } from '../util/cannon-debug-renderer';
 import { LazyLoadAllocation } from '../util/lazy-load-allocation';
-import { Updatable } from '../util/updatable';
+import { PhysicsAware } from '../util/physics-aware';
+import { RenderAware } from '../util/render-aware';
 
 const HEIGHT = 100.0;
 const PHYSICS_MATERIAL = new Material({ friction: 0, restitution: 0 });
@@ -33,7 +34,7 @@ interface WithExtraWallInfo {
     distanceFromCenter?: number;
 }
 
-export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> implements Updatable {
+export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> implements PhysicsAware, RenderAware {
     private mapData?: MazeMap;
 
     readonly wallLazyLoad = new LazyLoadAllocation();
@@ -131,7 +132,7 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
 
     afterPhysics(): void {}
 
-    update(): void {
+    beforeRender(): void {
         while (this.nextWallIndex < this.wallsToLoad.length && this.wallLazyLoad.tryToUse(5)) {
             this.loadWalls(Math.min(10, this.wallsToLoad.length - this.nextWallIndex));
             if (this.nextWallIndex === this.wallsToLoad.length) {
@@ -142,8 +143,6 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
             }
         }
     }
-
-    beforeRender(): void {}
 
     generate(mapData: MazeMap, wallsToLoadImmediately: number): void {
         this.mapData = mapData;
