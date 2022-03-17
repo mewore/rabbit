@@ -145,6 +145,8 @@ export class ForestObject extends Object3D implements RenderAware {
         this.cellGrid = Array.from({ length: this.mapData.rowCount }, () => Array.from(rowInfo));
     }
 
+    longBeforeRender(): void {}
+
     beforeRender(delta: number): void {
         if (!this.cellGrid || !this.mapData || !this.bambooModels) {
             return;

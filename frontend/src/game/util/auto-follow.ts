@@ -13,6 +13,8 @@ export class AutoFollow implements RenderAware {
         this.offset = new Vector3(object.position.x, object.position.y, object.position.z);
     }
 
+    longBeforeRender(): void {}
+
     beforeRender(): void {
         this.object.position.copy(this.target.position);
         this.object.position.add(this.offset);

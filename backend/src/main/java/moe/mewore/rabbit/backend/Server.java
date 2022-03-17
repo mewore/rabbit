@@ -32,7 +32,6 @@ import io.javalin.websocket.WsConnectContext;
 import io.javalin.websocket.WsConnectHandler;
 import io.javalin.websocket.WsContext;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.backend.editor.EditorVersionHandler;
 import moe.mewore.rabbit.backend.messages.HeartbeatRequest;
 import moe.mewore.rabbit.backend.messages.MapDataMessage;
@@ -55,7 +54,6 @@ import moe.mewore.rabbit.world.WorldProperties;
 
 // This is the server, so of course it's "overly coupled".
 @SuppressWarnings("OverlyCoupledClass")
-@RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
 
     private final ScheduledExecutorService simulationThread = Executors.newSingleThreadScheduledExecutor();
@@ -78,9 +76,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     private final MazeMap map;
 
     @Getter
-    private final WorldState worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS);
+    private final WorldState worldState;
 
-    private final WorldSimulation worldSimulation = new WorldSimulation(worldState);
+    private final WorldSimulation worldSimulation;
 
     private final AtomicReference<@NonNull ServerState> state = new AtomicReference<>(ServerState.STOPPED);
 
@@ -89,6 +87,14 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     private final MultiPlayerHeart heart = new MultiPlayerHeart(MAXIMUM_NUMBER_OF_PLAYERS, this::sendHeartbeat);
 
     private final List<Consumer<WorldState>> worldUpdateListeners = new ArrayList<>();
+
+    public Server(final ServerSettings serverSettings, final Javalin javalin, final MazeMap map) {
+        this.serverSettings = serverSettings;
+        this.javalin = javalin;
+        this.map = map;
+        worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS, map);
+        worldSimulation = new WorldSimulation(worldState);
+    }
 
     public static Server create(final ServerSettings settings) throws IOException {
         final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
@@ -145,7 +151,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
         simulationThread.scheduleAtFixedRate(() -> {
             try {
-                final WorldState newState = worldSimulation.step();
+                final WorldState newState = worldSimulation.update();
                 if (newState.hasPlayers()) {
                     broadcast(new WorldUpdateMessage(newState));
                 }

@@ -28,18 +28,16 @@ public class Vector3 extends BinaryEntity implements GeometricVector {
         return new Vector3(input.readDouble(), input.readDouble(), input.readDouble());
     }
 
-    public int store(final double[] source, int position) {
+    public void store(final double[] source, int position) {
         source[position] = x;
         source[++position] = y;
         source[++position] = z;
-        return ++position;
     }
 
-    public int load(final double[] source, int position) {
+    public void load(final double[] source, int position) {
         x = source[position];
         y = source[++position];
         z = source[++position];
-        return ++position;
     }
 
     public void set(final double newX, final double newY, final double newZ) {

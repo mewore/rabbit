@@ -74,6 +74,11 @@ export class MazeMap extends BinaryEntity {
         return column - Math.floor(column / this.columnCount) * this.columnCount;
     }
 
+    wrapPosition(position: { x: number; z: number }): void {
+        position.x = this.wrapX(position.x);
+        position.z = this.wrapZ(position.z);
+    }
+
     wrapX(x: number): number {
         return x - Math.floor(x / this.width + 0.5) * this.width;
     }

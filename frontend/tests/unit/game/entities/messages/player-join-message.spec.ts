@@ -2,7 +2,6 @@ import { expect } from 'chai';
 
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { PlayerJoinMessage } from '@/game/entities/messages/player-join-message';
-import { Player } from '@/game/entities/player';
 
 describe('PlayerJoinMessage', () => {
     describe('when encoded and decoded', () => {

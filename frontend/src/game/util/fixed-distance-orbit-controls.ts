@@ -46,7 +46,7 @@ export class FixedDistanceOrbitControls implements RenderAware {
         object.lookAt(this.targetWorldPosition);
     }
 
-    beforeRender(delta: number): void {
+    longBeforeRender(delta: number): void {
         if (this.input.zoom) {
             this.spherical.radius = Math.min(
                 Math.max(this.spherical.radius / Math.pow(this.zoomMultiplier, this.input.zoom), this.minDistance),
@@ -74,6 +74,8 @@ export class FixedDistanceOrbitControls implements RenderAware {
             this.object.position.add(this.targetWorldPosition);
         }
     }
+
+    beforeRender(): void {}
 
     /**
      * Check for intersections from the target to the wanted object position. If there are any,

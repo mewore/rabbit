@@ -37,6 +37,7 @@ import { MazeMap } from './entities/world/maze-map';
 import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
 import { Moon } from './moon';
+import { WorldSimulation } from './simulation/world-simulation';
 import { AutoFollow } from './util/auto-follow';
 import { CannonDebugRenderer } from './util/cannon-debug-renderer';
 import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
@@ -72,9 +73,6 @@ const FOV = 60;
 const FOG_END = Math.cos(degToRad(FOV / 2)) * 300;
 const FOG_START = FOG_END * 0;
 
-// const PHYSICS_FPS = 60;
-// const PHYSICS_MS_PER_FRAME = Math.floor(1000 / PHYSICS_FPS);
-
 const RESOURCES_PER_FRAME = 100;
 const RESOURCES_PER_LAZY_LOAD = 10;
 
@@ -91,19 +89,19 @@ export class GameScene {
     private readonly loadAllocations: LazyLoadAllocation[] = [];
     private readonly physicsAwareById = new Map<number | string, PhysicsAware>();
     private readonly renderAwareById = new Map<number | string, RenderAware>();
-    private readonly character = new Character('', isReisen());
+    private readonly character = new Character('', isReisen(), true);
 
     private readonly clock = new Clock();
     private readonly elapsedTimeClock = new Clock();
 
-    private readonly charactersById = new Map<number, Character>();
+    private readonly characterById = new Map<number, Character>();
 
     private lastSentInputId = -1;
     readonly input = new Input();
 
     private readonly cameraControls: FixedDistanceOrbitControls;
 
-    private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0), allowSleep: true });
+    private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0) });
 
     private mapData?: MazeMap;
     readonly forest: ForestObject;
@@ -111,7 +109,14 @@ export class GameScene {
 
     readonly physicsDebugger = new CannonDebugRenderer(this.scene, this.physicsWorld);
 
-    // private readonly worldStatesToApply: [number, WorldUpdateMessage][] = [];
+    private readonly simulation = new WorldSimulation(
+        this.physicsWorld,
+        this.physicsAwareById,
+        this.character,
+        this.characterById
+    );
+
+    private worldUpdateToApply?: WorldUpdateMessage;
 
     private width = 0;
     private height = 0;
@@ -223,8 +228,8 @@ export class GameScene {
         this.add(this.physicsDebugger);
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
-            if (this.settings.artificialLatency > 0) {
-                setTimeout(() => this.receiveData(message), this.settings.artificialLatency);
+            if (this.settings.artificialLatency >= 5) {
+                setTimeout(() => this.receiveData(message), this.settings.artificialLatency - 5);
             } else {
                 this.receiveData(message);
             }
@@ -327,40 +332,35 @@ export class GameScene {
     private onPlayerJoined(reader: SignedBinaryReader): void {
         const message = PlayerJoinMessage.decodeFromBinary(reader);
         if (message.isSelf) {
-            const existing = this.charactersById.get(message.playerId);
+            const existing = this.characterById.get(message.playerId);
             if (existing) {
                 this.remove(existing);
             }
             this.character.username = message.username;
-            this.charactersById.set(message.playerId, this.character);
+            this.character.playerId = message.playerId;
+            this.characterById.set(message.playerId, this.character);
         }
         this.getOrCreatePlayerCharacter(message.playerId, message.username, message.isReisen);
     }
 
     private onWorldUpdate(reader: SignedBinaryReader): void {
-        const message = WorldUpdateMessage.decodeFromBinary(reader);
-        // const latency = message.playerStates.find((state) => state.playerId === this.character.id)?.latency;
-        // const timestamp = this.time - (latency || 0);
-        // this.worldStatesToApply.push([]);
-        for (const state of message.playerStates) {
-            const character = this.getOrCreatePlayerCharacter(state.playerId, 'Unknown', undefined);
-            character.registerState(state);
-        }
+        this.worldUpdateToApply = WorldUpdateMessage.decodeFromBinary(reader);
     }
 
     private onPlayerDisconnected(reader: SignedBinaryReader): void {
         const message = PlayerDisconnectMessage.decodeFromBinary(reader);
-        const character = this.charactersById.get(message.playerId);
+        const character = this.characterById.get(message.playerId);
         if (!character) {
             return;
         }
         this.remove(character);
-        this.charactersById.delete(message.playerId);
+        this.characterById.delete(message.playerId);
     }
 
     private onForestData(reader: SignedBinaryReader): void {
         const message = MapDataMessage.decodeFromBinary(reader);
         this.mapData = message.map;
+        this.simulation.map = this.mapData;
         this.forest.setMapData(message.map);
 
         const ground = makeGround(message.map.width, message.map.depth);
@@ -378,38 +378,51 @@ export class GameScene {
     }
 
     private getOrCreatePlayerCharacter(playerId: number, username: string, isReisen: boolean | undefined): Character {
-        const existingCharacter = this.charactersById.get(playerId);
+        const existingCharacter = this.characterById.get(playerId);
         if (existingCharacter) {
             return existingCharacter;
         }
         const newCharacter = new Character(username, isReisen);
+        newCharacter.playerId = playerId;
         this.add(newCharacter);
-        this.charactersById.set(playerId, newCharacter);
+        this.characterById.set(playerId, newCharacter);
         return newCharacter;
     }
 
     animate(): void {
-        this.requestMovement(this.input.movementRight, this.input.movementForwards);
-        this.character.inputId = this.input.id;
-        if (this.character.visible && this.input.id > this.lastSentInputId) {
-            if (this.webSocket.readyState === WebSocket.OPEN) {
-                this.sendData(
-                    new PlayerInputMutation(
-                        this.input.id,
-                        this.camera.rotation.y,
-                        this.input.isUpPressed,
-                        this.input.isDownPressed,
-                        this.input.isLeftPressed,
-                        this.input.isRightPressed
-                    )
-                );
-                this.lastSentInputId = this.input.id;
-            }
-        }
         const now = this.time;
         const delta = Math.min(this.clock.getDelta(), this.MAX_DELTA);
-        if (this.character.visible && this.input.wantsToJump) {
-            this.character.requestJump(now);
+
+        this.character.inputId = this.input.id;
+        if (
+            this.character.visible &&
+            this.character.playerId > -1 &&
+            (this.input.id > this.lastSentInputId || this.simulation.shouldResendInput) &&
+            this.simulation.hasServerUpdate &&
+            this.webSocket.readyState === WebSocket.OPEN
+        ) {
+            const inputEvent = new PlayerInputMutation(
+                this.input.id,
+                this.simulation.currentFrame,
+                this.camera.rotation.y,
+                this.input.isUpPressed,
+                this.input.isDownPressed,
+                this.input.isLeftPressed,
+                this.input.isRightPressed,
+                this.input.wantsToJump
+            );
+            this.sendData(inputEvent);
+            this.simulation.shouldResendInput = false;
+            this.lastSentInputId = this.input.id;
+            this.simulation.acceptInput(inputEvent);
+        }
+        if (this.worldUpdateToApply) {
+            for (const state of this.worldUpdateToApply.playerStates) {
+                const character = this.getOrCreatePlayerCharacter(state.playerId, 'Unknown', undefined);
+                character.registerState(state);
+            }
+            this.simulation.applyUpdate(this.worldUpdateToApply, this.time);
+            this.worldUpdateToApply = undefined;
         }
 
         let resources = RESOURCES_PER_FRAME;
@@ -417,33 +430,18 @@ export class GameScene {
             resources -= lazyLoad.allocateUpTo(RESOURCES_PER_LAZY_LOAD, resources);
         }
 
-        if (this.mapData) {
-            for (const character of this.charactersById.values()) {
-                this.mapData.wrapTowards(character.position, this.character.position);
-            }
-        }
-        if (delta > 0) {
-            for (const entity of this.physicsAwareById.values()) {
-                entity.beforePhysics(delta, now);
-            }
+        this.simulation.simulateUntil(now);
 
-            this.physicsWorld.step(delta, delta);
-            for (const entity of this.physicsAwareById.values()) {
-                entity.afterPhysics(delta, now);
-            }
-            if (this.mapData) {
-                this.character.position.x = this.mapData.wrapX(this.character.position.x);
-                this.character.position.z = this.mapData.wrapZ(this.character.position.z);
-            }
+        for (const entity of this.renderAwareById.values()) {
+            entity.longBeforeRender(delta, now);
         }
-
         for (const entity of this.renderAwareById.values()) {
             entity.beforeRender(delta, now);
         }
         this.render();
 
         if (this.frameAnalysis.analyzing) {
-            this.frameAnalysis.captureFrame(this.currentRenderer.domElement);
+            this.frameAnalysis.captureFrame(this.currentRenderer.domElement, this.simulation.currentFrame);
         }
 
         this.input.clearMouseDelta();
@@ -453,19 +451,8 @@ export class GameScene {
         this.currentRenderer.render(this.scene, this.camera);
     }
 
-    private requestMovement(side: number, forwards: number): void {
-        if (!this.character.visible) {
-            return;
-        }
-        if (Math.abs(side) > 0 || Math.abs(forwards) > 0) {
-            this.character.requestMovement(this.camera, forwards, side);
-        } else {
-            this.character.stopMoving();
-        }
-    }
-
     forEveryPlayerLabel(callback: (position: Vector3, username: string) => void): void {
-        for (const character of this.charactersById.values()) {
+        for (const character of this.characterById.values()) {
             const projectedPoint = projectOntoCamera(character.getHoverTextPosition(), this.camera);
             if (projectedPoint) {
                 callback(projectedPoint, character.username);
@@ -516,7 +503,7 @@ export class GameScene {
         }
     }
 
-    private remove(...objects: ((Object3D | PhysicsAware) & { readonly body?: Body })[]): void {
+    private remove(...objects: ((Object3D | PhysicsAware | RenderAware) & { readonly body?: Body })[]): void {
         for (const object of objects) {
             if (object instanceof Object3D) {
                 this.scene.remove(object);

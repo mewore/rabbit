@@ -28,16 +28,14 @@ public class Vector2 extends BinaryEntity implements GeometricVector {
         return dx * dx + dy * dy;
     }
 
-    public int store(final double[] source, int position) {
+    public void store(final double[] source, int position) {
         source[position] = x;
         source[++position] = y;
-        return ++position;
     }
 
-    public int load(final double[] source, int position) {
+    public void load(final double[] source, int position) {
         x = source[position];
         y = source[++position];
-        return ++position;
     }
 
     public void set(final double newX, final double newY) {

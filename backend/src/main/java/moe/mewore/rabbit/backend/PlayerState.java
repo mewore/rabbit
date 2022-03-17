@@ -15,7 +15,7 @@ public class PlayerState extends BinaryEntity {
 
     private static final double MAX_SPEED = 80;
 
-    private static final double ACCELERATION = 100;
+    private static final double ACCELERATION = 200;
 
     private final Vector3 position;
 
@@ -25,7 +25,7 @@ public class PlayerState extends BinaryEntity {
 
     private int inputId;
 
-    private double inputAngle;
+    private float inputAngle;
 
     private int inputKeys;
 
@@ -33,7 +33,10 @@ public class PlayerState extends BinaryEntity {
         this(new Vector3(), new Vector3(), new Vector2());
     }
 
-    public void applyInput(final int inputId, final double inputAngle, final int inputKeys) {
+    public void applyInput(final int inputId, final float inputAngle, final int inputKeys) {
+        if (this.inputId > inputId) {
+            return;
+        }
         this.inputId = inputId;
         this.inputAngle = inputAngle;
         this.inputKeys = inputKeys;
@@ -55,9 +58,6 @@ public class PlayerState extends BinaryEntity {
         final double motionDz = targetHorizontalMotion.getY() - motion.getZ();
         final double motionDistanceSquared = motionDx * motionDx + motionDz * motionDz;
         final double maxAcceleration = ACCELERATION * dt;
-        final double motionBeforeX = motion.getX();
-        final double motionBeforeY = motion.getY();
-        final double motionBeforeZ = motion.getZ();
         if (motionDistanceSquared > maxAcceleration * maxAcceleration) {
             final double multiplier = maxAcceleration / Math.sqrt(motionDistanceSquared);
             motion.add(motionDx * multiplier, 0, motionDz * multiplier);
@@ -65,9 +65,7 @@ public class PlayerState extends BinaryEntity {
             motion.set(targetHorizontalMotion.getX(), motion.getY(), targetHorizontalMotion.getY());
         }
 
-        final double halfDt = 0.5 * dt;
-        position.add((motionBeforeX + motion.getX()) * halfDt, (motionBeforeY + motion.getY()) * halfDt,
-            (motionBeforeZ + motion.getZ()) * halfDt);
+        position.add(motion.getX() * dt, motion.getY() * dt, motion.getZ() * dt);
     }
 
     @Override

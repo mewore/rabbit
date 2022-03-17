@@ -132,6 +132,8 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
 
     afterPhysics(): void {}
 
+    longBeforeRender(): void {}
+
     beforeRender(): void {
         while (this.nextWallIndex < this.wallsToLoad.length && this.wallLazyLoad.tryToUse(5)) {
             this.loadWalls(Math.min(10, this.wallsToLoad.length - this.nextWallIndex));

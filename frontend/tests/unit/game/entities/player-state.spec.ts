@@ -11,12 +11,29 @@ describe('PlayerState', () => {
                 1,
                 1,
                 1,
+                0,
+                0,
                 new Vector3Entity(0.1, 0.2, 0.3),
                 new Vector3Entity(0.4, 0.5, 0.6)
             );
             const encoded = original.encodeToBinary();
             const decoded = PlayerState.decodeFromBinary(new SignedBinaryReader(encoded));
             expect(decoded).to.deep.equals(original);
+        });
+
+        it('should roughly retain its input angle', () => {
+            const original = new PlayerState(
+                1,
+                1,
+                1,
+                0,
+                2.4,
+                new Vector3Entity(0.1, 0.2, 0.3),
+                new Vector3Entity(0.4, 0.5, 0.6)
+            );
+            const encoded = original.encodeToBinary();
+            const decoded = PlayerState.decodeFromBinary(new SignedBinaryReader(encoded));
+            expect(decoded.inputAngle).to.approximately(original.inputAngle, 0.000001);
         });
     });
 });
