@@ -22,6 +22,7 @@ export interface Settings {
     showPerformance: boolean;
     debugPhysics: boolean;
     artificialLatency: number;
+    frameAnalysisQuality: number;
 }
 
 let currentSettings: Settings = {
@@ -35,6 +36,7 @@ let currentSettings: Settings = {
     showPerformance: false,
     debugPhysics: false,
     artificialLatency: 0,
+    frameAnalysisQuality: 0,
     ...initialSettings,
 };
 

@@ -6,6 +6,12 @@
         @keyup="onKeyUp($event)"
         @blur="onGameBlurred()"
     >
+        <div class="analysis-recording-indicator" v-if="isAnalyzing">
+            <q-spinner-grid color="green" size="2em"></q-spinner-grid>
+            <span class="analysis-indicator-text">
+                Analyzing... (press ` (backtick) again to stop)
+            </span>
+        </div>
         <div
             class="canvas-wrapper"
             ref="canvasWrapper"
@@ -49,17 +55,21 @@
                 v-on:close="onMenuClosed()"
                 v-on:settingsChange="onSettingsChanged($event)"
                 v-on:menuChange="onMenuChanged()"
+                :lastAnalyzedFrames="lastAnalyzedFrames"
             />
         </q-dialog>
     </div>
 </template>
 
 <script lang="ts">
-import { QDialog } from 'quasar';
+import { createToast } from 'mosha-vue-toastify';
+import { QDialog, QSpinnerGrid } from 'quasar';
 import { Options, Vue } from 'vue-class-component';
 
 import Menu from '@/components/menu/Menu.vue';
 import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
+import { FrameAnalysis } from '@/game/debug/frame-analysis';
+import { FrameInfo } from '@/game/debug/frame-info';
 import { getSettings, Settings } from '@/settings';
 
 import { GameScene } from '../game/game-scene';
@@ -88,6 +98,7 @@ const INACTIVE_FRAME_DELTA = 1 / INACTIVE_FPS;
         Menu,
         PerformanceDisplay,
         QDialog,
+        QSpinnerGrid,
     },
     emits: ['darkUiSetting'],
 })
@@ -106,6 +117,10 @@ export default class ReisenGame extends Vue {
     targetFrameDelta = INACTIVE_FRAME_DELTA;
     nextFrameMinTime = 0;
 
+    private readonly frameAnalysis = new FrameAnalysis();
+    isAnalyzing = false;
+    lastAnalyzedFrames: FrameInfo[] = [];
+
     private readonly eventsToRemove: [
         Node | Window,
         string,
@@ -117,6 +132,7 @@ export default class ReisenGame extends Vue {
         if (!settings.darkUi) {
             this.$emit('darkUiSetting', settings.darkUi);
         }
+        this.frameAnalysis.imageQuality = settings.frameAnalysisQuality;
         this.showingPerformance = settings.showPerformance;
 
         this.webSocket = new WebSocket(
@@ -124,7 +140,12 @@ export default class ReisenGame extends Vue {
         );
         const canvasWrapper = this.getCanvasWrapper();
         this.webSocket.binaryType = 'arraybuffer';
-        this.scene = new GameScene(canvasWrapper, this.webSocket, settings);
+        this.scene = new GameScene(
+            canvasWrapper,
+            this.webSocket,
+            settings,
+            this.frameAnalysis
+        );
         (this.$refs.performanceDisplay as PerformanceDisplay).start(
             this.scene.time
         );
@@ -198,6 +219,7 @@ export default class ReisenGame extends Vue {
     onSettingsChanged(newSettings: Settings): void {
         this.showingPerformance = newSettings.showPerformance;
         this.scene?.applySettings(newSettings);
+        this.frameAnalysis.imageQuality = newSettings.frameAnalysisQuality;
         this.$emit('darkUiSetting', newSettings.darkUi);
     }
 
@@ -334,6 +356,10 @@ export default class ReisenGame extends Vue {
 
     onDialogKeyUp(event: KeyboardEvent): void {
         if (this.menuIsVisible) {
+            if (event.code === 'Backquote') {
+                this.toggleAnalysis();
+                return;
+            }
             (this.$refs.menu as Menu).onKeyUp(event);
         }
     }
@@ -344,6 +370,8 @@ export default class ReisenGame extends Vue {
             if (this.scene) {
                 this.scene.input.active = false;
             }
+        } else if (event.code === 'Backquote') {
+            this.toggleAnalysis();
         }
     }
 
@@ -381,6 +409,25 @@ export default class ReisenGame extends Vue {
         }
         this.scene.input.processKey(keyCode, isDown);
     }
+
+    private toggleAnalysis(): void {
+        if (this.frameAnalysis.analyzing) {
+            this.lastAnalyzedFrames = this.frameAnalysis.complete();
+            createToast(
+                `Analysis of ${this.lastAnalyzedFrames.length} frame${
+                    this.lastAnalyzedFrames.length > 0 ? 's' : ''
+                } complete.` + ' Open the menu to see it.',
+                {
+                    type: 'success',
+                    showIcon: true,
+                    position: 'top-center',
+                }
+            );
+        } else if (this.frameAnalysis.imageQuality > 0) {
+            this.frameAnalysis.start();
+        }
+        this.isAnalyzing = this.frameAnalysis.analyzing;
+    }
 }
 </script>
 
@@ -411,5 +458,17 @@ export default class ReisenGame extends Vue {
     width: 100%;
     height: 100%;
     position: absolute;
+
+    .analysis-recording-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 7000;
+        font-weight: bold;
+
+        .analysis-indicator-text {
+            margin-left: 1em;
+        }
+    }
 }
 </style>

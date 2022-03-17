@@ -1,6 +1,10 @@
 <template>
     <h1 class="title">{{ title }}</h1>
-    <q-card class="menu" tabindex="1" ref="menu">
+    <q-card
+        :class="{ menu: true, large: currentMenu === 'ANALYSIS' }"
+        tabindex="1"
+        ref="menu"
+    >
         <q-bar>
             <q-space />
             <div class="menu-name">{{ menuName }}</div>
@@ -10,7 +14,7 @@
         <q-btn-group
             class="button-group"
             spread
-            v-if="currentMenu === 'MAIN_MENU' || currentMenu === 'CREDITS'"
+            v-if="menusWithStandardButtons.indexOf(currentMenu) >= 0"
         >
             <q-btn
                 :disable="playing && !canResume"
@@ -48,6 +52,13 @@
                     size="lg"
                     label="Credits"
                 />
+                <q-btn
+                    v-if="lastAnalyzedFrames.length"
+                    @click="goTo('ANALYSIS')"
+                    tabindex="6"
+                    size="lg"
+                    label="Frame Analysis"
+                />
             </template>
             <template v-else>
                 <q-btn
@@ -77,6 +88,13 @@
                 v-on:close="goTo('MAIN_MENU')"
             />
         </template>
+        <template
+            v-if="currentMenu === 'ANALYSIS' && lastAnalyzedFrames.length"
+        >
+            <q-card-section>
+                <FrameAnalysisMenu :frames="lastAnalyzedFrames" />
+            </q-card-section>
+        </template>
     </q-card>
 </template>
 
@@ -84,18 +102,27 @@
 import { QBar, QBtn, QBtnGroup, QCard, QCardSection, QSpace } from 'quasar';
 import { Options, Vue } from 'vue-class-component';
 
-import Credits from '@/components/menu/Credits.vue';
-import EditorDownloadMenu from '@/components/menu/EditorDownloadMenu.vue';
-import SettingsMenu from '@/components/menu/SettingsMenu.vue';
+import { FrameInfo } from '@/game/debug/frame-info';
 import { Settings } from '@/settings';
 import { getTitle } from '@/temp-util';
 
-type MenuId = 'MAIN_MENU' | 'SETTINGS' | 'WORLD_EDITOR' | 'CREDITS';
+import Credits from './Credits.vue';
+import EditorDownloadMenu from './EditorDownloadMenu.vue';
+import FrameAnalysisMenu from './FrameAnalysisMenu.vue';
+import SettingsMenu from './SettingsMenu.vue';
+
+type MenuId =
+    | 'MAIN_MENU'
+    | 'SETTINGS'
+    | 'WORLD_EDITOR'
+    | 'CREDITS'
+    | 'ANALYSIS';
 
 @Options({
     components: {
         Credits,
         EditorDownloadMenu,
+        FrameAnalysisMenu,
         SettingsMenu,
         QBar,
         QBtn,
@@ -107,6 +134,7 @@ type MenuId = 'MAIN_MENU' | 'SETTINGS' | 'WORLD_EDITOR' | 'CREDITS';
     props: {
         playing: Boolean,
         showingPerformance: Boolean,
+        lastAnalyzedFrames: Array,
     },
     emits: ['close', 'settingsChange', 'menuChange'],
 })
@@ -114,6 +142,9 @@ export default class Menu extends Vue {
     title = getTitle();
     currentMenu: MenuId = 'MAIN_MENU';
     menuName = 'Main Menu';
+    menusWithStandardButtons: MenuId[] = ['MAIN_MENU', 'CREDITS', 'ANALYSIS'];
+
+    lastAnalyzedFrames!: FrameInfo[];
 
     playing!: boolean;
     canResume = false;
@@ -178,6 +209,7 @@ export default class Menu extends Vue {
                     ).onBackClicked();
                     break;
                 case 'CREDITS':
+                case 'ANALYSIS':
                     this.goTo('MAIN_MENU');
                     break;
             }
@@ -190,21 +222,23 @@ export default class Menu extends Vue {
         }
         this.$emit('menuChange');
         this.currentMenu = menu;
+        this.menuName = Menu.getMenuName(menu);
+        (this.$refs.menu as { $el: HTMLElement }).$el.focus();
+    }
+
+    private static getMenuName(menu: MenuId): string {
         switch (menu) {
             case 'MAIN_MENU':
-                this.menuName = 'Main Menu';
-                break;
+                return 'Main Menu';
             case 'SETTINGS':
-                this.menuName = 'Settings';
-                break;
+                return 'Settings';
             case 'WORLD_EDITOR':
-                this.menuName = 'World Editor';
-                break;
+                return 'World Editor';
             case 'CREDITS':
-                this.menuName = 'Credits';
-                break;
+                return 'Credits';
+            case 'ANALYSIS':
+                return 'Frame Analysis';
         }
-        (this.$refs.menu as { $el: HTMLElement }).$el.focus();
     }
 }
 </script>
@@ -243,6 +277,10 @@ export default class Menu extends Vue {
         &:not(:last-child) {
             border-bottom: rgba(125, 125, 125, 0.4) 1px dashed;
         }
+    }
+
+    &.large {
+        max-width: 100vw;
     }
 }
 </style>

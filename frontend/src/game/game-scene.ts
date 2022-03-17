@@ -22,6 +22,7 @@ import { Settings } from '@/settings';
 
 import { addCredit, isReisen } from '../temp-util';
 import { Character } from './character';
+import { FrameAnalysis } from './debug/frame-analysis';
 import { BinaryEntity } from './entities/binary-entity';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
 import { MapDataMessage } from './entities/messages/map-data-message';
@@ -107,7 +108,8 @@ export class GameScene {
     constructor(
         private readonly wrapperElement: HTMLElement,
         private readonly webSocket: WebSocket,
-        private settings: Settings
+        private settings: Settings,
+        private readonly frameAnalysis: FrameAnalysis
     ) {
         this.scene.background = new Color(0x0b051b);
         this.scene.fog = new Fog(this.scene.background, FOG_START, FOG_END);
@@ -401,6 +403,10 @@ export class GameScene {
             updatable.beforeRender(delta, now);
         }
         this.render();
+
+        if (this.frameAnalysis.analyzing) {
+            this.frameAnalysis.captureFrame(this.currentRenderer.domElement);
+        }
 
         this.input.clearMouseDelta();
         if (this.character.visible) {
