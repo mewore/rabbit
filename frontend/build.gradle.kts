@@ -35,9 +35,11 @@ tasks.create<SourceTask>("frontendCheckDisabledLintRules") {
     outputs.upToDateWhen { true }
     val rulesThatShouldNotBeDisabled = listOf("no-debugger", "no-console")
     description =
-        "Ensures that the following ESLint rules have not been disabled: ${rulesThatShouldNotBeDisabled.joinToString(", ")}"
+        "Ensures that the following ESLint rules have not been disabled: " + rulesThatShouldNotBeDisabled.joinToString(
+            ", "
+        )
 
-    val disablePattern = Regex("eslint-disable(-next-line)?\\s+(.*)\\s*$")
+    val disablePattern = Regex("eslint-disable(-next-line)?\\s+(\\S*)")
 
     doLast("Check for commonly disabled ESLint rules") {
         val disabledRuleLocations = mutableListOf<String>()
