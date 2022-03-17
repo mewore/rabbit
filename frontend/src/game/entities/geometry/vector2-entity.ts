@@ -9,6 +9,11 @@ export class Vector2Entity extends BinaryEntity {
         super();
     }
 
+    paste(target: { x: number; y: number }) {
+        target.x = this.x;
+        target.y = this.y;
+    }
+
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
         writer.writeDouble(this.x);
         writer.writeDouble(this.y);

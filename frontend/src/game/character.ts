@@ -14,7 +14,9 @@ import { lerp } from 'three/src/math/MathUtils';
 
 import { addCredit } from '@/temp-util';
 
+import { PlayerInputMutation } from './entities/mutations/player-input-mutation';
 import { PlayerState } from './entities/player-state';
+import { MazeMap } from './entities/world/maze-map';
 import { loadGltfWithCaching } from './util/gltf-util';
 import { PhysicsAware } from './util/physics-aware';
 import { RenderAware } from './util/render-aware';
@@ -58,8 +60,6 @@ const tmpVector3 = new Vector3();
 const horizontalMotion = new Vector2();
 const tmpVector2 = new Vector2();
 
-const TARGET_MOTION_CHANGE_THRESHOLD = 0.05;
-
 const RADIUS = 3;
 const HEIGHT = 10;
 const MIN_ROTATION_SPEED = Math.PI * 0.1;
@@ -77,12 +77,15 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
+    private hasMovedTowardsState = false;
+
     playerId = -1;
 
     private state = CharacterState.IDLE;
 
     private readonly targetHorizontalMotion = new Vector2();
     private jumpWantedAt = -Infinity;
+    private wantsToJump = false;
 
     private hasBeenSetUp = false;
 
@@ -99,12 +102,7 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
 
     private readonly horizontalMotionToAdd = new Vector2();
 
-    constructor(
-        public username: string,
-        isReisen: boolean | undefined,
-        readonly offset = new Vector3(),
-        readonly isSelf = true
-    ) {
+    constructor(public username: string, isReisen: boolean | undefined, readonly isSelf = false) {
         super();
         this.name = username ? 'Character:' + username : 'Character';
 
@@ -193,19 +191,26 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
     }
 
     registerState(newState: PlayerState): void {
-        this.currentState = newState;
-        if (this.isSelf) {
-            if (newState.inputId >= this.inputId) {
-                this.currentState = newState;
+        if (!this.isSelf || newState.inputId >= this.inputId) {
+            this.currentState = newState;
+            if (!this.isSelf) {
+                newState.applyToTargetMotion(this.targetHorizontalMotion);
+                this.targetHorizontalMotion.multiplyScalar(MAX_SPEED);
+                this.wantsToJump = newState.wantsToJump;
+                this.inputId = newState.inputId;
             }
-        } else {
-            setTimeout(() => (this.currentState = newState), newState.latency);
+        }
+    }
+
+    wrapStateToCurrentPosition(map: MazeMap): void {
+        if (this.currentState) {
+            map.wrapTowards(this.currentState.position, this.position);
         }
     }
 
     private moveTowardsState(state: PlayerState, delta: number): void {
         this.body.wakeUp();
-        const multiplier = Math.min(delta * (this.isSelf ? 12 : 3), 1);
+        const multiplier = this.hasMovedTowardsState ? Math.min(delta * 3, 1) : 1;
         const toAddToPos = tmpVector3
             .set(state.position.x, state.position.y, state.position.z)
             .sub(this.position)
@@ -218,34 +223,35 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
             .vsub(this.body.velocity)
             .scale(multiplier);
         this.body.velocity.vadd(toAddToVelocity);
+        this.hasMovedTowardsState = true;
     }
 
     beforePhysics(delta: number, now: number): void {
-        if (this.currentState && (!this.isSelf || this.currentState.inputId >= this.inputId)) {
+        if (!this.isSelf && this.currentState) {
             this.moveTowardsState(this.currentState, delta);
-        }
-        if (!this.isSelf) {
-            return;
         }
 
         const maxFrameAcceleration = ACCELERATION * delta;
         horizontalMotion.set(this.body.velocity.x, this.body.velocity.z);
         const motionToTargetMotionDistanceSquared = horizontalMotion.distanceToSquared(this.targetHorizontalMotion);
-        if (motionToTargetMotionDistanceSquared < maxFrameAcceleration * maxFrameAcceleration) {
-            horizontalMotion.copy(this.targetHorizontalMotion);
-        } else {
+        if (motionToTargetMotionDistanceSquared > maxFrameAcceleration * maxFrameAcceleration) {
             horizontalMotion.add(
                 tmpVector2.subVectors(this.targetHorizontalMotion, horizontalMotion).setLength(maxFrameAcceleration)
             );
+        } else {
+            horizontalMotion.copy(this.targetHorizontalMotion);
         }
 
         this.horizontalMotionToAdd.set(
             horizontalMotion.x - this.body.velocity.x,
             horizontalMotion.y - this.body.velocity.z
         );
-        this.body.velocity.x += this.horizontalMotionToAdd.x * 0.5;
-        this.body.velocity.z += this.horizontalMotionToAdd.y * 0.5;
+        this.body.velocity.x += this.horizontalMotionToAdd.x;
+        this.body.velocity.z += this.horizontalMotionToAdd.y;
 
+        if (this.wantsToJump) {
+            this.jumpWantedAt = now;
+        }
         if (this.isOnGround()) {
             this.body.velocity.y = 0;
             this.position.y = rayResult.hitPointWorld.y;
@@ -254,7 +260,6 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
                 this.body.velocity.y = JUMP_SPEED;
             }
         }
-        this.body.position.set(this.position.x, this.position.y, this.position.z);
     }
 
     afterPhysics(): void {
@@ -264,10 +269,10 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         } else if (this.body.velocity.y < MIN_Y_SPEED) {
             this.body.velocity.y = MIN_Y_SPEED;
         }
-        this.body.velocity.x += this.horizontalMotionToAdd.x * 0.5;
-        this.body.velocity.z += this.horizontalMotionToAdd.y * 0.5;
         this.position.set(this.body.position.x, this.body.position.y, this.body.position.z);
     }
+
+    longBeforeRender(): void {}
 
     beforeRender(delta: number): void {
         const currentSpeedSquared = horizontalMotion.set(this.body.velocity.x, this.body.velocity.z).lengthSq();
@@ -304,19 +309,10 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         return this.localToWorld(tmpVector3.set(0, 20, 0));
     }
 
-    stopMoving(): void {
-        this.setTargetMotion(0, 0);
-    }
-
-    requestMovement(viewpoint: Object3D, forward: number, right: number): void {
-        const angle = viewpoint.rotation.y + tmpVector2.set(forward, right).angle();
-        // The angles in Three.js are clockwise instead of counter-clockwise so the trigonometry is different
-        this.setTargetMotion(Math.sin(angle) * MAX_SPEED, Math.cos(angle) * MAX_SPEED);
-    }
-
-    requestJump(now: number): void {
-        this.body.wakeUp();
-        this.jumpWantedAt = now;
+    applyInput(input: PlayerInputMutation): void {
+        input.applyToTargetMotion(this.targetHorizontalMotion);
+        this.targetHorizontalMotion.multiplyScalar(MAX_SPEED);
+        this.wantsToJump = input.wantsToJump;
     }
 
     private isOnGround(): boolean {
@@ -344,16 +340,6 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         ray.to.set(tmpVector3.x, tmpVector3.y - GROUND_CHECK_PADDING, tmpVector3.z);
         world.raycastAny(ray.from, ray.to, groundRayOptions, rayResult);
         return rayResult.hasHit;
-    }
-
-    private setTargetMotion(x: number, z: number): void {
-        this.body.wakeUp();
-        if (
-            tmpVector2.set(x, z).sub(this.targetHorizontalMotion).lengthSq() / (MAX_SPEED * MAX_SPEED) >
-            TARGET_MOTION_CHANGE_THRESHOLD
-        ) {
-            this.targetHorizontalMotion.set(x, z);
-        }
     }
 
     /**

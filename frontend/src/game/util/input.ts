@@ -15,11 +15,11 @@ export class Input {
     private mouseScrollUp = 0;
 
     get movementRight(): number {
-        return this.active ? (this.right ? 1 : 0) - (this.left ? 1 : 0) : 0;
+        return (this.right ? 1 : 0) - (this.left ? 1 : 0);
     }
 
     get movementForwards(): number {
-        return this.active ? (this.down ? 1 : 0) - (this.up ? 1 : 0) : 0;
+        return (this.down ? 1 : 0) - (this.up ? 1 : 0);
     }
 
     get isUpPressed(): boolean {

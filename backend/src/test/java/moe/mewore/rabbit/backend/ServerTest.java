@@ -31,14 +31,6 @@ class ServerTest {
 
     private Server server;
 
-    private static double[] readEightDoubles(final DataInput eventInput) throws IOException {
-        final double[] result = new double[8];
-        for (int i = 0; i < 8; i++) {
-            result[i] = eventInput.readDouble();
-        }
-        return result;
-    }
-
     @BeforeEach
     void setUp() {
         server = new Server(new ServerSettings(new String[0], Map.of()), mock(Javalin.class), new FakeMap());
@@ -105,7 +97,7 @@ class ServerTest {
 
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byteArrayOutputStream.write(MutationType.PLAYER_INPUT.getIndex());
-        byteArrayOutputStream.writeBytes(new byte[2 * 4 + 4]);
+        byteArrayOutputStream.writeBytes(new byte[3 * 4 + 4]);
         simulateBinaryData(session, byteArrayOutputStream.toByteArray());
 
         assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());

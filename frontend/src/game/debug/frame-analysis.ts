@@ -37,7 +37,7 @@ export class FrameAnalysis {
         this.pendingMessages.push(typeof message === 'string' ? { text: message } : message);
     }
 
-    captureFrame(canvas: HTMLCanvasElement): void {
+    captureFrame(canvas: HTMLCanvasElement, frameId = -1): void {
         if (!this._analyzing) {
             throw new Error('Cannot capture a frame while not analyzing!');
         }
@@ -46,7 +46,7 @@ export class FrameAnalysis {
             this.frames.pop();
         }
         this.frames.push({
-            frameId: -1,
+            frameId,
             imageData:
                 this.imageQuality > 0.99 ? canvas.toDataURL() : canvas.toDataURL('image/jpeg', this.imageQuality),
             messages: this.pendingMessages.splice(0),

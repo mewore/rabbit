@@ -47,6 +47,8 @@ export class CannonDebugRenderer implements RenderAware {
 
     constructor(private readonly scene: Scene, private readonly world: World) {}
 
+    longBeforeRender(): void {}
+
     beforeRender(): void {
         const bodies = this.world.bodies;
         const meshes = this.meshes;

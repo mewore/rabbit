@@ -22,6 +22,7 @@ import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.geometry.ConvexPolygon;
 import moe.mewore.rabbit.geometry.Vector2;
+import moe.mewore.rabbit.geometry.Vector3;
 import moe.mewore.rabbit.noise.Noise;
 
 // I'm too retarded to make an algorithmic/geometric class which isn't complex.
@@ -359,6 +360,11 @@ public class MazeMap extends BinaryEntity {
 
     private static int wrap(final int coordinate, final int size) {
         return coordinate < 0 ? coordinate + size : coordinate % size;
+    }
+
+    public void wrapPosition(final Vector3 position) {
+        position.setX(position.getX() - Math.floor(position.getX() / width + 0.5) * width);
+        position.setZ(position.getZ() - Math.floor(position.getZ() / depth + 0.5) * depth);
     }
 
     private static @Nullable CellTraversal[][] traverse(final boolean[][] map, final int fromRow, final int fromCol) {

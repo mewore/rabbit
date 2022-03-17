@@ -10,6 +10,12 @@ export class Vector3Entity extends BinaryEntity {
         super();
     }
 
+    paste(target: { x: number; y: number; z: number }) {
+        target.x = this.x;
+        target.y = this.y;
+        target.z = this.z;
+    }
+
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
         writer.writeDouble(this.x);
         writer.writeDouble(this.y);

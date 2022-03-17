@@ -6,13 +6,17 @@ import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 
 public class WorldSimulation {
 
+    private static final int MAX_INPUT_FRAME_SHIFT = 15;
+
     private static final int FPS = 60;
 
-    static final int MILLISECONDS_PER_FRAME = 1000 / FPS;
+    private static final double SECONDS_PER_FRAME = 1.0 / FPS;
+
+    private static final int FUTURE_FRAME_BUFFER = 20;
 
     private static final int MAXIMUM_ROLLBACK_MILLISECONDS = 1000;
 
-    private static final int FRAME_BUFFER_SIZE = MAXIMUM_ROLLBACK_MILLISECONDS * 2 * FPS / 1000;
+    private static final int FRAME_BUFFER_SIZE = MAXIMUM_ROLLBACK_MILLISECONDS * 2 * FPS / 1000 + FUTURE_FRAME_BUFFER;
 
     private final WorldSnapshot[] frames = new WorldSnapshot[FRAME_BUFFER_SIZE];
 
@@ -21,10 +25,6 @@ public class WorldSimulation {
     private final WorldState state;
 
     private int frameIndex = 0;
-
-    private int currentFrame = 0;
-
-    private int currentTimestamp = 0;
 
     private int frameToReplayFrom = -1;
 
@@ -37,84 +37,64 @@ public class WorldSimulation {
             "Memory used for the frames: " + FRAME_BUFFER_SIZE * WorldState.BYTES_PER_STORED_STATE / 1024 + " KB");
     }
 
-    private int getLowerIndex(final int first, final int second) {
-        return (first <= frameIndex ? first + FRAME_BUFFER_SIZE : first) <=
-            (second <= frameIndex ? second + FRAME_BUFFER_SIZE : second) ? first : second;
-    }
-
     // TODO: Make it less synchronized
     @Synchronized
     public synchronized void acceptInput(final Player player, final PlayerInputMutation input) {
         final int inputTimestamp = (int) (System.currentTimeMillis() - createdAt) -
             Math.min(player.getLatency(), MAXIMUM_ROLLBACK_MILLISECONDS);
-        final int inputFrame = Math.min(currentFrame,
-            Math.max(0, (inputTimestamp + MILLISECONDS_PER_FRAME / 2) / MILLISECONDS_PER_FRAME));
-        final int frameDifference = currentFrame - inputFrame;
-        if (frameDifference > FRAME_BUFFER_SIZE) {
-            // The input is older than the oldest frame timestamp
-            // This should never happen
-            System.err.printf(
-                "An input sent by player %d (T: %d) seems to be older than what the frame buffer can handle!",
-                player.getId(), inputTimestamp);
-            return;
+        final int expectedInputFrame = Math.round(inputTimestamp * FPS * .001f);
+        int inputFrame = expectedInputFrame;
+        inputFrame = Math.abs(input.getFrameId() - inputFrame) <= MAX_INPUT_FRAME_SHIFT
+            ? input.getFrameId()
+            : inputFrame + (inputFrame > input.getFrameId() ? -MAX_INPUT_FRAME_SHIFT : MAX_INPUT_FRAME_SHIFT);
+
+        final int currentFrame = state.getFrameId();
+        inputFrame = Math.min(currentFrame + FUTURE_FRAME_BUFFER,
+            Math.max(currentFrame - FRAME_BUFFER_SIZE + FUTURE_FRAME_BUFFER + 2, Math.max(1, inputFrame)));
+        if (inputFrame != input.getFrameId()) {
+            System.out.printf(
+                "[#%d] Input #%d cannot be applied to its desired frame #%d; instead, it will be applied to #%d%n",
+                currentFrame, input.getId(), input.getFrameId(), inputFrame);
+            System.out.printf("\t- Input timestamp: %d   |   Expected input frame: %d   |   Latency: %d%n",
+                inputTimestamp, expectedInputFrame, player.getLatency());
         }
-        final int newReplayIndex = frameDifference <= frameIndex
+
+        final int frameDifference = Math.abs(currentFrame - inputFrame);
+        final int inputFrameIndex = inputFrame <= currentFrame ? frameDifference <= frameIndex
             ? (frameIndex - frameDifference)
-            : (frameIndex + FRAME_BUFFER_SIZE - frameDifference);
+            : (frameIndex + FRAME_BUFFER_SIZE - frameDifference) : (frameIndex + frameDifference) % FRAME_BUFFER_SIZE;
 
-        if (frameDifference > 0) {
-            frameToReplayFrom =
-                frameToReplayFrom < 0 ? newReplayIndex : getLowerIndex(frameToReplayFrom, newReplayIndex);
+        if (inputFrame < currentFrame && (frameToReplayFrom == -1 || inputFrame < frameToReplayFrom)) {
+            frameToReplayFrom = inputFrame;
         }
-        frames[newReplayIndex].registerInput(player, input);
-    }
-
-    /**
-     * Re-simulate a specific frame.
-     *
-     * @param frameIndex The frame to overwrite.
-     */
-    private void redoFrame(final int frameIndex) {
-        final int lastFrameIndex = frameIndex == 0 ? FRAME_BUFFER_SIZE - 1 : frameIndex - 1;
-        final WorldSnapshot lastFrame = frames[lastFrameIndex];
-        state.load(lastFrame);
-        state.simulate();
-        state.store(frames[frameIndex]);
-    }
-
-    /**
-     * Simulate a new frame.
-     */
-    private void doFrame() {
-        final WorldSnapshot lastFrame = frames[frameIndex];
-        frameIndex = (frameIndex + 1) % FRAME_BUFFER_SIZE;
-        state.load(lastFrame);
-        state.simulate();
-        state.store(frames[frameIndex]);
-
-        ++currentFrame;
-        currentTimestamp += MILLISECONDS_PER_FRAME;
+        frames[inputFrameIndex].registerInput(player, input);
     }
 
     // TODO: Make it less synchronized
     @Synchronized
-    public WorldState step() {
+    public WorldState update() {
         if (frameToReplayFrom > -1) {
-            state.load(frames[frameToReplayFrom]);
+            final int replayFrameIndex =
+                (frameIndex - (state.getFrameId() - frameToReplayFrom) + FRAME_BUFFER_SIZE) % FRAME_BUFFER_SIZE;
             final int frameToStopAt = (frameIndex + 1) % FRAME_BUFFER_SIZE;
-            for (int i = (frameToReplayFrom + 1) % FRAME_BUFFER_SIZE;
+            state.load(frames[replayFrameIndex], frameToReplayFrom);
+            for (int i = (replayFrameIndex + 1) % FRAME_BUFFER_SIZE;
                  i != frameToStopAt; i = (i + 1) % FRAME_BUFFER_SIZE) {
-                redoFrame(i);
+                state.doStep(SECONDS_PER_FRAME);
+                state.loadInput(frames[i]);
+                state.store(frames[i]);
             }
             frameToReplayFrom = -1;
         }
-        int timeDifference = (int) (System.currentTimeMillis() - createdAt) - currentTimestamp;
-        while (timeDifference >= MILLISECONDS_PER_FRAME) {
-            int steps = timeDifference / MILLISECONDS_PER_FRAME;
+        int targetFrame = Math.round((System.currentTimeMillis() - createdAt) * FPS * .001f);
+        while (state.getFrameId() < targetFrame) {
+            int steps = targetFrame - state.getFrameId();
             while (--steps >= 0) {
-                doFrame();
+                state.loadInput(frames[frameIndex]);
+                state.doStep(SECONDS_PER_FRAME);
+                state.store(frames[frameIndex = (frameIndex + 1) % FRAME_BUFFER_SIZE]);
             }
-            timeDifference = (int) (System.currentTimeMillis() - createdAt) - currentTimestamp;
+            targetFrame = Math.round((System.currentTimeMillis() - createdAt) * FPS * .001f);
         }
 
         return state;
