@@ -52,6 +52,7 @@ pipeline {
                         '**/test/**/*.class',
                         '**/WorldEditor.class',
                         '**/ServerWithPreview.class',
+                        '**/PlayerPreview.class',
                     ].join(','),
 
                     // 100% health at:
