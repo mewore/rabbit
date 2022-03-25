@@ -5,6 +5,7 @@ import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
 import { WorldUpdateMessage } from '@/game/entities/messages/world-update-message';
 import { PlayerInputState } from '@/game/entities/player-input-state';
 import { PlayerState } from '@/game/entities/player-state';
+import { DummySphereUpdate } from '@/game/entities/world/dummy-sphere-update';
 
 describe('WorldUpdateMessage', () => {
     describe('when encoded and decoded', () => {
@@ -31,7 +32,7 @@ describe('WorldUpdateMessage', () => {
                         0
                     ),
                 ],
-                [new Vector3Entity(0.1, 0.2, 0.3)]
+                [new DummySphereUpdate(new Vector3Entity(0.1, 0.2, 0.3), new Vector3Entity(0.1, 0.2, 0.3))]
             );
             const encoded = original.encodeToBinary();
             const decoded = WorldUpdateMessage.decodeFromBinary(new SignedBinaryReader(encoded));

@@ -211,7 +211,7 @@ public class WorldState extends BinaryEntity {
 
     WorldSnapshot createEmptySnapshot() {
         return new WorldSnapshot(maxPlayerCount * INT_DATA_PER_PLAYER,
-            maxPlayerCount * FLOAT_DATA_PER_PLAYER + spheres.length * 3);
+            maxPlayerCount * FLOAT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.FLOAT_DATA_PER_SPHERE);
     }
 
     void doStep() {
@@ -251,7 +251,7 @@ public class WorldState extends BinaryEntity {
             controller.jumpControlTimeLeft = floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET];
 
             int sphereIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
-            for (int i = 0; i < spheres.length; i++, sphereIndex += 3) {
+            for (int i = 0; i < spheres.length; i++, sphereIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE) {
                 spheres[i].load(floatData, sphereIndex);
             }
         });
@@ -296,7 +296,7 @@ public class WorldState extends BinaryEntity {
             floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET] = controller.jumpControlTimeLeft;
 
             int sphereIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
-            for (int i = 0; i < spheres.length; i++, sphereIndex += 3) {
+            for (int i = 0; i < spheres.length; i++, sphereIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE) {
                 spheres[i].store(floatData, sphereIndex);
             }
         });

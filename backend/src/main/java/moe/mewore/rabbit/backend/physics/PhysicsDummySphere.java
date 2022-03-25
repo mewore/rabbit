@@ -19,11 +19,15 @@ import moe.mewore.rabbit.data.SafeDataOutput;
 @RequiredArgsConstructor
 public class PhysicsDummySphere extends BinaryEntity {
 
+    public static final int FLOAT_DATA_PER_SPHERE = 6;
+
     private static final Vector3f OFFSET = new Vector3f(0f, 20f, 0f);
 
     private static final int BOXES_PER_SPHERE = 3;
 
-    private static final Transform TRANSFORM = new Transform();
+    private final Transform tmpTransform = new Transform();
+
+    private final Vector3f tmpVector = new Vector3f();
 
     @Getter
     private final RigidBody body;
@@ -50,27 +54,43 @@ public class PhysicsDummySphere extends BinaryEntity {
         return result.toArray(new PhysicsDummySphere[0]);
     }
 
+    private static void appendVector3fToBinaryOutput(final Vector3f vector3f, final SafeDataOutput output) {
+        output.writeFloat(vector3f.x);
+        output.writeFloat(vector3f.y);
+        output.writeFloat(vector3f.z);
+    }
+
     private Vector3f getPosition() {
-        return body.getWorldTransform(TRANSFORM).origin;
+        return body.getWorldTransform(tmpTransform).origin;
     }
 
-    public void load(final float[] data, final int index) {
-        TRANSFORM.origin.set(data[index], data[index + 1], data[index + 2]);
-        body.setWorldTransform(TRANSFORM);
+    private Vector3f getMotion() {
+        return body.getLinearVelocity(tmpVector);
     }
 
-    public void store(final float[] data, final int index) {
+    public void load(final float[] data, int index) {
+        tmpTransform.origin.set(data[index], data[++index], data[++index]);
+        body.setWorldTransform(tmpTransform);
+
+        tmpVector.set(data[++index], data[++index], data[++index]);
+        getBody().setLinearVelocity(tmpVector);
+    }
+
+    public void store(final float[] data, int index) {
         final Vector3f position = getPosition();
         data[index] = position.x;
-        data[index + 1] = position.y;
-        data[index + 2] = position.z;
+        data[++index] = position.y;
+        data[++index] = position.z;
+
+        final Vector3f motion = getMotion();
+        data[++index] = motion.x;
+        data[++index] = motion.y;
+        data[++index] = motion.z;
     }
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
-        final Vector3f position = getPosition();
-        output.writeFloat(position.x);
-        output.writeFloat(position.y);
-        output.writeFloat(position.z);
+        appendVector3fToBinaryOutput(getPosition(), output);
+        appendVector3fToBinaryOutput(getMotion(), output);
     }
 }

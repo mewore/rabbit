@@ -30,6 +30,8 @@ export class WorldSimulation {
 
     private readonly spheres: Ammo.btRigidBody[] = [];
 
+    private readonly tmpVector3 = new Ammo.btVector3();
+
     private _currentFrame = -1;
 
     get currentFrame(): number {
@@ -110,14 +112,17 @@ export class WorldSimulation {
         }
 
         let sphereIndex = 0;
-        for (const spherePosition of message.spherePositions) {
+        for (const sphereUpdate of message.spheres) {
             if (sphereIndex >= this.spheres.length) {
                 this.spheres.push(this.sphereCreator());
             }
-            this.spheres[sphereIndex++]
+            const sphere = this.spheres[sphereIndex++];
+            sphere
                 .getWorldTransform()
                 .getOrigin()
-                .setValue(spherePosition.x, spherePosition.y, spherePosition.z);
+                .setValue(sphereUpdate.position.x, sphereUpdate.position.y, sphereUpdate.position.z);
+            this.tmpVector3.setValue(sphereUpdate.motion.x, sphereUpdate.motion.y, sphereUpdate.motion.z);
+            sphere.setLinearVelocity(this.tmpVector3);
         }
     }
 
