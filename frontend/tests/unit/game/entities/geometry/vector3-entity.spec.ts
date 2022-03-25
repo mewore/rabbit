@@ -9,7 +9,9 @@ describe('Vector3Entity', () => {
             const original = new Vector3Entity(0.1, 0.2, 0.3);
             const encoded = original.encodeToBinary();
             const decoded = Vector3Entity.decodeFromBinary(new SignedBinaryReader(encoded));
-            expect(decoded).to.deep.equals(original);
+            expect(decoded.x).to.approximately(original.x, 0.000001);
+            expect(decoded.y).to.approximately(original.y, 0.000001);
+            expect(decoded.z).to.approximately(original.z, 0.000001);
         });
     });
 });

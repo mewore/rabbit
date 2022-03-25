@@ -13,11 +13,13 @@ public class ServerPreviewCanvas extends Canvas {
 
     private static final int PLAYER_CIRCLE_RADIUS = 15;
 
-    private static final int PIXELS_PER_CELL = 40;
+    private static final int PIXELS_PER_CELL = 100;
 
     private static final int MAX_IMAGE_PIXELS = 10000000;
 
     private static final BasicStroke stroke = new BasicStroke((float) (PLAYER_CIRCLE_RADIUS) / 2f);
+
+    private static final BasicStroke physicsStroke = new BasicStroke(2f);
 
     private static final int FONT_SIZE = 16;
 
@@ -27,11 +29,11 @@ public class ServerPreviewCanvas extends Canvas {
 
     private static final Font FONT = new Font(null, Font.BOLD, FONT_SIZE);
 
-    private static final Color PLAYER_CIRCLE_INNER_COLOR = new Color(255, 255, 255, 200);
+    private static final Color PLAYER_CIRCLE_INNER_COLOR = new Color(255, 255, 255, 50);
 
-    private static final Color PLAYER_CIRCLE_OUTER_COLOR = new Color(0, 25, 50, 255);
+    private static final Color PLAYER_CIRCLE_OUTER_COLOR = new Color(0, 25, 50, 100);
 
-    private static final Color PLAYER_TEXT_COLOR = PLAYER_CIRCLE_OUTER_COLOR;
+    private static final Color PLAYER_TEXT_COLOR = new Color(0, 25, 50, 200);
 
     private static final int TEXT_BACKGROUND_PADDING = 2;
 
@@ -49,13 +51,15 @@ public class ServerPreviewCanvas extends Canvas {
 
     private final BufferedImage image;
 
-    private int lastPreviewHash = -1;
+    private final ServerPhysicsDebug debugDrawer;
 
     private int offsetX = 0;
 
     private int offsetY = 0;
 
-    public ServerPreviewCanvas(final MazeMap map, final WorldState initialWorldState) {
+    private int lastOverlayHash = -1;
+
+    public ServerPreviewCanvas(final MazeMap map, final WorldState worldState) {
         super();
         int imageWidth = PIXELS_PER_CELL * map.getColumnCount();
         int imageHeight = PIXELS_PER_CELL * map.getRowCount();
@@ -65,9 +69,12 @@ public class ServerPreviewCanvas extends Canvas {
             imageHeight = (int) (imageHeight / Math.sqrt(overhead));
         }
         this.map = map;
-        worldState = initialWorldState;
+        this.worldState = worldState;
         mapImage = map.render(imageWidth, imageHeight);
-        image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
+        image = new BufferedImage(mapImage.getWidth(), mapImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
+
+        debugDrawer = new ServerPhysicsDebug(map.getWidth(), map.getDepth(), imageWidth, imageHeight);
+        this.worldState.getWorld().setDebugDrawer(debugDrawer);
     }
 
     private static double wrapNormalized(final double coordinate) {
@@ -87,18 +94,35 @@ public class ServerPreviewCanvas extends Canvas {
         graphics.dispose();
     }
 
-    public void updatePlayerOverlay() {
+    public void updateOverlay() {
+        debugDrawer.clear();
+        worldState.getWorld().debugDrawWorld();
+
         final List<PlayerPreview> playerPreviews = makeCurrentPlayerPreviews();
-        final int newPreviewHash = playerPreviews.hashCode();
-        if (newPreviewHash == lastPreviewHash) {
+        final int newPlayerPreviewHash = playerPreviews.hashCode();
+
+        final int newOverlayHash = debugDrawer.getHash() * 31 + newPlayerPreviewHash;
+        if (newOverlayHash == lastOverlayHash) {
             // Assuming it's exactly the same so there's no need to redraw it
             return;
         }
-        lastPreviewHash = newPreviewHash;
+        lastOverlayHash = newOverlayHash;
 
         cloneImage(mapImage, image);
+        drawPhysicsDebug();
         drawPlayerPreviews(playerPreviews);
         paint(getGraphics());
+    }
+
+    private void drawPhysicsDebug() {
+        final Graphics2D graphics = image.createGraphics();
+        graphics.setStroke(physicsStroke);
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        debugDrawer.draw((x1, y1, x2, y2, color) -> {
+            graphics.setColor(color);
+            graphics.drawLine(x1, y1, x2, y2);
+        });
     }
 
     private void drawPlayerPreviews(final List<PlayerPreview> playerPreviews) {
@@ -180,17 +204,17 @@ public class ServerPreviewCanvas extends Canvas {
     }
 
     private PlayerPreview makePlayerPreview(final Player player) {
-        final int x = (int) (wrapNormalized(player.getState().getPosition().getX() / map.getWidth() + 0.5) *
-            image.getWidth());
-        final int y = (int) (wrapNormalized(player.getState().getPosition().getZ() / map.getDepth() + 0.5) *
-            image.getHeight());
+        final var position = player.getCharacterController().getPosition();
+        final int x = (int) (wrapNormalized(position.x / map.getWidth() + 0.5) * image.getWidth());
+        final int y = (int) (wrapNormalized(position.z / map.getDepth() + 0.5) * image.getHeight());
 
-        final int motionX = x + (int) (player.getState().getMotion().getX() * image.getWidth() / map.getWidth());
-        final int motionY = y + (int) (player.getState().getMotion().getZ() * image.getHeight() / map.getDepth());
+        final var motion = player.getCharacterController().getMotion();
+        final int motionX = x + (int) (motion.x * image.getWidth() / map.getWidth());
+        final int motionY = y + (int) (motion.z * image.getHeight() / map.getDepth());
         final int targetMotionX =
-            x + (int) (player.getState().getTargetHorizontalMotion().getX() * image.getWidth() / map.getWidth());
+            x + (int) (player.getInputState().getTargetHorizontalMotion().x * image.getWidth() / map.getWidth());
         final int targetMotionY =
-            y + (int) (player.getState().getTargetHorizontalMotion().getY() * image.getHeight() / map.getDepth());
+            y + (int) (player.getInputState().getTargetHorizontalMotion().y * image.getHeight() / map.getDepth());
 
         final int latency = player.getLatency();
         // In order to avoid too frequent updating of the label (and thus redrawing of the preview),

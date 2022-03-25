@@ -92,6 +92,13 @@ export class MazeMap extends BinaryEntity {
         source.z -= Math.floor((source.z - target.z) / this.depth + 0.5) * this.depth;
     }
 
+    wrapTransformTowards(source: Ammo.btTransform, target: { x: number; z: number }): void {
+        const origin = source.getOrigin();
+        origin.setX(Math.floor((origin.x() - target.x) / this.width + 0.5) * this.width);
+        origin.setZ(Math.floor((origin.z() - target.z) / this.depth + 0.5) * this.depth);
+        source.setOrigin(origin);
+    }
+
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
         writer.writeInt(this.rowCount);
         writer.writeInt(this.columnCount);

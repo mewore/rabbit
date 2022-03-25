@@ -98,6 +98,14 @@ public class ByteArrayDataOutput implements SafeDataOutput {
         writeBytesWithLength(s.getBytes(StandardCharsets.US_ASCII));
     }
 
+    @Override
+    public <T extends BinaryEntity> void writeArray(final @NonNull T @NonNull [] entities) {
+        writeInt(entities.length);
+        for (final T entity : entities) {
+            entity.appendToBinaryOutput(this);
+        }
+    }
+
     private void writeBytesWithLength(final byte @NonNull [] bytes) {
         writeInt(bytes.length);
         write(bytes);

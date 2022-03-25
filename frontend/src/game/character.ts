@@ -1,4 +1,4 @@
-import { Body, Cylinder, Material, Ray, RaycastResult, RayOptions, Vec3, World } from 'cannon-es';
+import Ammo from 'ammo.js';
 import {
     AnimationAction,
     AnimationMixer,
@@ -14,9 +14,11 @@ import { lerp } from 'three/src/math/MathUtils';
 
 import { addCredit } from '@/temp-util';
 
+import { FrameAnalysis } from './debug/frame-analysis';
 import { PlayerInputMutation } from './entities/mutations/player-input-mutation';
 import { PlayerState } from './entities/player-state';
 import { MazeMap } from './entities/world/maze-map';
+import { JUMP_SPEED, MAX_Y_SPEED, RigidBodyController } from './physics/rigid-body-controller';
 import { loadGltfWithCaching } from './util/gltf-util';
 import { PhysicsAware } from './util/physics-aware';
 import { RenderAware } from './util/render-aware';
@@ -45,33 +47,19 @@ const WALK_STOP_TIME = 0.1;
 const AIRBORNE_START_TIME = 0.3;
 const AIRBORNE_STOP_TIME = 0.2;
 
-const MIN_Y = 0;
-
-const MAX_SPEED = 80;
-const ACCELERATION = 200;
-const JUMP_CONTROL_LENIENCY = 0.1;
-const JUMP_SPEED = 100;
-const MIN_Y_SPEED = -JUMP_SPEED * 2;
+const MAX_SPEED = 100;
 
 const MOVEMENT_ANIMATION_THRESHOLDS: [number, number] = [1, 20];
 
-const tmpVec3 = new Vec3();
 const tmpVector3 = new Vector3();
 const horizontalMotion = new Vector2();
-const tmpVector2 = new Vector2();
 
 const RADIUS = 3;
 const HEIGHT = 10;
 const MIN_ROTATION_SPEED = Math.PI * 0.1;
 const MAX_ROTATION_SPEED = Math.PI * 3;
 
-const MAX_ON_GROUND_VELOCITY = 1.0;
-const GROUND_CHECK_PADDING = HEIGHT / 5;
-const ray = new Ray();
-const rayResult = new RaycastResult();
-const groundRayOptions: RayOptions = { skipBackfaces: true };
-const GROUND_CHECK_DX = [-RADIUS / 2, 0, RADIUS / 2];
-const GROUND_CHECK_DZ = [-RADIUS / 2, 0, RADIUS / 2];
+let playerShape: Ammo.btConvexShape;
 
 export class Character extends Object3D implements PhysicsAware, RenderAware {
     private animationInfo?: AnimationInfo;
@@ -84,7 +72,7 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
     private state = CharacterState.IDLE;
 
     private readonly targetHorizontalMotion = new Vector2();
-    private jumpWantedAt = -Infinity;
+
     private wantsToJump = false;
 
     private hasBeenSetUp = false;
@@ -93,20 +81,31 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
 
     private currentState?: PlayerState;
 
-    readonly body = new Body({
-        fixedRotation: true,
-        position: new Vec3(0, HEIGHT / 2, 0),
-        mass: 1,
-        material: new Material({ friction: 0, restitution: 0 }),
-    });
+    readonly body: Ammo.btRigidBody;
+    private readonly controller: RigidBodyController;
 
-    private readonly horizontalMotionToAdd = new Vector2();
-
-    constructor(public username: string, isReisen: boolean | undefined, readonly isSelf = false) {
+    constructor(
+        private readonly world: Ammo.btDiscreteDynamicsWorld,
+        public username: string,
+        isReisen: boolean | undefined,
+        readonly isSelf = false
+    ) {
         super();
         this.name = username ? 'Character:' + username : 'Character';
 
-        this.body.addShape(new Cylinder(RADIUS, RADIUS, HEIGHT, 16), new Vec3(0, HEIGHT / 2, 0));
+        const shape = (playerShape =
+            playerShape || new Ammo.btCylinderShape(new Ammo.btVector3(RADIUS, HEIGHT / 2, RADIUS)));
+        this.body = new Ammo.btRigidBody(
+            new Ammo.btRigidBodyConstructionInfo(1, new Ammo.btDefaultMotionState(), shape)
+        );
+        this.body
+            .getWorldTransform()
+            .getOrigin()
+            .setY(HEIGHT / 2);
+
+        this.controller = new RigidBodyController(this.body);
+        this.controller.targetHorizontalMotion = this.targetHorizontalMotion;
+
         const dummyBox = new Mesh(new CylinderBufferGeometry(RADIUS, RADIUS, HEIGHT, 16), new MeshBasicMaterial());
         dummyBox.name = 'CharacterDummyBox';
         dummyBox.receiveShadow = true;
@@ -118,6 +117,28 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         if (isReisen != null) {
             this.setUpMesh(isReisen);
         }
+    }
+
+    applyNewState(newState: PlayerState): void {
+        newState.position.paste(this.position);
+        this.setBodyPosition(newState.position);
+        this.setBodyMotion(newState.motion);
+        this.controller.groundTimeLeft = newState.groundTimeLeft;
+        this.controller.jumpControlTimeLeft = newState.jumpControlTimeLeft;
+    }
+
+    setBodyPosition(position: { readonly x: number; readonly y: number; readonly z: number }): void {
+        const transform = this.body.getWorldTransform();
+        const origin = transform.getOrigin();
+        origin.setValue(position.x, position.y, position.z);
+        transform.setOrigin(origin);
+        this.body.setWorldTransform(transform);
+    }
+
+    private setBodyMotion(motion: { readonly x: number; readonly y: number; readonly z: number }): void {
+        const velocity = this.body.getLinearVelocity();
+        velocity.setValue(motion.x, motion.y, motion.z);
+        this.body.setLinearVelocity(velocity);
     }
 
     setUpMesh(isReisen: boolean): void {
@@ -187,17 +208,18 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         }
         this.attach(newMesh);
         this.currentMesh = newMesh;
+        newMesh.position.set(0, -HEIGHT / 2, 0);
         newMesh.rotation.set(0, 0, 0);
     }
 
     registerState(newState: PlayerState): void {
-        if (!this.isSelf || newState.inputId >= this.inputId) {
+        if (!this.isSelf || newState.input.id >= this.inputId) {
             this.currentState = newState;
             if (!this.isSelf) {
                 newState.applyToTargetMotion(this.targetHorizontalMotion);
                 this.targetHorizontalMotion.multiplyScalar(MAX_SPEED);
                 this.wantsToJump = newState.wantsToJump;
-                this.inputId = newState.inputId;
+                this.inputId = newState.input.id;
             }
         }
     }
@@ -209,73 +231,60 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
     }
 
     private moveTowardsState(state: PlayerState, delta: number): void {
-        this.body.wakeUp();
         const multiplier = this.hasMovedTowardsState ? Math.min(delta * 3, 1) : 1;
         const toAddToPos = tmpVector3
             .set(state.position.x, state.position.y, state.position.z)
             .sub(this.position)
             .multiplyScalar(multiplier);
         this.position.add(toAddToPos);
-        this.body.position.set(this.position.x, this.position.y, this.position.z);
+        this.setBodyPosition(this.position);
 
-        const toAddToVelocity = tmpVec3
-            .set(state.motion.x, state.motion.y, state.motion.z)
-            .vsub(this.body.velocity)
-            .scale(multiplier);
-        this.body.velocity.vadd(toAddToVelocity);
+        const motion = this.body.getLinearVelocity();
+        motion.setValue(
+            motion.x() * (1 - multiplier) - state.motion.x * multiplier,
+            motion.y() * (1 - multiplier) - state.motion.y * multiplier,
+            motion.z() * (1 - multiplier) - state.motion.z * multiplier
+        );
+        this.body.setLinearVelocity(motion);
         this.hasMovedTowardsState = true;
     }
 
-    beforePhysics(delta: number, now: number): void {
+    beforePhysics(delta: number): void {
         if (!this.isSelf && this.currentState) {
             this.moveTowardsState(this.currentState, delta);
         }
-
-        const maxFrameAcceleration = ACCELERATION * delta;
-        horizontalMotion.set(this.body.velocity.x, this.body.velocity.z);
-        const motionToTargetMotionDistanceSquared = horizontalMotion.distanceToSquared(this.targetHorizontalMotion);
-        if (motionToTargetMotionDistanceSquared > maxFrameAcceleration * maxFrameAcceleration) {
-            horizontalMotion.add(
-                tmpVector2.subVectors(this.targetHorizontalMotion, horizontalMotion).setLength(maxFrameAcceleration)
-            );
-        } else {
-            horizontalMotion.copy(this.targetHorizontalMotion);
-        }
-
-        this.horizontalMotionToAdd.set(
-            horizontalMotion.x - this.body.velocity.x,
-            horizontalMotion.y - this.body.velocity.z
-        );
-        this.body.velocity.x += this.horizontalMotionToAdd.x;
-        this.body.velocity.z += this.horizontalMotionToAdd.y;
-
         if (this.wantsToJump) {
-            this.jumpWantedAt = now;
+            this.controller.jump();
         }
-        if (this.isOnGround()) {
-            this.body.velocity.y = 0;
-            this.position.y = rayResult.hitPointWorld.y;
-            if (now - this.jumpWantedAt < JUMP_CONTROL_LENIENCY) {
-                this.jumpWantedAt = -Infinity;
-                this.body.velocity.y = JUMP_SPEED;
-            }
+        this.controller.updateAction(this.world, delta);
+
+        if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
+            FrameAnalysis.GLOBAL.addMessage('\t[Before] Position: ', this.position);
+            FrameAnalysis.GLOBAL.addMessage(
+                '\t[Before] Target motion: ',
+                this.targetHorizontalMotion,
+                ` ${this.wantsToJump ? '^' : ''}`
+            );
+            FrameAnalysis.GLOBAL.addMessage('\t[Before] Motion: ', this.controller.motion);
         }
     }
 
     afterPhysics(): void {
-        if (this.body.position.y < MIN_Y) {
-            this.body.position.y = MIN_Y;
-            this.body.velocity.y = 0;
-        } else if (this.body.velocity.y < MIN_Y_SPEED) {
-            this.body.velocity.y = MIN_Y_SPEED;
+        this.controller.afterPhysics(this.world);
+        const newPosition = this.controller.position;
+        this.position.set(newPosition.x(), newPosition.y(), newPosition.z());
+
+        if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
+            FrameAnalysis.GLOBAL.addMessage('\t[After] Position: ', this.position);
+            FrameAnalysis.GLOBAL.addMessage('\t[After] Motion: ', this.controller.motion);
         }
-        this.position.set(this.body.position.x, this.body.position.y, this.body.position.z);
     }
 
     longBeforeRender(): void {}
 
     beforeRender(delta: number): void {
-        const currentSpeedSquared = horizontalMotion.set(this.body.velocity.x, this.body.velocity.z).lengthSq();
+        const motion = this.controller.motion;
+        const currentSpeedSquared = horizontalMotion.set(motion.x(), motion.z()).lengthSq();
         if (this.targetHorizontalMotion.lengthSq() > 0.0) {
             // The angles in Three.js are clockwise instead of counter-clockwise so the trigonometry is different
             const targetAngle = Math.atan2(this.targetHorizontalMotion.x, this.targetHorizontalMotion.y);
@@ -283,11 +292,11 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
             const rotationSpeed = lerp(MIN_ROTATION_SPEED, MAX_ROTATION_SPEED, angleDifference / Math.PI);
             this.rotation.y = moveAngle(this.rotation.y, targetAngle, rotationSpeed * delta);
         }
-        if (!this.isOnGround()) {
+        if (!this.controller.onGround()) {
             this.transitionIntoState(CharacterState.AIRBORNE);
             if (this.animationInfo) {
-                const ySpeed = this.body.velocity.y;
-                const riseCoefficient = ySpeed >= 0 ? ySpeed / JUMP_SPEED : -ySpeed / MIN_Y_SPEED;
+                const ySpeed = motion.y();
+                const riseCoefficient = ySpeed >= 0 ? ySpeed / JUMP_SPEED : -ySpeed / MAX_Y_SPEED;
                 const riseActionWeight = 0.5 + riseCoefficient * 0.5;
                 this.animationInfo.riseAction.setEffectiveWeight(riseActionWeight);
                 this.animationInfo.fallAction.setEffectiveWeight(1 - riseActionWeight);
@@ -313,33 +322,6 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         input.applyToTargetMotion(this.targetHorizontalMotion);
         this.targetHorizontalMotion.multiplyScalar(MAX_SPEED);
         this.wantsToJump = input.wantsToJump;
-    }
-
-    private isOnGround(): boolean {
-        if (!this.body.world || this.body.velocity.y > MAX_ON_GROUND_VELOCITY) {
-            return false;
-        }
-        for (const dx of GROUND_CHECK_DX) {
-            for (const dz of GROUND_CHECK_DZ) {
-                if (this.tryGroundRay(dx, dz, this.body.world)) {
-                    return true;
-                }
-            }
-        }
-        for (const offset of [-RADIUS, RADIUS]) {
-            if (this.tryGroundRay(offset, 0, this.body.world) || this.tryGroundRay(0, offset, this.body.world)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private tryGroundRay(offsetX: number, offsetZ: number, world: World): boolean {
-        this.localToWorld(tmpVector3.set(offsetX, 0, offsetZ));
-        ray.from.set(tmpVector3.x, tmpVector3.y + GROUND_CHECK_PADDING, tmpVector3.z);
-        ray.to.set(tmpVector3.x, tmpVector3.y - GROUND_CHECK_PADDING, tmpVector3.z);
-        world.raycastAny(ray.from, ray.to, groundRayOptions, rayResult);
-        return rayResult.hasHit;
     }
 
     /**

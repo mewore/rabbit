@@ -8,9 +8,7 @@ public class WorldSimulation {
 
     private static final int MAX_INPUT_FRAME_SHIFT = 15;
 
-    private static final int FPS = 60;
-
-    private static final double SECONDS_PER_FRAME = 1.0 / FPS;
+    static final int FPS = 60;
 
     private static final int FUTURE_FRAME_BUFFER = 20;
 
@@ -67,12 +65,12 @@ public class WorldSimulation {
         if (inputFrame < currentFrame && (frameToReplayFrom == -1 || inputFrame < frameToReplayFrom)) {
             frameToReplayFrom = inputFrame;
         }
-        frames[inputFrameIndex].registerInput(player, input);
+        WorldState.registerInput(frames[inputFrameIndex], player, input);
     }
 
     // TODO: Make it less synchronized
     @Synchronized
-    public WorldState update() {
+    public WorldState update(final long now) {
         if (frameToReplayFrom > -1) {
             final int replayFrameIndex =
                 (frameIndex - (state.getFrameId() - frameToReplayFrom) + FRAME_BUFFER_SIZE) % FRAME_BUFFER_SIZE;
@@ -80,21 +78,20 @@ public class WorldSimulation {
             state.load(frames[replayFrameIndex], frameToReplayFrom);
             for (int i = (replayFrameIndex + 1) % FRAME_BUFFER_SIZE;
                  i != frameToStopAt; i = (i + 1) % FRAME_BUFFER_SIZE) {
-                state.doStep(SECONDS_PER_FRAME);
+                state.doStep();
                 state.loadInput(frames[i]);
                 state.store(frames[i]);
             }
             frameToReplayFrom = -1;
         }
-        int targetFrame = Math.round((System.currentTimeMillis() - createdAt) * FPS * .001f);
+        final int targetFrame = Math.round((now - createdAt) * FPS * .001f);
         while (state.getFrameId() < targetFrame) {
             int steps = targetFrame - state.getFrameId();
             while (--steps >= 0) {
                 state.loadInput(frames[frameIndex]);
-                state.doStep(SECONDS_PER_FRAME);
+                state.doStep();
                 state.store(frames[frameIndex = (frameIndex + 1) % FRAME_BUFFER_SIZE]);
             }
-            targetFrame = Math.round((System.currentTimeMillis() - createdAt) * FPS * .001f);
         }
 
         return state;

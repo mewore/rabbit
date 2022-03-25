@@ -4,19 +4,19 @@ import java.util.List;
 
 public class AxisAlignedRectangle {
 
-    private final double minX;
+    private final float minX;
 
-    private final double maxX;
+    private final float maxX;
 
-    private final double minY;
+    private final float minY;
 
-    private final double maxY;
+    private final float maxY;
 
     public AxisAlignedRectangle(final List<Vector2> points) {
-        minX = points.stream().map(Vector2::getX).min(Double::compareTo).orElse(0.0);
-        maxX = points.stream().map(Vector2::getX).max(Double::compareTo).orElse(0.0);
-        minY = points.stream().map(Vector2::getY).min(Double::compareTo).orElse(0.0);
-        maxY = points.stream().map(Vector2::getY).max(Double::compareTo).orElse(0.0);
+        minX = points.stream().map(Vector2::getX).min(Float::compareTo).orElse(0f);
+        maxX = points.stream().map(Vector2::getX).max(Float::compareTo).orElse(0f);
+        minY = points.stream().map(Vector2::getY).min(Float::compareTo).orElse(0f);
+        maxY = points.stream().map(Vector2::getY).max(Float::compareTo).orElse(0f);
     }
 
     public boolean containsPoint(final Vector2 point) {

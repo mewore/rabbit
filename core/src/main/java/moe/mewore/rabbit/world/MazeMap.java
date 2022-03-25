@@ -18,11 +18,11 @@ import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.Getter;
+import lombok.Setter;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.geometry.ConvexPolygon;
 import moe.mewore.rabbit.geometry.Vector2;
-import moe.mewore.rabbit.geometry.Vector3;
 import moe.mewore.rabbit.noise.Noise;
 
 // I'm too retarded to make an algorithmic/geometric class which isn't complex.
@@ -35,17 +35,24 @@ public class MazeMap extends BinaryEntity {
 
     private static final Color SOLID_CENTER = new Color(60, 60, 60);
 
-    private static final Color WALKABLE_CENTER = new Color((125 << 24) | (25 << 16) | (150 << 8) | 100);
+    private static final Color SOLID_CENTER_DARK = SOLID_CENTER.brighter();
+
+    private static final int PATH_LINE_OPACITY = 100;
 
     private static final Color SOLID_COLOR = new Color(100, 100, 110);
 
-    private static final double SMOOTHING = 0.3;
+    private static final Color SOLID_COLOR_DARK = SOLID_COLOR.darker().darker();
+
+    private static final float SMOOTHING = 0.3f;
 
     @Getter
-    private final double width;
+    private final float width;
 
     @Getter
-    private final double depth;
+    private final float depth;
+
+    @Getter
+    private final List<MazeWall> walls;
 
     @Getter
     private final int rowCount;
@@ -57,7 +64,8 @@ public class MazeMap extends BinaryEntity {
 
     private final boolean[][] map;
 
-    private final List<MazeWall> walls;
+    @Setter
+    private boolean darkMode = false;
 
     private final int[][][] relevantPolygonIndices;
 
@@ -66,8 +74,8 @@ public class MazeMap extends BinaryEntity {
         this.rowCount = map.length;
         this.columnCount = map[0].length;
         this.cellSize = cellSize;
-        this.width = columnCount * cellSize;
-        this.depth = rowCount * cellSize;
+        this.width = (float) (columnCount * cellSize);
+        this.depth = (float) (rowCount * cellSize);
         this.map = map;
         this.walls = walls;
         this.relevantPolygonIndices = relevantPolygonIndices;
@@ -187,10 +195,10 @@ public class MazeMap extends BinaryEntity {
 
         int right;
         int bottom;
-        double leftX;
-        double rightX;
-        double topY;
-        double bottomY;
+        float leftX;
+        float rightX;
+        float topY;
+        float bottomY;
 
         int diagonalRow;
         int diagonalCol;
@@ -211,8 +219,8 @@ public class MazeMap extends BinaryEntity {
                         final Vector2 corner = new Vector2((dx[d] < 0 ? leftX : rightX) / width,
                             (dy[d] < 0 ? topY : bottomY) / height);
                         points.add(corner);
-                        final double deltaX = (dx[d] < 0 ? SMOOTHING : -SMOOTHING) / width;
-                        final double deltaY = (dy[d] < 0 ? SMOOTHING : -SMOOTHING) / height;
+                        final float deltaX = (dx[d] < 0 ? SMOOTHING : -SMOOTHING) / width;
+                        final float deltaY = (dy[d] < 0 ? SMOOTHING : -SMOOTHING) / height;
                         if (dx[d] * dy[d] > 0) {
                             // Top-left or bottom-right
                             points.add(corner.plus(0, deltaY));
@@ -362,9 +370,12 @@ public class MazeMap extends BinaryEntity {
         return coordinate < 0 ? coordinate + size : coordinate % size;
     }
 
-    public void wrapPosition(final Vector3 position) {
-        position.setX(position.getX() - Math.floor(position.getX() / width + 0.5) * width);
-        position.setZ(position.getZ() - Math.floor(position.getZ() / depth + 0.5) * depth);
+    public double wrapX(final double x) {
+        return x - Math.floor(x / width + 0.5) * width;
+    }
+
+    public double wrapZ(final double z) {
+        return z - Math.floor(z / depth + 0.5) * depth;
     }
 
     private static @Nullable CellTraversal[][] traverse(final boolean[][] map, final int fromRow, final int fromCol) {
@@ -426,7 +437,7 @@ public class MazeMap extends BinaryEntity {
         final int col = Math.min((int) (x * columnCount), columnCount);
         final int[] wallIndices = relevantPolygonIndices[row][col];
         for (final int wallIndex : wallIndices) {
-            if (walls.get(wallIndex).getPolygon().containsPoint(new Vector2(x, y))) {
+            if (walls.get(wallIndex).getPolygon().containsPoint(new Vector2((float) x, (float) y))) {
                 return -1.0;
             }
         }
@@ -445,7 +456,7 @@ public class MazeMap extends BinaryEntity {
         double minDistanceSquared = requiredDistanceSquared + 1.0;
         for (final double offsetX : offsetsX) {
             for (final double offsetY : offsetsY) {
-                final Vector2 point = new Vector2(x + offsetX, y + offsetY);
+                final Vector2 point = new Vector2((float) (x + offsetX), (float) (y + offsetY));
                 for (final int wallIndex : wallIndices) {
                     minDistanceSquared = Math.min(minDistanceSquared,
                         walls.get(wallIndex).getPolygon().distanceToPointSquared(point));
@@ -483,9 +494,9 @@ public class MazeMap extends BinaryEntity {
         }
 
         final float[] walkableWithTrees = new float[3];
-        new Color(50, 200, 100).getRGBColorComponents(walkableWithTrees);
+        (darkMode ? new Color(20, 100, 50) : new Color(50, 200, 100)).getRGBColorComponents(walkableWithTrees);
         final float[] walkable = new float[3];
-        Color.WHITE.getRGBColorComponents(walkable);
+        (darkMode ? new Color(10, 15, 30) : Color.WHITE).getRGBColorComponents(walkable);
         final float[] currentColor = new float[3];
         final double xStep = 1.0 / imageWidth;
         final double yStep = 1.0 / imageHeight;
@@ -520,11 +531,9 @@ public class MazeMap extends BinaryEntity {
         return walls.stream()
             .map(MazeWall::getPolygon)
             .map(polygon -> new Polygon(
-                polygon.getPoints().stream().mapToInt(point -> (int) (Math.round(point.getX() * imageWidth))).toArray(),
-                polygon.getPoints()
-                    .stream()
-                    .mapToInt(point -> (int) (Math.round(point.getY() * imageHeight)))
-                    .toArray(), polygon.getPoints().size()))
+                polygon.getPoints().stream().mapToInt(point -> Math.round(point.getX() * imageWidth)).toArray(),
+                polygon.getPoints().stream().mapToInt(point -> Math.round(point.getY() * imageHeight)).toArray(),
+                polygon.getPoints().size()))
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -540,7 +549,7 @@ public class MazeMap extends BinaryEntity {
         graphics.setColor(Color.WHITE);
         graphics.fillRect(0, 0, imageWidth, imageHeight);
 
-        graphics.setColor(SOLID_COLOR);
+        graphics.setColor(darkMode ? SOLID_COLOR_DARK : SOLID_COLOR);
         polygonsToDraw.forEach(graphics::fillPolygon);
 
         applyFertilityToImage(image, 0, 0, imageWidth - 1, imageHeight - 1);
@@ -559,13 +568,13 @@ public class MazeMap extends BinaryEntity {
             columnCount, rowCount, walls.size(), imageWidth, imageHeight);
 
         final Graphics2D graphics = image.createGraphics();
-        graphics.setColor(SOLID_COLOR);
+        graphics.setColor(darkMode ? SOLID_COLOR_DARK : SOLID_COLOR);
         polygonsToDraw.forEach(graphics::fillPolygon);
 
         graphics.addRenderingHints(
             new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON));
 
-        graphics.setColor(SOLID_CENTER);
+        graphics.setColor(darkMode ? SOLID_CENTER_DARK : SOLID_CENTER);
         graphics.setStroke(new BasicStroke(Math.min((imageHeight * .1f) / rowCount, (imageWidth * .1f) / columnCount)));
         polygonsToDraw.forEach(graphics::drawPolygon);
 
@@ -577,11 +586,14 @@ public class MazeMap extends BinaryEntity {
         for (int i = 0; i < rowCount; i++, centerY += centerYStep) {
             double centerX = 0.5 * centerXStep;
             for (int j = 0; j < map[i].length; j++, centerX += centerXStep) {
-                graphics.setColor(map[i][j] ? WALKABLE_CENTER : SOLID_CENTER);
-                graphics.fillPolygon(new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
-                        centerHorizontalSize), (int) centerX},
-                    new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
-                        centerVerticalSize)}, 4);
+                if (!map[i][j]) {
+                    graphics.setColor(darkMode ? SOLID_CENTER_DARK : SOLID_CENTER);
+                    graphics.fillPolygon(
+                        new int[]{(int) (centerX - centerHorizontalSize), (int) centerX, (int) (centerX +
+                            centerHorizontalSize), (int) centerX},
+                        new int[]{(int) centerY, (int) (centerY + centerVerticalSize), (int) centerY, (int) (centerY -
+                            centerVerticalSize)}, 4);
+                }
             }
         }
 
@@ -606,9 +618,20 @@ public class MazeMap extends BinaryEntity {
 
                 final double distanceRatio = traversals[i][j].getMinDistance() / maxDistance;
                 final double extremity = Math.abs((distanceRatio - 0.5) * 2);
-                graphics.setColor(distanceRatio > 0.5
-                    ? new Color(125 + (int) (125 * extremity), 120 - (int) (120 * extremity), 0)
-                    : new Color(125 - (int) (125 * extremity), 120 + (int) (50 * extremity), (int) (70 * extremity)));
+                if (darkMode) {
+                    graphics.setColor(
+                        distanceRatio > 0.5
+                            ? new Color(80 + (int) (80 * extremity), 80 - (int) (80 * extremity), 0, PATH_LINE_OPACITY)
+                            : new Color(80 - (int) (80 * extremity), 80 + (int) (30 * extremity),
+                                (int) (40 * extremity), PATH_LINE_OPACITY));
+                } else {
+                    graphics.setColor(
+                        distanceRatio > 0.5
+                            ? new Color(125 + (int) (125 * extremity), 120 - (int) (120 * extremity), 0,
+                            PATH_LINE_OPACITY)
+                            : new Color(125 - (int) (125 * extremity), 120 + (int) (50 * extremity),
+                                (int) (70 * extremity), PATH_LINE_OPACITY));
+                }
                 graphics.drawLine((int) (centerX), (int) (centerY),
                     (int) (centerX - centerXStep * traversals[i][j].getDx()),
                     (int) (centerY - centerYStep * traversals[i][j].getDy()));

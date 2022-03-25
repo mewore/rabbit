@@ -1,11 +1,11 @@
-import { Body, Material, Plane, Quaternion, Vec3, World } from 'cannon-es';
+import Ammo from 'ammo.js';
 import {
+    AddOperation,
     AmbientLight,
     Clock,
     Color,
     Fog,
     HemisphereLight,
-    Matrix4,
     Mesh,
     MeshBasicMaterial,
     Object3D,
@@ -22,6 +22,7 @@ import { Settings } from '@/settings';
 
 import { addCredit, isReisen } from '../temp-util';
 import { Character } from './character';
+import { AmmoDebugRenderer } from './debug/ammo-debug-renderer';
 import { FrameAnalysis } from './debug/frame-analysis';
 import { BinaryEntity } from './entities/binary-entity';
 import { SignedBinaryReader } from './entities/data/signed-binary-reader';
@@ -37,9 +38,10 @@ import { MazeMap } from './entities/world/maze-map';
 import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
 import { Moon } from './moon';
+import { BulletCollisionFlags } from './physics/bullet-collision-flags';
+import { RigidBodyFollow } from './physics/rigid-body-mesh';
 import { WorldSimulation } from './simulation/world-simulation';
 import { AutoFollow } from './util/auto-follow';
-import { CannonDebugRenderer } from './util/cannon-debug-renderer';
 import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
 import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
@@ -61,11 +63,6 @@ addCredit({
     author: { text: 'Mr.doob', url: 'https://github.com/mrdoob' },
 });
 
-addCredit({
-    thing: { text: 'cannon-es', url: 'https://github.com/pmndrs/cannon-es' },
-    author: { text: 'Stefan Hedman (and Poimandres)', url: 'https://github.com/schteppe' },
-});
-
 const FOV = 60;
 // The fog distance has to be adjusted based on the FOV because the fog opacity depends on the distance of the plane
 //  perpendicular to the camera intersecting the object insead of on the distance between the camera and the object.
@@ -75,6 +72,16 @@ const FOG_START = FOG_END * 0;
 
 const RESOURCES_PER_FRAME = 100;
 const RESOURCES_PER_LAZY_LOAD = 10;
+
+const GROUND_HALF_THICKNESS = 100;
+
+type GameObject = (Object3D | PhysicsAware | RenderAware) & {
+    readonly body?: Ammo.btCollisionObject;
+    readonly collisionFilterMask?: number;
+    readonly collisionFilterGroup?: number;
+    readonly bodies?: ReadonlyArray<Ammo.btCollisionObject>;
+    readonly actionInterface?: Ammo.btActionInterface;
+};
 
 export class GameScene {
     private readonly MAX_DELTA = 0.5;
@@ -89,7 +96,7 @@ export class GameScene {
     private readonly loadAllocations: LazyLoadAllocation[] = [];
     private readonly physicsAwareById = new Map<number | string, PhysicsAware>();
     private readonly renderAwareById = new Map<number | string, RenderAware>();
-    private readonly character = new Character('', isReisen(), true);
+    private readonly character: Character;
 
     private readonly clock = new Clock();
     private readonly elapsedTimeClock = new Clock();
@@ -101,20 +108,17 @@ export class GameScene {
 
     private readonly cameraControls: FixedDistanceOrbitControls;
 
-    private readonly physicsWorld = new World({ gravity: new Vec3(0, -250, 0) });
+    private readonly physicsWorld;
 
     private mapData?: MazeMap;
     readonly forest: ForestObject;
-    readonly forestWalls = new ForestWall(this.character.position, this.physicsWorld);
+    readonly forestWalls: ForestWall;
 
-    readonly physicsDebugger = new CannonDebugRenderer(this.scene, this.physicsWorld);
+    private readonly physicsDebugger: AmmoDebugRenderer;
 
-    private readonly simulation = new WorldSimulation(
-        this.physicsWorld,
-        this.physicsAwareById,
-        this.character,
-        this.characterById
-    );
+    private readonly simulation: WorldSimulation;
+
+    private readonly sphereShape = new Ammo.btSphereShape(10);
 
     private worldUpdateToApply?: WorldUpdateMessage;
 
@@ -127,11 +131,40 @@ export class GameScene {
         private settings: Settings,
         private readonly frameAnalysis: FrameAnalysis
     ) {
+        // Set up the physics world
+        this.physicsDebugger = new AmmoDebugRenderer(this.frameAnalysis);
+        const configuration = new Ammo.btDefaultCollisionConfiguration();
+        this.physicsWorld = new Ammo.btDiscreteDynamicsWorld(
+            new Ammo.btCollisionDispatcher(configuration),
+            new Ammo.btDbvtBroadphase(),
+            new Ammo.btSequentialImpulseConstraintSolver(),
+            configuration
+        );
+        this.physicsWorld.getPairCache().setInternalGhostPairCallback(new Ammo.btGhostPairCallback());
+        this.physicsWorld.setGravity(new Ammo.btVector3(0, -250, 0));
+
+        this.character = new Character(this.physicsWorld, '', isReisen(), true);
+        this.forestWalls = new ForestWall(this.character.position, this.physicsWorld);
+
+        this.simulation = new WorldSimulation(
+            this.physicsWorld,
+            this.physicsAwareById,
+            this.character,
+            this.characterById,
+            this.createSphere.bind(this)
+        );
+        // Setup of the physics world done
+
         this.scene.background = new Color(0x0b051b);
         this.scene.fog = new Fog(this.scene.background, FOG_START, FOG_END);
         this.camera.position.set(-30, 10, -50);
         this.camera.far = FOG_END * 2;
-        this.cameraControls = new FixedDistanceOrbitControls(this.input, this.camera, this.character);
+        this.cameraControls = new FixedDistanceOrbitControls(
+            this.input,
+            this.camera,
+            this.character,
+            this.physicsWorld
+        );
         this.cameraControls.minDistance = 10.0;
         this.cameraControls.maxDistance = 100.0;
         this.cameraControls.zoomMultiplier = 1.4;
@@ -171,49 +204,8 @@ export class GameScene {
         this.add(new AmbientLight(this.scene.background, 3));
         this.add(new AmbientLight(0x112255, 1));
         this.add(new HemisphereLight(this.scene.background, 0x154f30, 0.5));
-        this.physicsWorld.addBody(
-            new Body({
-                shape: new Plane(),
-                quaternion: new Quaternion().setFromEuler(-Math.PI / 2, 0, 0),
-                material: new Material({ friction: 0, restitution: 0 }),
-            })
-        );
 
         this.add(this.forest);
-
-        const cameraIntersectionObjects: Object3D[] = [];
-
-        const physicsDummyBoxRotation = Math.PI * 0.15;
-        const physicsDummyBoxRotationMatrix = new Matrix4().makeRotationY(physicsDummyBoxRotation);
-        const physicsDummyBoxAcceleration = -3;
-        let physicsDummyBoxSpeed = -25;
-        const physicsDummyBoxMovement = new Vector3(1, 0, 0);
-        const physicsDummyBoxPos = new Vector3(-30, 0, -30);
-        let dummyBoxHeight = 10;
-        const dummyBoxHeightAccelerations = [10, 15, 18, -20];
-        for (let i = 0; i < 10; i++) {
-            const physicsDummyBox = new GroundBox(
-                15 + (i === 9 ? 25 : 0),
-                dummyBoxHeight,
-                physicsDummyBoxPos.x,
-                physicsDummyBoxPos.z,
-                (i - 0.5) * physicsDummyBoxRotation
-            );
-            physicsDummyBox.name = 'PhysicsDummyBox' + i;
-            this.add(physicsDummyBox);
-            cameraIntersectionObjects.push(physicsDummyBox);
-
-            physicsDummyBoxPos.add(
-                physicsDummyBoxMovement.multiplyScalar(i === 8 ? physicsDummyBoxSpeed * 1.5 : physicsDummyBoxSpeed)
-            );
-            physicsDummyBoxMovement
-                .multiplyScalar(1 / physicsDummyBoxSpeed)
-                .applyMatrix4(physicsDummyBoxRotationMatrix);
-            physicsDummyBoxSpeed += physicsDummyBoxAcceleration;
-            dummyBoxHeight += dummyBoxHeightAccelerations[i % dummyBoxHeightAccelerations.length];
-        }
-
-        this.cameraControls.intersectionObjects = cameraIntersectionObjects;
 
         this.add(new AxisHelper());
 
@@ -224,8 +216,9 @@ export class GameScene {
         this.add(new AutoFollow(moon, this.character));
         this.add(this.cameraControls);
 
-        this.physicsDebugger.active = this.settings.debugPhysics;
         this.add(this.physicsDebugger);
+        this.physicsWorld.setDebugDrawer(this.physicsDebugger.drawer);
+        this.physicsDebugger.visible = this.settings.debugPhysics;
 
         this.webSocket.onmessage = (message: MessageEvent<ArrayBuffer>) => {
             if (this.settings.artificialLatency >= 5) {
@@ -240,7 +233,7 @@ export class GameScene {
     }
 
     get physicsBodyCount(): number {
-        return this.physicsWorld.bodies.length;
+        return 0;
     }
 
     get activeForestWallBodyCount(): number {
@@ -253,6 +246,30 @@ export class GameScene {
 
     get time(): number {
         return this.elapsedTimeClock.getElapsedTime();
+    }
+
+    createSphere(): Ammo.btRigidBody {
+        const sphereConstructionInfo = new Ammo.btRigidBodyConstructionInfo(
+            1,
+            new Ammo.btDefaultMotionState(),
+            this.sphereShape
+        );
+        const sphere = new Ammo.btRigidBody(sphereConstructionInfo);
+
+        const sphereMesh = new Mesh(
+            new SphereBufferGeometry(10, 16, 16),
+            new MeshBasicMaterial({
+                color: 0x22ffff,
+                transparent: true,
+                opacity: 0.5,
+                fog: false,
+                combine: AddOperation,
+            })
+        );
+        const sphereLight = new PointLight(0x22ffff, 2, 50, 0.9);
+        sphereMesh.attach(sphereLight);
+        this.add(sphereMesh, sphereLight, new RigidBodyFollow(sphere, sphereMesh, sphereLight));
+        return sphere;
     }
 
     applySettings(newSettings: Settings): void {
@@ -274,7 +291,7 @@ export class GameScene {
         this.forest.setReceiveShadow(newSettings.plantsReceiveShadows);
         this.forest.visiblePlants = newSettings.plantVisibility;
         this.forestWalls.padding = newSettings.forestWallActiveRadius;
-        this.physicsDebugger.active = newSettings.debugPhysics;
+        this.physicsDebugger.visible = newSettings.debugPhysics;
 
         if (shouldRefreshSize) {
             this.refreshSize();
@@ -288,7 +305,6 @@ export class GameScene {
             return;
         }
         this.character.visible = true;
-        this.character.position.y = 300;
         this.renderAwareById.set(this.character.id, this.character);
         this.physicsAwareById.set(this.character.id, this.character);
         if (this.webSocket.readyState === WebSocket.OPEN) {
@@ -303,8 +319,8 @@ export class GameScene {
     }
 
     private sendData(data: BinaryEntity): void {
-        if (this.settings.artificialLatency > 0) {
-            setTimeout(() => this.webSocket.send(data.encodeToBinary()), this.settings.artificialLatency);
+        if (this.settings.artificialLatency >= 5) {
+            setTimeout(() => this.webSocket.send(data.encodeToBinary()), this.settings.artificialLatency - 5);
         } else {
             this.webSocket.send(data.encodeToBinary());
         }
@@ -365,11 +381,23 @@ export class GameScene {
 
         const ground = makeGround(message.map.width, message.map.depth);
         this.add(ground);
-        this.cameraControls.intersectionObjects.push(ground);
 
         this.forestWalls.generate(message.map, 50);
-        this.cameraControls.intersectionObjects.push(this.forestWalls);
         this.add(this.forestWalls);
+
+        const planeShape = new Ammo.btBoxShape(
+            new Ammo.btVector3(message.map.width, GROUND_HALF_THICKNESS, message.map.depth)
+        );
+        const constructionInfo = new Ammo.btRigidBodyConstructionInfo(0, new Ammo.btDefaultMotionState(), planeShape);
+        const groundPlane = new Ammo.btRigidBody(constructionInfo);
+        groundPlane.getWorldTransform().getOrigin().setY(-GROUND_HALF_THICKNESS);
+        groundPlane.setCollisionFlags(groundPlane.getCollisionFlags() | BulletCollisionFlags.STATIC_OBJECT);
+        this.physicsWorld.addRigidBody(groundPlane);
+
+        for (const box of message.dummyBoxes) {
+            const physicsDummyBox = new GroundBox(box.width, box.height, box.position, box.rotationY);
+            this.add(physicsDummyBox);
+        }
     }
 
     private onHeartbeat(reader: SignedBinaryReader): void {
@@ -382,7 +410,7 @@ export class GameScene {
         if (existingCharacter) {
             return existingCharacter;
         }
-        const newCharacter = new Character(username, isReisen);
+        const newCharacter = new Character(this.physicsWorld, username, isReisen);
         newCharacter.playerId = playerId;
         this.add(newCharacter);
         this.characterById.set(playerId, newCharacter);
@@ -431,6 +459,10 @@ export class GameScene {
         }
 
         this.simulation.simulateUntil(now);
+        if (this.settings.debugPhysics) {
+            this.physicsDebugger.clearGeometry();
+            this.physicsWorld.debugDrawWorld();
+        }
 
         for (const entity of this.renderAwareById.values()) {
             entity.longBeforeRender(delta, now);
@@ -476,12 +508,7 @@ export class GameScene {
         return this.height;
     }
 
-    private add(
-        ...objects: ((Object3D | PhysicsAware | RenderAware) & {
-            readonly body?: Body;
-            readonly bodies?: ReadonlyArray<Body>;
-        })[]
-    ): void {
+    private add(...objects: GameObject[]): void {
         for (const object of objects) {
             if (object instanceof Object3D) {
                 this.scene.add(object);
@@ -493,17 +520,44 @@ export class GameScene {
                 this.renderAwareById.set(object.id, object);
             }
             if (object.body) {
-                this.physicsWorld.addBody(object.body);
+                if (this.isRigidBody(object.body)) {
+                    if (object.collisionFilterGroup != null && object.collisionFilterMask != null) {
+                        this.physicsWorld.addRigidBody(
+                            object.body,
+                            object.collisionFilterGroup,
+                            object.collisionFilterMask
+                        );
+                    } else {
+                        this.physicsWorld.addRigidBody(object.body);
+                    }
+                } else {
+                    if (object.collisionFilterGroup != null && object.collisionFilterMask != null) {
+                        this.physicsWorld.addCollisionObject(
+                            object.body,
+                            object.collisionFilterGroup,
+                            object.collisionFilterMask
+                        );
+                    } else {
+                        this.physicsWorld.addCollisionObject(object.body);
+                    }
+                }
             }
             if (object.bodies) {
                 for (const body of object.bodies) {
-                    this.physicsWorld.addBody(body);
+                    if (this.isRigidBody(body)) {
+                        this.physicsWorld.addRigidBody(body);
+                    } else {
+                        this.physicsWorld.addCollisionObject(body);
+                    }
                 }
+            }
+            if (object.actionInterface && object.actionInterface instanceof Ammo.btActionInterface) {
+                this.physicsWorld.addAction(object.actionInterface);
             }
         }
     }
 
-    private remove(...objects: ((Object3D | PhysicsAware | RenderAware) & { readonly body?: Body })[]): void {
+    private remove(...objects: GameObject[]): void {
         for (const object of objects) {
             if (object instanceof Object3D) {
                 this.scene.remove(object);
@@ -515,9 +569,20 @@ export class GameScene {
                 this.renderAwareById.delete(object.id);
             }
             if (object.body) {
-                this.physicsWorld.removeBody(object.body);
+                if (this.isRigidBody(object.body)) {
+                    this.physicsWorld.removeRigidBody(object.body);
+                } else {
+                    this.physicsWorld.removeCollisionObject(object.body);
+                }
+            }
+            if (object.actionInterface) {
+                this.physicsWorld.removeAction(object.actionInterface);
             }
         }
+    }
+
+    private isRigidBody(body: unknown): body is Ammo.btRigidBody {
+        return !!(body as Ammo.btRigidBody).getLinearVelocity;
     }
 
     private isPhysicsAware(object: unknown): object is PhysicsAware {

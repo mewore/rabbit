@@ -51,6 +51,7 @@ pipeline {
                     exclusionPattern: [
                         '**/test/**/*.class',
                         '**/WorldEditor.class',
+                        '**/ServerWithPreview.class',
                     ].join(','),
 
                     // 100% health at:

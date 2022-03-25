@@ -3,7 +3,9 @@ import { expect } from 'chai';
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { ConvexPolygonEntity } from '@/game/entities/geometry/convex-polygon-entity';
 import { Vector2Entity } from '@/game/entities/geometry/vector2-entity';
+import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
 import { MapDataMessage } from '@/game/entities/messages/map-data-message';
+import { DummyBox } from '@/game/entities/world/dummy-box';
 import { MazeMap } from '@/game/entities/world/maze-map';
 import { MazeWall } from '@/game/entities/world/maze-wall';
 
@@ -34,7 +36,8 @@ describe('MapDataMessage', () => {
                             ])
                         ),
                     ]
-                )
+                ),
+                [new DummyBox(1, 2, new Vector3Entity(1, 2, 3), 0.23)]
             );
             const encoded = original.encodeToBinary();
             const decoded = MapDataMessage.decodeFromBinary(new SignedBinaryReader(encoded));

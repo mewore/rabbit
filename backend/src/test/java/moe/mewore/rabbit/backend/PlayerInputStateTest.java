@@ -4,10 +4,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class PlayerStateTest {
+class PlayerInputStateTest {
 
     @Test
-    void testEncode() {
-        assertEquals(48, new PlayerState().encodeToBinary().length);
+    void testApplyInput() {
+        assertEquals(9, new PlayerInputState().encodeToBinary().length);
     }
 }

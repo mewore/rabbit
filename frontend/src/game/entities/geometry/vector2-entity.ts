@@ -15,8 +15,8 @@ export class Vector2Entity extends BinaryEntity {
     }
 
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
-        writer.writeDouble(this.x);
-        writer.writeDouble(this.y);
+        writer.writeFloat(this.x);
+        writer.writeFloat(this.y);
     }
 
     distanceToSquared(x: number, y: number): number {
@@ -26,7 +26,7 @@ export class Vector2Entity extends BinaryEntity {
     }
 
     static decodeFromBinary(reader: SignedBinaryReader): Vector2Entity {
-        return new Vector2Entity(reader.readDouble(), reader.readDouble());
+        return new Vector2Entity(reader.readFloat(), reader.readFloat());
     }
 
     static fromVector2(vector2: Vector2): Vector2Entity {

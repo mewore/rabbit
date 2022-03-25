@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="InterestingFiles" pattern="src[rabbit*]:*..*||lib:com.bulletphysics.*.*||lib:com.bulletphysics.*" />
+</component>

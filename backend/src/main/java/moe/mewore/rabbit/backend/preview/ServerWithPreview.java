@@ -27,8 +27,9 @@ public class ServerWithPreview {
         final JMenuBar mb = new JMenuBar();
         frame.getContentPane().add(BorderLayout.NORTH, mb);
 
+        server.getMap().setDarkMode(true);
         final ServerPreviewCanvas previewCanvas = new ServerPreviewCanvas(server.getMap(), server.getWorldState());
-        server.onWorldUpdate(state -> previewCanvas.updatePlayerOverlay());
+        server.onWorldUpdate(state -> previewCanvas.updateOverlay());
 
         frame.getContentPane().add(BorderLayout.CENTER, previewCanvas);
 
