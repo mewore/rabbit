@@ -16,7 +16,7 @@ describe('MapDataMessage', () => {
                 new MazeMap(
                     3,
                     3,
-                    80.5,
+                    0,
                     [
                         [true, false, false],
                         [true, true, false],
@@ -37,7 +37,7 @@ describe('MapDataMessage', () => {
                         ),
                     ]
                 ),
-                [new DummyBox(1, 2, new Vector3Entity(1, 2, 3), 0.23)]
+                [new DummyBox(1, 2, new Vector3Entity(0, 0, 0), 0)]
             );
             const encoded = original.encodeToBinary();
             const decoded = MapDataMessage.decodeFromBinary(new SignedBinaryReader(encoded));

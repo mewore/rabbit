@@ -117,6 +117,7 @@ export class WorldSimulation {
                 this.spheres.push(this.sphereCreator());
             }
             const sphere = this.spheres[sphereIndex++];
+            sphere.forceActivationState(sphereUpdate.activationState);
             sphere
                 .getWorldTransform()
                 .getOrigin()

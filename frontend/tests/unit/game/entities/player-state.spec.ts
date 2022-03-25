@@ -12,8 +12,8 @@ describe('PlayerState', () => {
                 1,
                 1,
                 new PlayerInputState(1, 0, 0),
-                new Vector3Entity(0.1, 0.2, 0.3),
-                new Vector3Entity(0.4, 0.5, 0.6),
+                new Vector3Entity(0, 0, 0),
+                new Vector3Entity(0, 0, 0),
                 0,
                 0
             );
@@ -22,7 +22,7 @@ describe('PlayerState', () => {
             expect(decoded).to.deep.equals(original);
         });
 
-        it('should roughly retain its input angle and vertical velocity', () => {
+        it('should roughly retain its floating point values', () => {
             const original = new PlayerState(
                 1,
                 1,
@@ -34,9 +34,12 @@ describe('PlayerState', () => {
             );
             const encoded = original.encodeToBinary();
             const decoded = PlayerState.decodeFromBinary(new SignedBinaryReader(encoded));
+
             expect(decoded.input.angle).to.approximately(original.input.angle, 0.000001);
             expect(decoded.groundTimeLeft).to.approximately(original.groundTimeLeft, 0.000001);
             expect(decoded.jumpControlTimeLeft).to.approximately(original.jumpControlTimeLeft, 0.000001);
+            expect(decoded.position.x).to.approximately(original.position.x, 0.000001);
+            expect(decoded.motion.x).to.approximately(original.motion.x, 0.000001);
         });
     });
 });

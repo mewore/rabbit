@@ -1,9 +1,18 @@
 import Ammo from 'ammo.js';
-import { BoxBufferGeometry, Mesh, MeshPhongMaterial } from 'three';
+import { AdditiveBlending, BoxBufferGeometry, Mesh, MeshPhongMaterial } from 'three';
 
 const MATERIAL = new MeshPhongMaterial({ color: 0x666666 });
 
 export class GroundBox extends Mesh<BoxBufferGeometry> {
+    static SHINY_MATERIAL = new MeshPhongMaterial({
+        color: MATERIAL.color,
+        emissive: 0xffff66,
+        emissiveIntensity: 0.5,
+        transparent: true,
+        opacity: 0.5,
+        blending: AdditiveBlending,
+    });
+
     readonly body: Ammo.btRigidBody;
 
     constructor(width: number, height: number, position: { x: number; y: number; z: number }, rotationY?: number) {

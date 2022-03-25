@@ -1,5 +1,6 @@
 import Ammo from 'ammo.js';
 import {
+    AdditiveBlending,
     AddOperation,
     AmbientLight,
     Clock,
@@ -74,6 +75,16 @@ const RESOURCES_PER_FRAME = 100;
 const RESOURCES_PER_LAZY_LOAD = 10;
 
 const GROUND_HALF_THICKNESS = 100;
+
+const DUMMY_SPHERE_GEOMETRY = new SphereBufferGeometry(10, 16, 16);
+const DUMMY_SPHERE_MATERIAL = new MeshBasicMaterial({
+    color: 0x22ffff,
+    transparent: true,
+    opacity: 0.5,
+    fog: false,
+    blending: AdditiveBlending,
+    combine: AddOperation,
+});
 
 type GameObject = (Object3D | PhysicsAware | RenderAware) & {
     readonly body?: Ammo.btCollisionObject;
@@ -255,18 +266,10 @@ export class GameScene {
             this.sphereShape
         );
         const sphere = new Ammo.btRigidBody(sphereConstructionInfo);
+        sphere.setRestitution(1);
 
-        const sphereMesh = new Mesh(
-            new SphereBufferGeometry(10, 16, 16),
-            new MeshBasicMaterial({
-                color: 0x22ffff,
-                transparent: true,
-                opacity: 0.5,
-                fog: false,
-                combine: AddOperation,
-            })
-        );
-        const sphereLight = new PointLight(0x22ffff, 2, 50, 0.9);
+        const sphereMesh = new Mesh(DUMMY_SPHERE_GEOMETRY, DUMMY_SPHERE_MATERIAL);
+        const sphereLight = new PointLight(DUMMY_SPHERE_MATERIAL.color, 2, 50, 0.9);
         sphereMesh.attach(sphereLight);
         this.add(sphereMesh, sphereLight, new RigidBodyFollow(sphere, sphereMesh, sphereLight));
         return sphere;
@@ -391,11 +394,16 @@ export class GameScene {
         const constructionInfo = new Ammo.btRigidBodyConstructionInfo(0, new Ammo.btDefaultMotionState(), planeShape);
         const groundPlane = new Ammo.btRigidBody(constructionInfo);
         groundPlane.getWorldTransform().getOrigin().setY(-GROUND_HALF_THICKNESS);
-        groundPlane.setCollisionFlags(groundPlane.getCollisionFlags() | BulletCollisionFlags.STATIC_OBJECT);
+        groundPlane.setCollisionFlags(BulletCollisionFlags.STATIC_OBJECT);
+        groundPlane.setRestitution(0.5);
         this.physicsWorld.addRigidBody(groundPlane);
 
-        for (const box of message.dummyBoxes) {
+        for (let i = 0; i < message.dummyBoxes.length; i++) {
+            const box = message.dummyBoxes[i];
             const physicsDummyBox = new GroundBox(box.width, box.height, box.position, box.rotationY);
+            if (i === message.dummyBoxes.length - 1) {
+                physicsDummyBox.material = GroundBox.SHINY_MATERIAL;
+            }
             this.add(physicsDummyBox);
         }
     }

@@ -99,8 +99,8 @@ class WorldStateTest {
     @Test
     void testCreateEmptySnapshot() {
         final WorldSnapshot snapshot = new WorldState(3, map).createEmptySnapshot();
-        assertEquals(9, snapshot.getIntData().length);
-        assertEquals(69, snapshot.getFloatData().length);
+        assertEquals(13, snapshot.getIntData().length);
+        assertEquals(51, snapshot.getFloatData().length);
     }
 
     @Test
@@ -169,6 +169,6 @@ class WorldStateTest {
         assertNotNull(worldState.createPlayer(true));
 
         worldState.appendToBinaryOutput(dataOutput);
-        assertEquals(57 * 4 + 1, byteStream.toByteArray().length);
+        assertEquals(161, byteStream.toByteArray().length);
     }
 }

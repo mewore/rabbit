@@ -112,10 +112,11 @@ public class WorldState extends BinaryEntity {
         world.setGravity(new Vector3f(0f, -GRAVITY, 0f));
 
         final var planeShape = new BoxShape(new Vector3f(map.getWidth(), GROUND_HALF_THICKNESS, map.getDepth()));
-        final var plane = new RigidBody(0f, new DefaultMotionState(), planeShape);
-        plane.translate(new Vector3f(0f, -GROUND_HALF_THICKNESS, 0f));
-        plane.setCollisionFlags(CollisionFlags.STATIC_OBJECT);
-        world.addRigidBody(plane);
+        final var groundPlane = new RigidBody(0f, new DefaultMotionState(), planeShape);
+        groundPlane.translate(new Vector3f(0f, -GROUND_HALF_THICKNESS, 0f));
+        groundPlane.setCollisionFlags(CollisionFlags.STATIC_OBJECT);
+        groundPlane.setRestitution(.5f);
+        world.addRigidBody(groundPlane);
 
         boxes = PhysicsDummyBox.makeBoxes();
         for (final PhysicsDummyBox box : boxes) {
@@ -210,7 +211,8 @@ public class WorldState extends BinaryEntity {
     }
 
     WorldSnapshot createEmptySnapshot() {
-        return new WorldSnapshot(maxPlayerCount * INT_DATA_PER_PLAYER,
+        return new WorldSnapshot(
+            maxPlayerCount * INT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.INT_DATA_PER_SPHERE,
             maxPlayerCount * FLOAT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.FLOAT_DATA_PER_SPHERE);
     }
 
@@ -249,12 +251,15 @@ public class WorldState extends BinaryEntity {
             controller.loadMotion(floatData, floatIndex + PLAYER_MOTION_OFFSET);
             controller.groundTimeLeft = floatData[floatIndex + PLAYER_GROUND_TIME_LEFT_OFFSET];
             controller.jumpControlTimeLeft = floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET];
-
-            int sphereIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
-            for (int i = 0; i < spheres.length; i++, sphereIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE) {
-                spheres[i].load(floatData, sphereIndex);
-            }
         });
+
+        int sphereIntIndex = maxPlayerCount * INT_DATA_PER_PLAYER;
+        int sphereFloatIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
+        for (final PhysicsDummySphere sphere : spheres) {
+            sphere.load(intData, sphereIntIndex, floatData, sphereFloatIndex);
+            sphereIntIndex += PhysicsDummySphere.INT_DATA_PER_SPHERE;
+            sphereFloatIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE;
+        }
     }
 
     void loadInput(final WorldSnapshot snapshot) {
@@ -294,12 +299,15 @@ public class WorldState extends BinaryEntity {
             storeTuple3f(controller.getMotion(), floatData, floatIndex + PLAYER_MOTION_OFFSET);
             floatData[floatIndex + PLAYER_GROUND_TIME_LEFT_OFFSET] = controller.groundTimeLeft;
             floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET] = controller.jumpControlTimeLeft;
-
-            int sphereIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
-            for (int i = 0; i < spheres.length; i++, sphereIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE) {
-                spheres[i].store(floatData, sphereIndex);
-            }
         });
+
+        int sphereIntIndex = maxPlayerCount * INT_DATA_PER_PLAYER;
+        int sphereFloatIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
+        for (final PhysicsDummySphere sphere : spheres) {
+            sphere.store(intData, sphereIntIndex, floatData, sphereFloatIndex);
+            sphereIntIndex += PhysicsDummySphere.INT_DATA_PER_SPHERE;
+            sphereFloatIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE;
+        }
     }
 
     @Synchronized

@@ -17,8 +17,8 @@ describe('WorldUpdateMessage', () => {
                         2,
                         3,
                         new PlayerInputState(4, 0, 0),
-                        new Vector3Entity(0.1, 0.2, 0.3),
-                        new Vector3Entity(0.4, 0.5, 0.6),
+                        new Vector3Entity(0, 0, 0),
+                        new Vector3Entity(0, 0, 0),
                         0,
                         0
                     ),
@@ -26,13 +26,13 @@ describe('WorldUpdateMessage', () => {
                         5,
                         6,
                         new PlayerInputState(7, 0, 0),
-                        new Vector3Entity(0.4, 0.5, 0.6),
-                        new Vector3Entity(0.1, 0.2, 0.3),
+                        new Vector3Entity(0, 0, 0),
+                        new Vector3Entity(0, 0, 0),
                         0,
                         0
                     ),
                 ],
-                [new DummySphereUpdate(new Vector3Entity(0.1, 0.2, 0.3), new Vector3Entity(0.1, 0.2, 0.3))]
+                [new DummySphereUpdate(1, new Vector3Entity(0, 0, 0), new Vector3Entity(0, 0, 0))]
             );
             const encoded = original.encodeToBinary();
             const decoded = WorldUpdateMessage.decodeFromBinary(new SignedBinaryReader(encoded));
