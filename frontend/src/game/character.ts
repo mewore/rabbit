@@ -14,7 +14,6 @@ import { lerp } from 'three/src/math/MathUtils';
 
 import { addCredit } from '@/temp-util';
 
-import { FrameAnalysis } from './debug/frame-analysis';
 import { PlayerInputMutation } from './entities/mutations/player-input-mutation';
 import { PlayerState } from './entities/player-state';
 import { MazeMap } from './entities/world/maze-map';
@@ -67,6 +66,8 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
 
     private hasMovedTowardsState = false;
 
+    lastAppliedInputId = -1;
+
     playerId = -1;
 
     private state = CharacterState.IDLE;
@@ -98,6 +99,8 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         this.body = new Ammo.btRigidBody(
             new Ammo.btRigidBodyConstructionInfo(1, new Ammo.btDefaultMotionState(), shape)
         );
+        this.body.setFriction(0);
+        this.body.setRestitution(0);
         this.body
             .getWorldTransform()
             .getOrigin()
@@ -257,27 +260,12 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
             this.controller.jump();
         }
         this.controller.updateAction(this.world, delta);
-
-        if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
-            FrameAnalysis.GLOBAL.addMessage('\t[Before] Position: ', this.position);
-            FrameAnalysis.GLOBAL.addMessage(
-                '\t[Before] Target motion: ',
-                this.targetHorizontalMotion,
-                ` ${this.wantsToJump ? '^' : ''}`
-            );
-            FrameAnalysis.GLOBAL.addMessage('\t[Before] Motion: ', this.controller.motion);
-        }
     }
 
     afterPhysics(): void {
         this.controller.afterPhysics(this.world);
         const newPosition = this.controller.position;
         this.position.set(newPosition.x(), newPosition.y(), newPosition.z());
-
-        if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
-            FrameAnalysis.GLOBAL.addMessage('\t[After] Position: ', this.position);
-            FrameAnalysis.GLOBAL.addMessage('\t[After] Motion: ', this.controller.motion);
-        }
     }
 
     longBeforeRender(): void {}
@@ -319,6 +307,7 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
     }
 
     applyInput(input: PlayerInputMutation): void {
+        this.lastAppliedInputId = input.id;
         input.applyToTargetMotion(this.targetHorizontalMotion);
         this.targetHorizontalMotion.multiplyScalar(MAX_SPEED);
         this.wantsToJump = input.wantsToJump;

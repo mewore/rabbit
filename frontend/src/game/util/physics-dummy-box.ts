@@ -1,9 +1,11 @@
 import Ammo from 'ammo.js';
 import { AdditiveBlending, BoxBufferGeometry, Mesh, MeshPhongMaterial } from 'three';
 
+import { BulletCollisionFlags } from '../physics/bullet-collision-flags';
+
 const MATERIAL = new MeshPhongMaterial({ color: 0x666666 });
 
-export class GroundBox extends Mesh<BoxBufferGeometry> {
+export class PhysicsDummyBox extends Mesh<BoxBufferGeometry> {
     static SHINY_MATERIAL = new MeshPhongMaterial({
         color: MATERIAL.color,
         emissive: 0xffff66,
@@ -38,5 +40,8 @@ export class GroundBox extends Mesh<BoxBufferGeometry> {
                 new Ammo.btBoxShape(new Ammo.btVector3(width / 2, height / 2, width / 2))
             )
         );
+        this.body.setCollisionFlags(BulletCollisionFlags.STATIC_OBJECT);
+        this.body.setFriction(0.25);
+        this.body.setRestitution(0.4);
     }
 }

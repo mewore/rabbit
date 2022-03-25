@@ -48,6 +48,7 @@ public class PhysicsDummySphere extends BinaryEntity {
                 final RigidBody sphere = new RigidBody(sphereConstructionInfo);
                 sphere.translate(boxes[i].getPosition());
                 sphere.translate(OFFSET);
+                sphere.setFriction(.5f);
                 sphere.setRestitution(1f);
 
                 result.add(new PhysicsDummySphere(sphere));

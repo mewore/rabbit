@@ -9,11 +9,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import com.bulletphysics.collision.broadphase.DbvtBroadphase;
+import com.bulletphysics.collision.broadphase.Dispatcher;
 import com.bulletphysics.collision.dispatch.CollisionConfiguration;
 import com.bulletphysics.collision.dispatch.CollisionDispatcher;
 import com.bulletphysics.collision.dispatch.CollisionFlags;
 import com.bulletphysics.collision.dispatch.DefaultCollisionConfiguration;
 import com.bulletphysics.collision.dispatch.GhostPairCallback;
+import com.bulletphysics.collision.narrowphase.PersistentManifold;
 import com.bulletphysics.collision.shapes.BoxShape;
 import com.bulletphysics.collision.shapes.ConvexShape;
 import com.bulletphysics.collision.shapes.CylinderShape;
@@ -115,7 +117,8 @@ public class WorldState extends BinaryEntity {
         final var groundPlane = new RigidBody(0f, new DefaultMotionState(), planeShape);
         groundPlane.translate(new Vector3f(0f, -GROUND_HALF_THICKNESS, 0f));
         groundPlane.setCollisionFlags(CollisionFlags.STATIC_OBJECT);
-        groundPlane.setRestitution(.5f);
+        groundPlane.setFriction(.75f);
+        groundPlane.setRestitution(.25f);
         world.addRigidBody(groundPlane);
 
         boxes = PhysicsDummyBox.makeBoxes();
@@ -194,6 +197,8 @@ public class WorldState extends BinaryEntity {
 
         final var body = new RigidBody(
             new RigidBodyConstructionInfo(1f, new DefaultMotionState(startTransform), PLAYER_SHAPE));
+        body.setFriction(0);
+        body.setRestitution(0);
         final var characterController = new RigidBodyController(body);
         world.addRigidBody(body);
 

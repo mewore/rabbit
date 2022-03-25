@@ -68,6 +68,8 @@ public class PhysicsDummyBox extends BinaryEntity {
             final var constructionInfo = new RigidBodyConstructionInfo(0f, new DefaultMotionState(boxTransform), shape);
             final RigidBody body = new RigidBody(constructionInfo);
             body.setCollisionFlags(CollisionFlags.STATIC_OBJECT);
+            body.setFriction(0.25f);
+            body.setRestitution(0.4f);
 
             final float currentSpeed = i == 8 ? physicsDummyBoxSpeed * 1.5f : physicsDummyBoxSpeed;
             final var movementAngle = i * ROTATION_PER_BOX + (float) Math.PI / 2;

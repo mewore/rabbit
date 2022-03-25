@@ -139,9 +139,6 @@ export class WorldSimulation {
             }
         }
 
-        if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
-            FrameAnalysis.GLOBAL.addMessage(`<Frame #${this.currentFrame} -> #${this.currentFrame + 1}>`);
-        }
         for (const updatable of this.physicsAwareById.values()) {
             updatable.beforePhysics(delta, this._currentFrame * SECONDS_PER_FRAME);
         }

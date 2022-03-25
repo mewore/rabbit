@@ -73,7 +73,9 @@ public class ForestWalls {
         }).toArray(RigidBody[]::new);
 
         for (final var body : wallBodies) {
-            body.setCollisionFlags(body.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
+            body.setCollisionFlags(CollisionFlags.STATIC_OBJECT);
+            body.setFriction(.7f);
+            body.setRestitution(0);
         }
 
         return new ForestWalls(wallBodies);

@@ -299,6 +299,8 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
                 body.getWorldTransform().setOrigin(tmpVector3);
             }
             body.setCollisionFlags(BulletCollisionFlags.STATIC_OBJECT);
+            body.setFriction(0.7);
+            body.setRestitution(0);
             for (let i = wall.topRow; i <= wall.bottomRow; i++) {
                 for (let j = wall.leftColumn; j <= wall.rightColumn; j++) {
                     (this.bodiesPerCell[i][j] = this.bodiesPerCell[i][j] || []).push(body);

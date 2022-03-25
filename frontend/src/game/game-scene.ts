@@ -44,10 +44,10 @@ import { RigidBodyFollow } from './physics/rigid-body-mesh';
 import { WorldSimulation } from './simulation/world-simulation';
 import { AutoFollow } from './util/auto-follow';
 import { FixedDistanceOrbitControls } from './util/fixed-distance-orbit-controls';
-import { GroundBox } from './util/ground-box';
 import { Input } from './util/input';
 import { LazyLoadAllocation } from './util/lazy-load-allocation';
 import { PhysicsAware } from './util/physics-aware';
+import { PhysicsDummyBox } from './util/physics-dummy-box';
 import { RenderAware } from './util/render-aware';
 import { AxisHelper, makeGround, makeSkybox, projectOntoCamera } from './util/three-util';
 
@@ -266,6 +266,7 @@ export class GameScene {
             this.sphereShape
         );
         const sphere = new Ammo.btRigidBody(sphereConstructionInfo);
+        sphere.setFriction(0.5);
         sphere.setRestitution(1);
 
         const sphereMesh = new Mesh(DUMMY_SPHERE_GEOMETRY, DUMMY_SPHERE_MATERIAL);
@@ -395,14 +396,15 @@ export class GameScene {
         const groundPlane = new Ammo.btRigidBody(constructionInfo);
         groundPlane.getWorldTransform().getOrigin().setY(-GROUND_HALF_THICKNESS);
         groundPlane.setCollisionFlags(BulletCollisionFlags.STATIC_OBJECT);
-        groundPlane.setRestitution(0.5);
+        groundPlane.setFriction(0.75);
+        groundPlane.setRestitution(0.25);
         this.physicsWorld.addRigidBody(groundPlane);
 
         for (let i = 0; i < message.dummyBoxes.length; i++) {
             const box = message.dummyBoxes[i];
-            const physicsDummyBox = new GroundBox(box.width, box.height, box.position, box.rotationY);
+            const physicsDummyBox = new PhysicsDummyBox(box.width, box.height, box.position, box.rotationY);
             if (i === message.dummyBoxes.length - 1) {
-                physicsDummyBox.material = GroundBox.SHINY_MATERIAL;
+                physicsDummyBox.material = PhysicsDummyBox.SHINY_MATERIAL;
             }
             this.add(physicsDummyBox);
         }
