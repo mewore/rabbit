@@ -1,9 +1,10 @@
-import { World } from 'cannon-es';
+import Ammo from 'ammo.js';
 
 import { Character } from '@/game/character';
 import { PhysicsAware } from '@/game/util/physics-aware';
 import { ArrayQueue, Queue } from '@/util/queue';
 
+import { FrameAnalysis } from '../debug/frame-analysis';
 import { WorldUpdateMessage } from '../entities/messages/world-update-message';
 import { PlayerInputMutation } from '../entities/mutations/player-input-mutation';
 import { MazeMap } from '../entities/world/maze-map';
@@ -27,7 +28,7 @@ export class WorldSimulation {
 
     private readonly serverClock = new ServerClock();
 
-    // public timestamp = 0;
+    private readonly spheres: Ammo.btRigidBody[] = [];
 
     private _currentFrame = -1;
 
@@ -46,10 +47,11 @@ export class WorldSimulation {
     shouldResendInput = false;
 
     constructor(
-        private readonly physicsWorld: World,
+        private readonly physicsWorld: Ammo.btDiscreteDynamicsWorld,
         private readonly physicsAwareById: Map<number | string, PhysicsAware>,
         private readonly selfCharacter: Character,
-        private readonly characterById: Map<number, Character>
+        private readonly characterById: Map<number, Character>,
+        private readonly sphereCreator: () => Ammo.btRigidBody
     ) {}
 
     acceptInput(input: PlayerInputMutation) {
@@ -64,7 +66,7 @@ export class WorldSimulation {
         if (newSelfState) {
             // Remove all inputs which the server has already applied to the state it has sent back to the client
             this.inputEventsSinceReceivedState.popWhile((input) => {
-                if (newSelfState.inputId >= input.id) {
+                if (newSelfState.input.id >= input.id) {
                     this.lastAcknowledgedInput = input;
                     return true;
                 }
@@ -85,7 +87,7 @@ export class WorldSimulation {
                     this.shouldResendInput = true;
                     if (process.env.NODE_ENV === 'development') {
                         window.console.warn(
-                            `World update at frame #${message.frameId} and input #${newSelfState.inputId} ` +
+                            `World update at frame #${message.frameId} and input #${newSelfState.input.id} ` +
                                 'is much more recent than an input not acknowledged by the server yet ' +
                                 `(input #${oldestInputNotSimulatedByServer.id} ` +
                                 `at frame #${oldestInputNotSimulatedByServer.frameId}). Resending the current input.`
@@ -97,17 +99,29 @@ export class WorldSimulation {
 
             this.pendingInputEvents = this.inputEventsSinceReceivedState.clone();
 
+            if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
+                FrameAnalysis.GLOBAL.addMessage(`Received update; player position: ${newSelfState.position}`);
+            }
             if (this.lastAcknowledgedInput) {
                 this.selfCharacter.applyInput(this.lastAcknowledgedInput);
             }
-            newSelfState.position.paste(this.selfCharacter.position);
-            newSelfState.position.paste(this.selfCharacter.body.position);
-            newSelfState.motion.paste(this.selfCharacter.body.velocity);
+            this.selfCharacter.applyNewState(newSelfState);
             this._currentFrame = message.frameId;
+        }
+
+        let sphereIndex = 0;
+        for (const spherePosition of message.spherePositions) {
+            if (sphereIndex >= this.spheres.length) {
+                this.spheres.push(this.sphereCreator());
+            }
+            this.spheres[sphereIndex++]
+                .getWorldTransform()
+                .getOrigin()
+                .setValue(spherePosition.x, spherePosition.y, spherePosition.z);
         }
     }
 
-    private simulate(delta: number) {
+    private doStep(delta: number) {
         for (const inputEvent of this.pendingInputEvents.popWhile((input) => this._currentFrame >= input.frameId)) {
             this.selfCharacter.applyInput(inputEvent);
         }
@@ -119,15 +133,18 @@ export class WorldSimulation {
             }
         }
 
+        if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
+            FrameAnalysis.GLOBAL.addMessage(`<Frame #${this.currentFrame} -> #${this.currentFrame + 1}>`);
+        }
         for (const updatable of this.physicsAwareById.values()) {
             updatable.beforePhysics(delta, this._currentFrame * SECONDS_PER_FRAME);
         }
-        this.physicsWorld.step(delta);
+        this.physicsWorld.stepSimulation(delta, 0, delta);
         ++this._currentFrame;
-        this.wrapEverything();
         for (const updatable of this.physicsAwareById.values()) {
             updatable.afterPhysics(delta, this._currentFrame * SECONDS_PER_FRAME);
         }
+        this.wrapEverything();
     }
 
     private wrapEverything(): void {
@@ -135,11 +152,11 @@ export class WorldSimulation {
             return;
         }
         this.map.wrapPosition(this.selfCharacter.position);
-        this.map.wrapPosition(this.selfCharacter.body.position);
+        this.selfCharacter.setBodyPosition(this.selfCharacter.position);
         for (const character of this.characterById.values()) {
             if (character.playerId !== this.selfCharacter.playerId) {
                 this.map.wrapTowards(character.position, this.selfCharacter.position);
-                this.map.wrapTowards(character.body.position, this.selfCharacter.body.position);
+                character.setBodyPosition(character.position);
             }
         }
     }
@@ -154,7 +171,7 @@ export class WorldSimulation {
             Math.min(MAX_CONSECUTIVE_SIMULATED_FRAMES, targetFrame - this.currentFrame)
         );
         for (let i = 0; i < framesToSimulate; i++) {
-            this.simulate(SECONDS_PER_FRAME);
+            this.doStep(SECONDS_PER_FRAME);
         }
     }
 }

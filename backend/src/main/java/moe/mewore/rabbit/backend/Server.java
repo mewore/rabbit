@@ -151,7 +151,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
         simulationThread.scheduleAtFixedRate(() -> {
             try {
-                final WorldState newState = worldSimulation.update();
+                final WorldState newState = worldSimulation.update(System.currentTimeMillis());
                 if (newState.hasPlayers()) {
                     broadcast(new WorldUpdateMessage(newState));
                 }
@@ -235,7 +235,12 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     @Override
     public void handleConnect(final @NonNull WsConnectContext sender) {
-        sender.send(ByteBuffer.wrap(new MapDataMessage(map).encodeToBinary()));
+        try {
+            sender.send(ByteBuffer.wrap(new MapDataMessage(map, worldState.getBoxes()).encodeToBinary()));
+        } catch (final RuntimeException e) {
+            System.err.printf("Failed to send map data to session %s%n", sender.getSessionId());
+            e.printStackTrace();
+        }
         for (final Player player : playerBySessionId.values()) {
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player, false).encodeToBinary()));
         }

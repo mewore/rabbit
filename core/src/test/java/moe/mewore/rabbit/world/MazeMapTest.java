@@ -30,7 +30,7 @@ class MazeMapTest {
         final WorldProperties properties = new WorldProperties("", 30, 30, 2.5, 2.5, 3, 3, "");
 
         // ~20KB
-        assertEquals(20052, MazeMap.createSeamless(properties, random, opennessNoise).encodeToBinary().length);
+        assertEquals(12756, MazeMap.createSeamless(properties, random, opennessNoise).encodeToBinary().length);
     }
 
     @Test
@@ -76,9 +76,9 @@ class MazeMapTest {
         }).collect(Collectors.toUnmodifiableList()).toArray(new boolean[0][0]);
         final List<MazeWall> walls = new ArrayList<>();
         walls.add(new MazeWall(0, 1, 0, 3, new ConvexPolygon(
-            List.of(new Vector2(0, 0), new Vector2(0, .1), new Vector2(.1, .1), new Vector2(.1, 0)))));
+            List.of(new Vector2(0, 0), new Vector2(0, .1f), new Vector2(.1f, .1f), new Vector2(.1f, 0)))));
         walls.add(new MazeWall(1, 1, 2, 1,
-            new ConvexPolygon(List.of(new Vector2(0, 0), new Vector2(0, .2), new Vector2(.3, .2)))));
+            new ConvexPolygon(List.of(new Vector2(0, 0), new Vector2(0, .2f), new Vector2(.3f, .2f)))));
         final int[][][] relevantPolygons = new int[cells.length][cells[0].length][0];
         for (int i = 0; i < relevantPolygons.length; i++) {
             for (int j = 0; j < relevantPolygons[i].length; j++) {

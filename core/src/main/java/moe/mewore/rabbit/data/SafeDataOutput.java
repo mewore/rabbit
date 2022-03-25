@@ -56,4 +56,6 @@ public interface SafeDataOutput extends DataOutput {
     void writeUTF(@NonNull String s);
 
     void writeAsciiWithLength(@NonNull String s);
+
+    <T extends BinaryEntity> void writeArray(@NonNull T @NonNull [] entities);
 }

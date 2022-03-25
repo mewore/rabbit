@@ -5,6 +5,11 @@ export class Input {
     mouseSensitivity = Math.PI / 1000.0;
     mouseZoomSensitivity = 1 / 128;
 
+    private readonly rotationRequiredForNewInput = Math.PI / 25;
+
+    private mouseX = 0;
+    private mouseXSinceLastInput = -Math.PI;
+
     private up = false;
     private down = false;
     private left = false;
@@ -67,6 +72,7 @@ export class Input {
     clear(): void {
         if (this.hasMovement) {
             this.id++;
+            this.mouseXSinceLastInput = -this.mouseX;
         }
         this.up = this.down = this.left = this.right = this.jump = false;
         this.clearMouseDelta();
@@ -77,11 +83,13 @@ export class Input {
     }
 
     processMouseMovement(movementX: number, movementY: number): void {
-        if (this.hasMovement) {
-            this.id++;
-        }
         this.mouseMovementX += movementX;
         this.mouseMovementY += movementY;
+        this.mouseX += movementX * this.mouseSensitivity;
+        if (this.hasMovement && Math.abs(this.mouseX - this.mouseXSinceLastInput) > this.rotationRequiredForNewInput) {
+            this.id++;
+            this.mouseXSinceLastInput = this.mouseX;
+        }
     }
 
     processMouseWheel(wheelDelta: number): void {
@@ -94,6 +102,7 @@ export class Input {
             case 'ArrowUp':
                 if (this.up !== isDown) {
                     this.id++;
+                    this.mouseXSinceLastInput = this.mouseX;
                     this.up = isDown;
                 }
                 break;
@@ -101,6 +110,7 @@ export class Input {
             case 'ArrowLeft':
                 if (this.left !== isDown) {
                     this.id++;
+                    this.mouseXSinceLastInput = this.mouseX;
                     this.left = isDown;
                 }
                 break;
@@ -108,6 +118,7 @@ export class Input {
             case 'ArrowDown':
                 if (this.down !== isDown) {
                     this.id++;
+                    this.mouseXSinceLastInput = this.mouseX;
                     this.down = isDown;
                 }
                 break;
@@ -115,12 +126,14 @@ export class Input {
             case 'ArrowRight':
                 if (this.right !== isDown) {
                     this.id++;
+                    this.mouseXSinceLastInput = this.mouseX;
                     this.right = isDown;
                 }
                 break;
             case 'Space':
                 if (this.jump !== isDown) {
                     this.id++;
+                    this.mouseXSinceLastInput = this.mouseX;
                     this.jump = isDown;
                 }
                 break;

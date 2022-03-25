@@ -13,7 +13,7 @@ class Vector2Test {
 
     @Test
     void decodeFromBinary() throws IOException {
-        final Vector2 vector = new Vector2(.1, .2);
+        final Vector2 vector = new Vector2(.1f, .2f);
 
         final byte[] encoded = vector.encodeToBinary();
 
@@ -25,6 +25,6 @@ class Vector2Test {
 
     @Test
     void testEncode() {
-        assertEquals(16, new Vector2().encodeToBinary().length);
+        assertEquals(8, new Vector2().encodeToBinary().length);
     }
 }

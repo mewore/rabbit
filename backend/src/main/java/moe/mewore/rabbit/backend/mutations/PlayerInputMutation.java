@@ -20,6 +20,8 @@ public class PlayerInputMutation extends BinaryEntity {
 
     public static final int INPUT_RIGHT_BIT = INPUT_LEFT_BIT << 1;
 
+    public static final int INPUT_JUMP_BIT = INPUT_RIGHT_BIT << 1;
+
     private static final double EIGHTH = Math.PI / 4;
 
     private static final double[][] ANGLE_MAP = {makeAngleMapRow(3, 2, 1), makeAngleMapRow(4, 0, 0), makeAngleMapRow(5,

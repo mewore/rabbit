@@ -1,4 +1,4 @@
-import { Body, Box, ConvexPolyhedron, Material, Vec3, World } from 'cannon-es';
+import Ammo from 'ammo.js';
 import {
     BackSide,
     BufferAttribute,
@@ -15,15 +15,18 @@ import {
 
 import { MazeMap } from '../entities/world/maze-map';
 import { MazeWall } from '../entities/world/maze-wall';
-import { CannonDebugRenderer } from '../util/cannon-debug-renderer';
+import { BulletCollisionFlags } from '../physics/bullet-collision-flags';
 import { LazyLoadAllocation } from '../util/lazy-load-allocation';
 import { PhysicsAware } from '../util/physics-aware';
 import { RenderAware } from '../util/render-aware';
 
 const HEIGHT = 100.0;
-const PHYSICS_MATERIAL = new Material({ friction: 0, restitution: 0 });
-const PADDING_COEFFICIENT = 0.1;
+const PHYSICS_HEIGHT = HEIGHT * 5;
+const HALF_PHYSICS_HEIGHT = PHYSICS_HEIGHT / 2;
+// const PADDING_COEFFICIENT = 0.1;
 const DISTANCE_TO_UV_MULTIPLIER = 1 / HEIGHT;
+
+const tmpVector3 = new Vector3();
 
 interface WithDynamicInfo {
     active?: boolean;
@@ -45,14 +48,14 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
     private uvIndex = -1;
     private uvPositions = new Float32Array();
 
-    private activeWalls: (Body & WithDynamicInfo)[] = [];
+    private activeWalls: (Ammo.btRigidBody & WithDynamicInfo)[] = [];
     private totalWallCount = 0;
     private lastPlayerCell = -1;
-    private bodiesPerCell?: ((Body & WithDynamicInfo)[] | undefined)[][];
+    private bodiesPerCell?: ((Ammo.btRigidBody & WithDynamicInfo)[] | undefined)[][];
 
     padding = 0;
 
-    constructor(private readonly playerPosition: Vector3, private readonly physicsWorld: World) {
+    constructor(private readonly playerPosition: Vector3, private readonly physicsWorld: Ammo.btDiscreteDynamicsWorld) {
         super(
             new BufferGeometry(),
             new MeshStandardMaterial({
@@ -110,11 +113,19 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
                 if (bodies) {
                     for (const body of bodies) {
                         body.playerCell = cell;
-                        this.mapData.wrapTowards(body.position, this.playerPosition);
+
                         if (!body.active) {
                             body.active = true;
-                            this.physicsWorld.addBody(body);
+
+                            this.physicsWorld.addRigidBody(body);
                             this.activeWalls.push(body);
+
+                            const transform = body.getWorldTransform();
+                            const original = transform.getOrigin();
+                            tmpVector3.set(original.x(), original.y(), original.z());
+                            this.mapData.wrapTowards(tmpVector3, this.playerPosition);
+                            transform.setOrigin(new Ammo.btVector3(tmpVector3.x, tmpVector3.y, tmpVector3.z));
+                            body.setWorldTransform(transform);
                         }
                     }
                 }
@@ -125,7 +136,7 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
                 return true;
             }
             body.active = false;
-            this.physicsWorld.removeBody(body);
+            this.physicsWorld.removeRigidBody(body);
             return false;
         });
     }
@@ -188,12 +199,15 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
         }
         let loadedVertices = 0;
         const worldWidth = this.mapData.width;
+        const halfWorldWidth = worldWidth * 0.5;
         const worldDepth = this.mapData.depth;
+        const halfWorldDepth = worldDepth * 0.5;
+        const tmpVector3 = new Ammo.btVector3();
 
         for (let i = 0; i < count; i++) {
             const wall = this.wallsToLoad[this.nextWallIndex++];
             const polygon = wall.polygon;
-            const vertices: Vec3[] = [];
+            // const vertices: Vec3[] = [];
             const points = polygon.points;
             let x1 = (points[points.length - 1].x - 0.5) * worldWidth;
             let z1 = (points[points.length - 1].y - 0.5) * worldDepth;
@@ -231,63 +245,60 @@ export class ForestWall extends Mesh<BufferGeometry, MeshStandardMaterial> imple
                     loadedVertices += 3;
                 }
 
-                vertices.push(new Vec3(x1, 0, z1), new Vec3(x1, HEIGHT, z1));
+                // vertices.push(new Vec3(x1, 0, z1), new Vec3(x1, HEIGHT, z1));
                 x1 = x2;
                 z1 = z2;
             }
             this.posIndex = posIndex;
             this.uvIndex = uvIndex;
 
-            let body: Body;
+            let body: Ammo.btRigidBody;
             if (points.length === 4) {
-                const xValues = points.map((point) => point.x * worldWidth - worldWidth / 2);
-                const minX = xValues.reduce((previous, current) => Math.min(previous, current));
-                const maxX = xValues.reduce((previous, current) => Math.max(previous, current));
-                const zValues = points.map((point) => point.y * worldDepth - worldDepth / 2);
-                const minZ = zValues.reduce((previous, current) => Math.min(previous, current));
-                const maxZ = zValues.reduce((previous, current) => Math.max(previous, current));
-                body = new Body({
-                    shape: new Box(new Vec3((maxX - minX) / 2, HEIGHT / 2, (maxZ - minZ) / 2)),
-                    position: new Vec3((maxX + minX) / 2, HEIGHT / 2, (maxZ + minZ) / 2),
-                    material: PHYSICS_MATERIAL,
-                    allowSleep: true,
-                    fixedRotation: true,
-                });
+                // Rectangle -> box
+                const minX = points.reduce((prev, current) => Math.min(prev, current.x), Infinity) * worldWidth;
+                const minY = points.reduce((prev, current) => Math.min(prev, current.y), Infinity) * worldDepth;
+                const maxX = points.reduce((prev, current) => Math.max(prev, current.x), -Infinity) * worldWidth;
+                const maxY = points.reduce((prev, current) => Math.max(prev, current.y), -Infinity) * worldDepth;
+                tmpVector3.setValue((maxX - minX) * 0.5, HALF_PHYSICS_HEIGHT, (maxY - minY) * 0.5);
+                const shape = new Ammo.btBoxShape(tmpVector3);
+                body = new Ammo.btRigidBody(
+                    new Ammo.btRigidBodyConstructionInfo(0, new Ammo.btDefaultMotionState(), shape)
+                );
+                tmpVector3.setValue(
+                    (maxX + minX) * 0.5 - halfWorldWidth,
+                    HALF_PHYSICS_HEIGHT,
+                    (maxY + minY) * 0.5 - halfWorldDepth
+                );
+                body.getWorldTransform().setOrigin(tmpVector3);
             } else {
-                let position = new Vec3();
-                for (let i = 0; i < vertices.length; i += 2) {
-                    position = position.vadd(vertices[i]);
-                }
-                position = position.scale(1.0 / points.length);
-                if (
-                    position.x < -worldWidth / 2 - PADDING_COEFFICIENT * worldWidth ||
-                    position.x > worldWidth / 2 + PADDING_COEFFICIENT * worldWidth ||
-                    position.z < -worldDepth / 2 - PADDING_COEFFICIENT * worldDepth ||
-                    position.z > worldDepth / 2 + PADDING_COEFFICIENT * worldDepth
-                ) {
-                    continue;
-                }
+                // Polygon -> polyhedron
 
-                for (let i = 0; i < vertices.length; i++) {
-                    vertices[i] = vertices[i].vsub(position);
+                // The average position of the points will be the center
+                const xSum = points.reduce((prev, current) => prev + current.x, 0);
+                const ySum = points.reduce((prev, current) => prev + current.y, 0);
+                tmpVector3.setValue(
+                    (xSum * worldWidth) / points.length,
+                    HALF_PHYSICS_HEIGHT,
+                    (ySum * worldDepth) / points.length
+                );
+
+                const shape = new Ammo.btConvexHullShape();
+                for (const point of points) {
+                    const x = point.x * worldWidth - tmpVector3.x();
+                    const z = point.y * worldDepth - tmpVector3.z();
+                    shape.addPoint(new Ammo.btVector3(x, -HALF_PHYSICS_HEIGHT, z));
+                    shape.addPoint(new Ammo.btVector3(x, HALF_PHYSICS_HEIGHT, z));
                 }
-                const faces: number[][] = [];
-                for (let i = 0; i < vertices.length; i += 2) {
-                    faces.push(
-                        [i, (i + 2) % vertices.length, (i + 3) % vertices.length],
-                        [i, (i + 3) % vertices.length, i + 1]
-                    );
-                }
-                const shape = new ConvexPolyhedron({ vertices, faces });
-                CannonDebugRenderer.setShapeColor(shape, 0xff0000);
-                body = new Body({
-                    shape,
-                    position,
-                    material: PHYSICS_MATERIAL,
-                    allowSleep: true,
-                    fixedRotation: true,
-                });
+                shape.recalcLocalAabb();
+                body = new Ammo.btRigidBody(
+                    new Ammo.btRigidBodyConstructionInfo(0, new Ammo.btDefaultMotionState(), shape)
+                );
+
+                tmpVector3.setX(tmpVector3.x() - halfWorldWidth);
+                tmpVector3.setZ(tmpVector3.z() - halfWorldWidth);
+                body.getWorldTransform().setOrigin(tmpVector3);
             }
+            body.setCollisionFlags(BulletCollisionFlags.STATIC_OBJECT);
             for (let i = wall.topRow; i <= wall.bottomRow; i++) {
                 for (let j = wall.leftColumn; j <= wall.rightColumn; j++) {
                     (this.bodiesPerCell[i][j] = this.bodiesPerCell[i][j] || []).push(body);

@@ -17,12 +17,14 @@
             v-if="menusWithStandardButtons.indexOf(currentMenu) >= 0"
         >
             <q-btn
-                :disable="playing && !canResume"
+                :disable="
+                    loadingAmmo || ammoFailedToLoad || (playing && !canResume)
+                "
                 color="purple"
                 @click="onResumeOrPlayClicked()"
                 tabindex="2"
                 size="lg"
-                :label="playing ? 'Resume' : 'Play'"
+                :label="getPlayButtonLabel()"
             >
                 <div class="button-sublabel" v-if="playing">
                     {{
@@ -30,8 +32,8 @@
                             ? resumeButtonTip
                             : 'Waiting for the Pointer Lock API to chill out...'
                     }}
-                </div></q-btn
-            >
+                </div>
+            </q-btn>
 
             <template v-if="currentMenu === 'MAIN_MENU'">
                 <q-btn
@@ -132,6 +134,8 @@ type MenuId =
         QSpace,
     },
     props: {
+        loadingAmmo: Boolean,
+        ammoFailedToLoad: Boolean,
         playing: Boolean,
         showingPerformance: Boolean,
         lastAnalyzedFrames: Array,
@@ -146,6 +150,8 @@ export default class Menu extends Vue {
 
     lastAnalyzedFrames!: FrameInfo[];
 
+    loadingAmmo!: boolean;
+    ammoFailedToLoad!: boolean;
     playing!: boolean;
     canResume = false;
 
@@ -177,6 +183,16 @@ export default class Menu extends Vue {
             'pointerlockerror',
             this.pointerLockErrorHandler
         );
+    }
+
+    getPlayButtonLabel(): string {
+        if (this.loadingAmmo) {
+            return 'Loading Ammo.js...';
+        }
+        if (this.ammoFailedToLoad) {
+            return 'Ammo failed to load!';
+        }
+        return this.playing ? 'Resume' : 'Play';
     }
 
     beforeUnmount(): void {
@@ -258,7 +274,7 @@ export default class Menu extends Vue {
 .menu {
     text-align: center;
     width: 90%;
-    max-width: 45em;
+    max-width: 50em;
     outline: none;
     .menu-name {
         user-select: none;

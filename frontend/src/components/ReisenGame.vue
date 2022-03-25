@@ -51,6 +51,8 @@
         >
             <Menu
                 ref="menu"
+                :loadingAmmo="loadingAmmo"
+                :ammoFailedToLoad="ammoFailedToLoad"
                 :playing="playing"
                 v-on:close="onMenuClosed()"
                 v-on:settingsChange="onSettingsChanged($event)"
@@ -62,6 +64,7 @@
 </template>
 
 <script lang="ts">
+import * as Ammo from 'ammo.js';
 import { createToast } from 'mosha-vue-toastify';
 import { QDialog, QSpinnerGrid } from 'quasar';
 import { Options, Vue } from 'vue-class-component';
@@ -71,6 +74,7 @@ import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
 import { FrameAnalysis } from '@/game/debug/frame-analysis';
 import { FrameInfo } from '@/game/debug/frame-info';
 import { getSettings, Settings } from '@/settings';
+import { addCredit } from '@/temp-util';
 
 import { GameScene } from '../game/game-scene';
 
@@ -117,9 +121,12 @@ export default class ReisenGame extends Vue {
     targetFrameDelta = INACTIVE_FRAME_DELTA;
     nextFrameMinTime = 0;
 
-    private readonly frameAnalysis = new FrameAnalysis();
+    private readonly frameAnalysis = FrameAnalysis.GLOBAL;
     isAnalyzing = false;
     lastAnalyzedFrames: FrameInfo[] = [];
+
+    loadingAmmo = true;
+    ammoFailedToLoad = false;
 
     private readonly eventsToRemove: [
         Node | Window,
@@ -127,7 +134,7 @@ export default class ReisenGame extends Vue {
         (event: unknown) => void
     ][] = [];
 
-    mounted(): void {
+    async mounted(): Promise<void> {
         const settings = getSettings();
         if (!settings.darkUi) {
             this.$emit('darkUiSetting', settings.darkUi);
@@ -135,10 +142,35 @@ export default class ReisenGame extends Vue {
         this.frameAnalysis.imageQuality = settings.frameAnalysisQuality;
         this.showingPerformance = settings.showPerformance;
 
+        const canvasWrapper = this.getCanvasWrapper();
+
+        ReisenGame.addAmmoJsCredits();
+        // Ammo.js sometimes fails to load with a "TypeError: Cannot set properties of undefined (setting 'Ammo')"
+        try {
+            await (
+                Ammo as unknown as (
+                    target?: typeof Ammo
+                ) => Promise<typeof Ammo>
+            ).bind(Ammo)(Ammo);
+        } catch (error) {
+            let description =
+                "There's nothing I could do to prevent this. Ammo.js randomly decided not to work. 😔";
+            if ((error as Error).message) {
+                description +=
+                    '<br><br>The error is: ' + (error as Error).message;
+            }
+            createToast(
+                { title: 'Failed to load Ammo.js!', description },
+                { type: 'danger', timeout: -1, showCloseButton: false }
+            );
+            throw error;
+        } finally {
+            this.loadingAmmo = false;
+        }
+
         this.webSocket = new WebSocket(
             `ws://${window.location.host}/multiplayer`
         );
-        const canvasWrapper = this.getCanvasWrapper();
         this.webSocket.binaryType = 'arraybuffer';
         this.scene = new GameScene(
             canvasWrapper,
@@ -197,6 +229,35 @@ export default class ReisenGame extends Vue {
                 }
             })
         );
+    }
+
+    private static addAmmoJsCredits(): void {
+        addCredit({
+            thing: {
+                text: 'Bullet physics engine',
+                url: 'https://pybullet.org/wordpress/',
+            },
+            author: {
+                text: 'erwincoumans',
+                url: 'https://github.com/erwincoumans',
+            },
+        });
+
+        addCredit({
+            thing: {
+                text: 'Ammo.js (JS port of Bullet)',
+                url: 'https://github.com/kripken/ammo.js/',
+            },
+            author: { text: 'kripken', url: 'https://github.com/kripken' },
+        });
+
+        addCredit({
+            thing: {
+                text: 'ammojs-typed (TS type definitions of Ammo.js)',
+                url: 'https://github.com/giniedp/ammojs-typed',
+            },
+            author: { text: 'Ginie', url: 'https://github.com/giniedp' },
+        });
     }
 
     private addEvent<T extends Event>(

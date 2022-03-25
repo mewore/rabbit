@@ -12,11 +12,11 @@ import moe.mewore.rabbit.data.SafeDataOutput;
 @Getter
 @Setter
 @AllArgsConstructor
-public class Vector2 extends BinaryEntity implements GeometricVector {
+public class Vector2 extends BinaryEntity {
 
-    private double x;
+    private float x;
 
-    private double y;
+    private float y;
 
     public Vector2() {
         this(0, 0);
@@ -28,32 +28,22 @@ public class Vector2 extends BinaryEntity implements GeometricVector {
         return dx * dx + dy * dy;
     }
 
-    public void store(final double[] source, int position) {
-        source[position] = x;
-        source[++position] = y;
+    public static Vector2 decodeFromBinary(final DataInput input) throws IOException {
+        return new Vector2(input.readFloat(), input.readFloat());
     }
 
-    public void load(final double[] source, int position) {
-        x = source[position];
-        y = source[++position];
-    }
-
-    public void set(final double newX, final double newY) {
+    public void set(final float newX, final float newY) {
         x = newX;
         y = newY;
     }
 
-    public Vector2 plus(final double deltaX, final double deltaY) {
+    public Vector2 plus(final float deltaX, final float deltaY) {
         return new Vector2(x + deltaX, y + deltaY);
-    }
-
-    public static Vector2 decodeFromBinary(final DataInput input) throws IOException {
-        return new Vector2(input.readDouble(), input.readDouble());
     }
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeDouble(x);
-        output.writeDouble(y);
+        output.writeFloat(x);
+        output.writeFloat(y);
     }
 }
