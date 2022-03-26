@@ -1,6 +1,7 @@
 package moe.mewore.rabbit.backend.preview;
 
 import javax.vecmath.Vector3f;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.Collections;
 import java.util.Map;
@@ -11,13 +12,16 @@ import com.bulletphysics.dynamics.DynamicsWorld;
 import org.junit.jupiter.api.Test;
 
 import moe.mewore.rabbit.backend.Player;
+import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
 import moe.mewore.rabbit.backend.simulation.WorldState;
 import moe.mewore.rabbit.world.MazeMap;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -72,14 +76,47 @@ class ServerPreviewCanvasTest {
         final var controller = mock(RigidBodyController.class);
         when(controller.getPosition()).thenReturn(new Vector3f());
         when(controller.getMotion()).thenReturn(new Vector3f());
-        final var player = new Player(0, 0, "Player 1", false, world, body, controller);
-        final var player2 = new Player(1, 1, "Player 2", true, world, body, controller);
+        final var playerWithTargetMotion = new Player(0, 0, "Player 1", false, world, body, controller);
+        playerWithTargetMotion.getInputState().applyInput(1, 1f, PlayerInputMutation.INPUT_UP_BIT);
 
-        final var worldState = makeWorldState(Map.of(0, player, 1, player2));
+
+        final var controller2 = mock(RigidBodyController.class);
+        when(controller2.getPosition()).thenReturn(new Vector3f());
+        when(controller2.getMotion()).thenReturn(new Vector3f(1, 1, 1));
+        final var playerWithMotion = new Player(1, 1, "Player 2", true, world, body, controller2);
+
+        final var worldState = makeWorldState(Map.of(0, playerWithTargetMotion, 1, playerWithMotion));
         final var map = makeMap(1, 2);
         final var canvas = new ServerPreviewCanvas(map, worldState);
         when(map.getWidth()).thenReturn(1f);
         when(map.getDepth()).thenReturn(1f);
         canvas.updateOverlay();
+    }
+
+    @Test
+    void testPaint() {
+        final var worldState = makeWorldState(Collections.emptyMap());
+        final var map = makeMap(1, 2);
+        final var canvas = new ServerPreviewCanvasWithSize(map, worldState);
+        final var graphics = mock(Graphics.class);
+        canvas.paint(graphics);
+        verify(graphics, times(4)).drawImage(any(), anyInt(), anyInt(), same(canvas));
+    }
+
+    private static class ServerPreviewCanvasWithSize extends ServerPreviewCanvas {
+
+        public ServerPreviewCanvasWithSize(final MazeMap map, final WorldState worldState) {
+            super(map, worldState);
+        }
+
+        @Override
+        public int getWidth() {
+            return 2;
+        }
+
+        @Override
+        public int getHeight() {
+            return 2;
+        }
     }
 }

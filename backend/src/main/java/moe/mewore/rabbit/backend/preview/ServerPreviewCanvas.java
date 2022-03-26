@@ -235,8 +235,8 @@ public class ServerPreviewCanvas extends Canvas {
 
         final int realOffsetX = offsetX + (getWidth() - image.getWidth()) / 2;
         final int realOffsetY = offsetY + (getHeight() - image.getHeight()) / 2;
-        final int minX = realOffsetX - (realOffsetX / image.getWidth() + 1) * image.getWidth();
-        final int minY = realOffsetY - (realOffsetY / image.getHeight() + 1) * image.getHeight();
+        final int minX = (realOffsetX - (realOffsetX / image.getWidth() + 1) * image.getWidth()) % image.getWidth();
+        final int minY = (realOffsetY - (realOffsetY / image.getHeight() + 1) * image.getHeight()) % image.getHeight();
         for (int y = minY; y < getHeight(); y += image.getHeight()) {
             for (int x = minX; x < getWidth(); x += image.getWidth()) {
                 graphics.drawImage(image, x, y, this);
