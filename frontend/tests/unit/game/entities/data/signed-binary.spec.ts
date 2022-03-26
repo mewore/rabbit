@@ -12,6 +12,19 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
         writer = new SignedBinaryWriter();
     });
 
+    describe('SignedBinaryReader#withOffset', () => {
+        it('should return an independent instance with an offset', () => {
+            writer.writeInt(1);
+            writer.writeInt(2);
+            writer.writeInt(3);
+            writer.writeInt(4);
+            const reader = new SignedBinaryReader(writer.toArrayBuffer());
+            reader.readInt();
+            expect(reader.withOffset(2 * 4).readInt()).to.equal(4);
+            expect(reader.readInt()).to.equal(2);
+        });
+    });
+
     describe('when encoding and decoding a boolean', () => {
         describe('when the boolean is true', () => {
             it('should retain its value', () => {

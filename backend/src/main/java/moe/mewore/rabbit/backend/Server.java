@@ -151,17 +151,10 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
         simulationThread.scheduleAtFixedRate(() -> {
             try {
-                final WorldState newState = worldSimulation.update(System.currentTimeMillis());
-                if (newState.hasPlayers()) {
-                    broadcast(new WorldUpdateMessage(newState));
-                }
-                for (final Consumer<WorldState> handler : worldUpdateListeners) {
-                    handler.accept(newState);
-                }
+                updateWorld();
             } catch (final RuntimeException e) {
                 System.err.println(e.getMessage());
                 e.printStackTrace();
-                throw e;
             }
         }, 0, 1000L / UPDATES_PER_SECOND, TimeUnit.MILLISECONDS);
         heartbeatThread.scheduleAtFixedRate(() -> {
@@ -170,13 +163,30 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             } catch (final RuntimeException e) {
                 System.err.println(e.getMessage());
                 e.printStackTrace();
-                throw e;
             }
         }, 0, heart.getStepTimeInterval(), TimeUnit.MILLISECONDS);
         javalin.start(serverSettings.getPort());
 
         setServerState(ServerState.STARTING, ServerState.RUNNING);
         return this;
+    }
+
+    private void updateWorld() {
+        final WorldState newState = worldSimulation.update(System.currentTimeMillis());
+        final byte[] presentData = new WorldUpdateMessage(worldState,
+            worldSimulation.getCurrentSnapshot()).encodeToBinary();
+        sessionById.entrySet().parallelStream().forEach(entry -> {
+            final Player player = playerBySessionId.get(entry.getKey());
+            if (player != null) {
+                send(entry.getValue(),
+                    new WorldUpdateMessage(worldState, worldSimulation.getPastSnapshot(player.getLatency() * 3 / 2)));
+            } else {
+                send(entry.getValue(), presentData);
+            }
+        });
+        for (final Consumer<WorldState> handler : worldUpdateListeners) {
+            handler.accept(newState);
+        }
     }
 
     public void stop() throws InterruptedException {
@@ -291,10 +301,6 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         }
     }
 
-    private void broadcast(final BinaryEntity entityToBroadcast) {
-        broadcast(null, entityToBroadcast);
-    }
-
     private void broadcast(final @Nullable WsContext context, final BinaryEntity entityToBroadcast) {
         final byte[] dataToBroadcast = entityToBroadcast.encodeToBinary();
 
@@ -302,5 +308,13 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             .stream()
             .filter(context != null ? session -> session != context.session && session.isOpen() : Session::isOpen)
             .forEach(session -> session.getRemote().sendBytesByFuture(ByteBuffer.wrap(dataToBroadcast)));
+    }
+
+    private void send(final Session session, final BinaryEntity entityToBroadcast) {
+        send(session, entityToBroadcast.encodeToBinary());
+    }
+
+    private void send(final Session session, final byte[] dataToBroadcast) {
+        session.getRemote().sendBytesByFuture(ByteBuffer.wrap(dataToBroadcast));
     }
 }

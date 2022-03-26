@@ -9,13 +9,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import com.bulletphysics.collision.broadphase.DbvtBroadphase;
-import com.bulletphysics.collision.broadphase.Dispatcher;
 import com.bulletphysics.collision.dispatch.CollisionConfiguration;
 import com.bulletphysics.collision.dispatch.CollisionDispatcher;
 import com.bulletphysics.collision.dispatch.CollisionFlags;
 import com.bulletphysics.collision.dispatch.DefaultCollisionConfiguration;
 import com.bulletphysics.collision.dispatch.GhostPairCallback;
-import com.bulletphysics.collision.narrowphase.PersistentManifold;
 import com.bulletphysics.collision.shapes.BoxShape;
 import com.bulletphysics.collision.shapes.ConvexShape;
 import com.bulletphysics.collision.shapes.CylinderShape;
@@ -82,7 +80,7 @@ public class WorldState extends BinaryEntity {
 
     private final ConcurrentHashMap<Integer, Player> players = new ConcurrentHashMap<>();
 
-    public static final int BYTES_PER_STORED_STATE = (INT_DATA_PER_PLAYER + FLOAT_DATA_PER_PLAYER) * 4 + 2 * 8 + 8;
+    public static final int BYTES_PER_STORED_STATE = (INT_DATA_PER_PLAYER + FLOAT_DATA_PER_PLAYER) * 4 + 2 * 8 + 8 + 1;
 
     @Getter
     private final DynamicsWorld world;
@@ -141,12 +139,12 @@ public class WorldState extends BinaryEntity {
         final int[] intData = snapshot.getIntData();
         final float[] floatData = snapshot.getFloatData();
 
-        final int intIndex = player.getId() * INT_DATA_PER_PLAYER;
+        final int intIndex = getPlayerIntIndex(player);
         final int oldPlayerUid = intData[intIndex + PLAYER_UID_OFFSET];
         if (player.getUid() > oldPlayerUid || input.getId() >= intData[intIndex + PLAYER_INPUT_ID_OFFSET]) {
             intData[intIndex + PLAYER_INPUT_ID_OFFSET] = input.getId();
             intData[intIndex + PLAYER_INPUT_KEYS_OFFSET] = input.getKeys();
-            floatData[player.getId() * FLOAT_DATA_PER_PLAYER + PLAYER_INPUT_ANGLE_OFFSET] = input.getAngle();
+            floatData[getPlayerFloatIndex(player) + PLAYER_INPUT_ANGLE_OFFSET] = input.getAngle();
         } else {
             System.out.printf(
                 "Not storing input #%d for player with UID %d; the old player UID is %d and the old input ID is #%d%n",
@@ -215,10 +213,8 @@ public class WorldState extends BinaryEntity {
         return players.remove(player.getId(), player);
     }
 
-    WorldSnapshot createEmptySnapshot() {
-        return new WorldSnapshot(
-            maxPlayerCount * INT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.INT_DATA_PER_SPHERE,
-            maxPlayerCount * FLOAT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.FLOAT_DATA_PER_SPHERE);
+    private static int getPlayerIntIndex(final Player player) {
+        return getPlayerIntIndex(player.getId());
     }
 
     void doStep() {
@@ -233,20 +229,38 @@ public class WorldState extends BinaryEntity {
         ++frameId;
     }
 
-    void load(final WorldSnapshot snapshot, final int snapshotFrameId) {
-        frameId = snapshotFrameId;
+    private static int getPlayerIntIndex(final int playerId) {
+        return 1 + playerId * INT_DATA_PER_PLAYER;
+    }
 
+    private static int getPlayerFloatIndex(final Player player) {
+        return getPlayerFloatIndex(player.getId());
+    }
+
+    private static int getPlayerFloatIndex(final int playerId) {
+        return playerId * FLOAT_DATA_PER_PLAYER;
+    }
+
+    WorldSnapshot createEmptySnapshot() {
+        return new WorldSnapshot(
+            1 + maxPlayerCount * INT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.INT_DATA_PER_SPHERE,
+            maxPlayerCount * FLOAT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.FLOAT_DATA_PER_SPHERE);
+    }
+
+    void load(final WorldSnapshot snapshot) {
         final int[] intData = snapshot.getIntData();
         final float[] floatData = snapshot.getFloatData();
 
+        frameId = intData[0];
+
         players.forEachValue(PARALLELISM_THRESHOLD, player -> {
-            final int intIndex = player.getId() * INT_DATA_PER_PLAYER;
+            final int intIndex = getPlayerIntIndex(player);
             final int uid = intData[intIndex + PLAYER_UID_OFFSET];
             if (player.getUid() != uid) {
                 return;
             }
 
-            final int floatIndex = player.getId() * FLOAT_DATA_PER_PLAYER;
+            final int floatIndex = getPlayerFloatIndex(player);
             player.getInputState()
                 .applyInput(intData[intIndex + PLAYER_INPUT_ID_OFFSET],
                     floatData[floatIndex + PLAYER_INPUT_ANGLE_OFFSET], intData[intIndex + PLAYER_INPUT_KEYS_OFFSET]);
@@ -258,8 +272,8 @@ public class WorldState extends BinaryEntity {
             controller.jumpControlTimeLeft = floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET];
         });
 
-        int sphereIntIndex = maxPlayerCount * INT_DATA_PER_PLAYER;
-        int sphereFloatIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
+        int sphereIntIndex = getPlayerIntIndex(maxPlayerCount);
+        int sphereFloatIndex = getPlayerFloatIndex(maxPlayerCount);
         for (final PhysicsDummySphere sphere : spheres) {
             sphere.load(intData, sphereIntIndex, floatData, sphereFloatIndex);
             sphereIntIndex += PhysicsDummySphere.INT_DATA_PER_SPHERE;
@@ -272,12 +286,12 @@ public class WorldState extends BinaryEntity {
         final float[] floatData = snapshot.getFloatData();
 
         players.forEachValue(PARALLELISM_THRESHOLD, player -> {
-            final int intIndex = player.getId() * INT_DATA_PER_PLAYER;
+            final int intIndex = getPlayerIntIndex(player);
             if (player.getUid() != intData[intIndex + PLAYER_UID_OFFSET]) {
                 return;
             }
 
-            final int floatIndex = player.getId() * FLOAT_DATA_PER_PLAYER;
+            final int floatIndex = getPlayerFloatIndex(player);
             player.getInputState()
                 .applyInput(intData[intIndex + PLAYER_INPUT_ID_OFFSET],
                     floatData[floatIndex + PLAYER_INPUT_ANGLE_OFFSET], intData[intIndex + PLAYER_INPUT_KEYS_OFFSET]);
@@ -288,9 +302,11 @@ public class WorldState extends BinaryEntity {
         final int[] intData = snapshot.getIntData();
         final float[] floatData = snapshot.getFloatData();
 
+        intData[0] = frameId;
+
         players.forEachValue(PARALLELISM_THRESHOLD, player -> {
-            final int intIndex = player.getId() * INT_DATA_PER_PLAYER;
-            final int floatIndex = player.getId() * FLOAT_DATA_PER_PLAYER;
+            final int intIndex = getPlayerIntIndex(player);
+            final int floatIndex = getPlayerFloatIndex(player);
             final boolean playerIsNew = player.getUid() > intData[intIndex + PLAYER_UID_OFFSET];
             intData[intIndex + PLAYER_UID_OFFSET] = player.getUid();
             if (playerIsNew || player.getInputState().getInputId() >= intData[intIndex + PLAYER_INPUT_ID_OFFSET]) {
@@ -306,8 +322,8 @@ public class WorldState extends BinaryEntity {
             floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET] = controller.jumpControlTimeLeft;
         });
 
-        int sphereIntIndex = maxPlayerCount * INT_DATA_PER_PLAYER;
-        int sphereFloatIndex = maxPlayerCount * FLOAT_DATA_PER_PLAYER;
+        int sphereIntIndex = getPlayerIntIndex(maxPlayerCount);
+        int sphereFloatIndex = getPlayerFloatIndex(maxPlayerCount);
         for (final PhysicsDummySphere sphere : spheres) {
             sphere.store(intData, sphereIntIndex, floatData, sphereFloatIndex);
             sphereIntIndex += PhysicsDummySphere.INT_DATA_PER_SPHERE;

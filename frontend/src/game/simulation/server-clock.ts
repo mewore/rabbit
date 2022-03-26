@@ -10,7 +10,12 @@ export class ServerClock {
     private readonly offsetGuesses: Queue<number> = new ArrayQueue<number>();
 
     guessServerTime(now: number, serverTimestamp: number, latency: number): number {
-        const offsetGuess = serverTimestamp + latency - now;
+        // The server deliberately delays the states it sends by 1.5x the player latency
+        // So, the time in the server right now should be not just [serverTimestamp + latency],
+        // but [[serverTimestamp + latency] + latency * 1.5].
+        // See https://github.com/mewore/rabbit/issues/100
+        const offsetGuess = serverTimestamp + latency * 2.5 - now;
+
         this.offsetSum += offsetGuess;
         if (this.offsetGuesses.length >= OFFSET_GUESS_LIMIT) {
             this.offsetSum -= this.offsetGuesses.pop() || 0;

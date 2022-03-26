@@ -14,7 +14,8 @@ public class WorldSimulation {
 
     private static final int MAXIMUM_ROLLBACK_MILLISECONDS = 1000;
 
-    private static final int FRAME_BUFFER_SIZE = MAXIMUM_ROLLBACK_MILLISECONDS * 2 * FPS / 1000 + FUTURE_FRAME_BUFFER;
+    private static final int FRAME_BUFFER_SIZE =
+        Math.max(MAXIMUM_ROLLBACK_MILLISECONDS * 2, 5000) * FPS / 1000 + FUTURE_FRAME_BUFFER;
 
     private final WorldSnapshot[] frames = new WorldSnapshot[FRAME_BUFFER_SIZE];
 
@@ -37,7 +38,7 @@ public class WorldSimulation {
 
     // TODO: Make it less synchronized
     @Synchronized
-    public synchronized void acceptInput(final Player player, final PlayerInputMutation input) {
+    public void acceptInput(final Player player, final PlayerInputMutation input) {
         final int inputTimestamp = (int) (System.currentTimeMillis() - createdAt) -
             Math.min(player.getLatency(), MAXIMUM_ROLLBACK_MILLISECONDS);
         final int expectedInputFrame = Math.round(inputTimestamp * FPS * .001f);
@@ -68,6 +69,16 @@ public class WorldSimulation {
         WorldState.registerInput(frames[inputFrameIndex], player, input);
     }
 
+    public WorldSnapshot getCurrentSnapshot() {
+        return frames[frameIndex];
+    }
+
+    public WorldSnapshot getPastSnapshot(final int millisecondsInPast) {
+        final int maxFrameDifference = Math.min(state.getFrameId(), FRAME_BUFFER_SIZE);
+        final int frameDifference = Math.min(maxFrameDifference, millisecondsInPast * FPS / 1000);
+        return frames[(frameDifference <= frameIndex ? frameIndex : frameIndex + FRAME_BUFFER_SIZE) - frameDifference];
+    }
+
     // TODO: Make it less synchronized
     @Synchronized
     public WorldState update(final long now) {
@@ -75,7 +86,7 @@ public class WorldSimulation {
             final int replayFrameIndex =
                 (frameIndex - (state.getFrameId() - frameToReplayFrom) + FRAME_BUFFER_SIZE) % FRAME_BUFFER_SIZE;
             final int frameToStopAt = (frameIndex + 1) % FRAME_BUFFER_SIZE;
-            state.load(frames[replayFrameIndex], frameToReplayFrom);
+            state.load(frames[replayFrameIndex]);
             for (int i = (replayFrameIndex + 1) % FRAME_BUFFER_SIZE;
                  i != frameToStopAt; i = (i + 1) % FRAME_BUFFER_SIZE) {
                 state.doStep();

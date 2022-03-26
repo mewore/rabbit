@@ -99,7 +99,7 @@ class WorldStateTest {
     @Test
     void testCreateEmptySnapshot() {
         final WorldSnapshot snapshot = new WorldState(3, map).createEmptySnapshot();
-        assertEquals(13, snapshot.getIntData().length);
+        assertEquals(14, snapshot.getIntData().length);
         assertEquals(51, snapshot.getFloatData().length);
     }
 
@@ -123,7 +123,9 @@ class WorldStateTest {
     void testLoad() {
         final var worldState = new WorldState(1, map);
         assertNotNull(worldState.createPlayer(true));
-        worldState.load(worldState.createEmptySnapshot(), 18);
+        final var snapshot = worldState.createEmptySnapshot();
+        snapshot.getIntData()[0] = 18;
+        worldState.load(snapshot);
         assertEquals(18, worldState.getFrameId());
     }
 
@@ -149,7 +151,7 @@ class WorldStateTest {
         final WorldSnapshot snapshot = worldState.createEmptySnapshot();
         final var input = new PlayerInputMutation(1, 0, (float) Math.PI, (byte) 0xa);
         WorldState.registerInput(snapshot, player, input);
-        snapshot.getIntData()[0] = player.getUid();
+        snapshot.getIntData()[1] = player.getUid();
         worldState.loadInput(snapshot);
         assertEquals(0xa, player.getInputState().getInputKeys());
     }

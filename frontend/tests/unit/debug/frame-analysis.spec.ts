@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
 import { FrameAnalysis } from '@/game/debug/frame-analysis';
-import { FrameInfo, FrameMessage, FrameMessageAttachment } from '@/game/debug/frame-info';
+import { FrameInfo, FrameMessage, FrameMessageAttachment, WorldUpdateState } from '@/game/debug/frame-info';
 
 function createFakeCanvas(toDataUrlResult = ''): HTMLCanvasElement {
     return {
@@ -96,6 +96,22 @@ describe('FrameAnalysis', () => {
                 expect(frameAnalysis.complete().length).to.equal(2);
             });
 
+            describe('when a pending world update state has been set', () => {
+                beforeEach(() => {
+                    frameAnalysis.pendingWorldUpdateState = WorldUpdateState.ACCEPTED;
+                });
+                it('should save the world update state in the resulting frame', () => {
+                    frameAnalysis.captureFrame(createFakeCanvas('frame'));
+                    expect(frameAnalysis.complete()[0].worldUpdateState).to.equal(WorldUpdateState.ACCEPTED);
+                });
+
+                it('should NOT save the world update state in later frames', () => {
+                    frameAnalysis.captureFrame(createFakeCanvas('frame'));
+                    frameAnalysis.captureFrame(createFakeCanvas('frame'));
+                    expect(frameAnalysis.complete()[1].worldUpdateState).not.to.equal(WorldUpdateState.ACCEPTED);
+                });
+            });
+
             describe('when with a quality of 1', () => {
                 it('should create a default-encoded frame image', () => {
                     frameAnalysis.captureFrame(createFakeCanvas('frame'));
@@ -134,8 +150,8 @@ describe('FrameAnalysis', () => {
                 frameAnalysis.captureFrame(createFakeCanvas());
                 frameAnalysis.captureFrame(createFakeCanvas());
                 expect(frameAnalysis.complete()).to.deep.equal([
-                    { frameId: 1, imageData: '', messages: [] },
-                    { frameId: 2, imageData: '', messages: [] },
+                    { frameId: 1, imageData: '', messages: [], worldUpdateState: undefined },
+                    { frameId: 2, imageData: '', messages: [], worldUpdateState: undefined },
                 ] as FrameInfo[]);
             });
 
@@ -156,7 +172,7 @@ describe('FrameAnalysis', () => {
             it('should include only the new frames', () => {
                 frameAnalysis.captureFrame(createFakeCanvas('second'));
                 expect(frameAnalysis.complete()).to.deep.equal([
-                    { frameId: 1, imageData: 'second', messages: [] },
+                    { frameId: 1, imageData: 'second', messages: [], worldUpdateState: undefined },
                 ] as FrameInfo[]);
             });
         });

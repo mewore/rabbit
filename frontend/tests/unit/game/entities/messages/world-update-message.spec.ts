@@ -32,7 +32,9 @@ describe('WorldUpdateMessage', () => {
                         0
                     ),
                 ],
-                [new DummySphereUpdate(1, new Vector3Entity(0, 0, 0), new Vector3Entity(0, 0, 0))]
+                [new DummySphereUpdate(1, new Vector3Entity(0, 0, 0), new Vector3Entity(0, 0, 0))],
+                10,
+                100
             );
             const encoded = original.encodeToBinary();
             const decoded = WorldUpdateMessage.decodeFromBinary(new SignedBinaryReader(encoded));

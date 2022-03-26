@@ -31,26 +31,26 @@ class WorldSimulationIT {
     }
 
     @Test
-    void acceptInput() {
+    void testAcceptInput() {
         final var input = new PlayerInputMutation(1, 0, 0f, (byte) 0xaa);
         new WorldSimulation(worldState).acceptInput(player, input);
     }
 
     @Test
-    void acceptInput_unreasonableFrame() {
+    void testAcceptInput_unreasonableFrame() {
         final var input = new PlayerInputMutation(-1000, 0, 0f, (byte) 0xaa);
         new WorldSimulation(worldState).acceptInput(player, input);
     }
 
     @Test
-    void update() {
+    void testUpdate() {
         final WorldSimulation simulation = new WorldSimulation(worldState);
         simulation.update(System.currentTimeMillis() + 100);
         assertTrue(worldState.getFrameId() > 0);
     }
 
     @Test
-    void update_withPastInput() {
+    void testUpdate_withPastInput() {
         final WorldSimulation simulation = new WorldSimulation(worldState);
         final long createdAt = System.currentTimeMillis();
         simulation.update(createdAt + 100);

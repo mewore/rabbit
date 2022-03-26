@@ -2,8 +2,14 @@ export class SignedBinaryReader {
     private index = 0;
     private readonly dataView: DataView;
 
-    constructor(data: ArrayBuffer) {
-        this.dataView = new DataView(data);
+    constructor(data: ArrayBuffer | DataView) {
+        this.dataView = data instanceof DataView ? data : new DataView(data);
+    }
+
+    withOffset(offset: number): SignedBinaryReader {
+        const newReader = new SignedBinaryReader(this.dataView);
+        newReader.index = this.index + offset;
+        return newReader;
     }
 
     readNullableBoolean(): boolean | undefined {
@@ -52,10 +58,14 @@ export class SignedBinaryReader {
     }
 
     readEntityArray<T>(type: { decodeFromBinary: (reader: SignedBinaryReader) => T }): T[] {
+        return this.readArray(type.decodeFromBinary);
+    }
+
+    readArray<T>(readingFunction: (reader: SignedBinaryReader) => T): T[] {
         const count = this.readInt();
         const result = [];
         for (let i = 0; i < count; i++) {
-            result.push(type.decodeFromBinary(this));
+            result.push(readingFunction(this));
         }
         return result;
     }
