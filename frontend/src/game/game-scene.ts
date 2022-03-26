@@ -284,8 +284,9 @@ export class GameScene {
             this.currentRenderer.dispose();
 
             this.currentRenderer = new WebGLRenderer({ antialias: true });
-            this.wrapperElement.appendChild(this.currentRenderer.domElement);
+            this.currentRenderer.setPixelRatio(window.devicePixelRatio * newSettings.quality);
             this.currentRenderer.shadowMap.enabled = newSettings.shadows;
+            this.wrapperElement.appendChild(this.currentRenderer.domElement);
             shouldRefreshSize = true;
         }
         if (newSettings.quality !== this.settings.quality) {
