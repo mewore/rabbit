@@ -158,6 +158,7 @@ export class GameScene {
         this.forestWalls = new ForestWall(this.character.position, this.physicsWorld);
 
         this.simulation = new WorldSimulation(
+            this.frameAnalysis,
             this.physicsWorld,
             this.physicsAwareById,
             this.character,

@@ -5,6 +5,7 @@ import { PhysicsAware } from '@/game/util/physics-aware';
 import { ArrayQueue, Queue } from '@/util/queue';
 
 import { FrameAnalysis } from '../debug/frame-analysis';
+import { WorldUpdateState } from '../debug/frame-info';
 import { WorldUpdateMessage } from '../entities/messages/world-update-message';
 import { PlayerInputMutation } from '../entities/mutations/player-input-mutation';
 import { MazeMap } from '../entities/world/maze-map';
@@ -49,6 +50,7 @@ export class WorldSimulation {
     shouldResendInput = false;
 
     constructor(
+        private readonly frameAnalysis: FrameAnalysis,
         private readonly physicsWorld: Ammo.btDiscreteDynamicsWorld,
         private readonly physicsAwareById: Map<number | string, PhysicsAware>,
         private readonly selfCharacter: Character,
@@ -64,6 +66,10 @@ export class WorldSimulation {
     applyUpdate(message: WorldUpdateMessage, now: number): void {
         const newSelfState = message.playerStates.find((state) => state.playerId === this.selfCharacter.playerId);
         this.latestSnapshot.applyUpdate(message);
+
+        if (this.frameAnalysis.analyzing) {
+            this.frameAnalysis.pendingWorldUpdateState ||= WorldUpdateState.ACCEPTED;
+        }
 
         if (newSelfState) {
             // Remove all inputs which the server has already applied to the state it has sent back to the client
@@ -82,6 +88,15 @@ export class WorldSimulation {
 
             const oldestInputNotSimulatedByServer = this.inputEventsSinceReceivedState.front;
             if (oldestInputNotSimulatedByServer && message.frameId > oldestInputNotSimulatedByServer.frameId) {
+                if (this.frameAnalysis.analyzing) {
+                    this.frameAnalysis.pendingWorldUpdateState = WorldUpdateState.REJECTED;
+                    this.frameAnalysis.addMessage(
+                        `Cannot roll back from world update for frame #${message.frameId} ` +
+                            `because it's at input @${newSelfState.input.id} but is more recent ` +
+                            `than input @${oldestInputNotSimulatedByServer.id}, ` +
+                            `which was sent at frame #${oldestInputNotSimulatedByServer.frameId}`
+                    );
+                }
                 if (message.frameId - oldestInputNotSimulatedByServer.frameId >= RESEND_LAST_INPUT_FRAMES) {
                     // The server not knowing about an input sent by the client should never happen because
                     // WebSocket is more reliable than UDP but if it ever does, it should be fixed as soon as possible.
@@ -101,14 +116,20 @@ export class WorldSimulation {
 
             this.pendingInputEvents = this.inputEventsSinceReceivedState.clone();
 
-            if (process.env.NODE_ENV === 'development' && FrameAnalysis.GLOBAL.analyzing) {
-                FrameAnalysis.GLOBAL.addMessage(`Received update; player position: ${newSelfState.position}`);
-            }
             if (this.lastAcknowledgedInput) {
                 this.selfCharacter.applyInput(this.lastAcknowledgedInput);
             }
             this.selfCharacter.applyNewState(newSelfState);
             this._currentFrame = message.frameId;
+        }
+
+        if (this.frameAnalysis.analyzing) {
+            this.frameAnalysis.addMessage(`Accepted world update for frame #${message.frameId}`);
+            if (newSelfState) {
+                this.frameAnalysis.addMessage('Player info for new world update:');
+                this.frameAnalysis.addMessage('\t - Position: ', newSelfState.position);
+                this.frameAnalysis.addMessage('\t - Velocity: ', newSelfState.motion);
+            }
         }
 
         let sphereIndex = 0;

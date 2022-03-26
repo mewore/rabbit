@@ -1,6 +1,6 @@
 import { ArrayQueue } from '@/util/queue';
 
-import { FrameInfo, FrameMessage } from './frame-info';
+import { FrameInfo, FrameMessage, WorldUpdateState } from './frame-info';
 
 type Vector3 = { readonly x: number; readonly y: number; readonly z: number };
 type AmmoVector3 = { x(): number; y(): number; z(): number };
@@ -55,7 +55,10 @@ export class FrameAnalysis {
 
     private readonly frames = new ArrayQueue<FrameInfo>();
     private readonly pendingMessages: FrameMessage[] = [];
+
     private _analyzing = false;
+
+    pendingWorldUpdateState?: WorldUpdateState;
     imageQuality = 1;
 
     get analyzing(): boolean {
@@ -120,7 +123,9 @@ export class FrameAnalysis {
             imageData:
                 this.imageQuality > 0.99 ? canvas.toDataURL() : canvas.toDataURL('image/jpeg', this.imageQuality),
             messages: this.pendingMessages.splice(0),
+            worldUpdateState: this.pendingWorldUpdateState,
         });
+        this.pendingWorldUpdateState = undefined;
     }
 
     start(): void {
@@ -135,5 +140,6 @@ export class FrameAnalysis {
     private clear(): void {
         this.frames.clear();
         this.pendingMessages.splice(0);
+        this.pendingWorldUpdateState = undefined;
     }
 }

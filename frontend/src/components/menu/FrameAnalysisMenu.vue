@@ -1,5 +1,16 @@
 <template>
     <div id="frame-analysis">
+        <h5 class="world-update-info" v-if="worldUpdateInfo">
+            <q-circular-progress
+                :value="worldUpdateAcceptancePercentage"
+                size="1em"
+                :thickness="1"
+                color="blue"
+                track-color="red"
+                class="q-ma-md"
+            />
+            {{ worldUpdateInfo }}
+        </h5>
         <div class="top-part">
             <div class="left-part" v-if="hasLeftPart">
                 <div v-for="message in messageItems" :key="message.index">
@@ -33,20 +44,56 @@
                 :max="lastFrameIndex"
                 :step="1"
                 :markers="1"
+                :marker-labels="frameMarkerPositions"
                 label
                 :label-value="`#${frameIndex + 1}/${lastFrameIndex + 1}`"
                 @update:model-value="onFrameIndexUpdated()"
                 color="purple-4"
-            />
+            >
+                <template v-slot:marker-label-group="scope">
+                    <div
+                        v-for="marker in scope.markerList"
+                        :key="marker.index"
+                        :class="[
+                            frames[marker.value].worldUpdateState === 0
+                                ? 'accepted'
+                                : 'rejected',
+                            marker.classes,
+                        ]"
+                        :style="marker.style"
+                    >
+                        <q-icon
+                            size="xs"
+                            :name="
+                                frames[marker.value].worldUpdateState === 0
+                                    ? 'done'
+                                    : 'dangerous'
+                            "
+                        >
+                        </q-icon>
+                    </div>
+                </template>
+            </q-slider>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { QBtn, QBtnGroup, QSlider, QTooltip } from 'quasar';
+import {
+    QBtn,
+    QBtnGroup,
+    QCircularProgress,
+    QIcon,
+    QSlider,
+    QTooltip,
+} from 'quasar';
 import { Options, Vue } from 'vue-class-component';
 
-import { FrameInfo, FrameMessageAttachment } from '@/game/debug/frame-info';
+import {
+    FrameInfo,
+    FrameMessageAttachment,
+    WorldUpdateState,
+} from '@/game/debug/frame-info';
 
 interface MessageItem {
     index: number;
@@ -78,6 +125,8 @@ function attachmentToButton(
     components: {
         QBtn,
         QBtnGroup,
+        QCircularProgress,
+        QIcon,
         QSlider,
         QTooltip,
     },
@@ -90,15 +139,40 @@ export default class FrameAnalysisMenu extends Vue {
     frames!: FrameInfo[];
     hasLeftPart = true;
     lastFrameIndex = 0;
+    frameMarkerPositions: number[] = [];
 
     frameImageData = '';
     messageItems: MessageItem[] = [];
+
+    worldUpdateAcceptancePercentage = 0;
+    worldUpdateInfo = '';
 
     mounted(): void {
         this.lastFrameIndex = this.frames.length - 1;
         this.hasLeftPart = this.frames.some(
             (frame) => frame.messages.length > 0
         );
+        this.frameMarkerPositions = [];
+
+        let totalWorldUpdates = 0;
+        let acceptedWorldUpdates = 0;
+        for (let i = 0; i < this.frames.length; i++) {
+            if (this.frames[i].worldUpdateState == null) {
+                continue;
+            }
+            this.frameMarkerPositions.push(i);
+            ++totalWorldUpdates;
+            if (this.frames[i].worldUpdateState === WorldUpdateState.ACCEPTED) {
+                ++acceptedWorldUpdates;
+            }
+        }
+        if (totalWorldUpdates > 0) {
+            this.worldUpdateAcceptancePercentage = Math.round(
+                (100 * acceptedWorldUpdates) / totalWorldUpdates
+            );
+            this.worldUpdateInfo = `Accepted world updates: ${acceptedWorldUpdates} / ${totalWorldUpdates}`;
+        }
+
         this.onFrameIndexUpdated();
     }
 
@@ -124,8 +198,8 @@ export default class FrameAnalysisMenu extends Vue {
     flex-direction: column;
     justify-content: space-between;
 
-    .bottom-part {
-        margin: 0 2em;
+    .world-update-info {
+        text-align: left;
     }
 
     .top-part {
@@ -157,6 +231,17 @@ export default class FrameAnalysisMenu extends Vue {
         #frame-analysis-preview {
             max-width: 100%;
             max-height: 100%;
+        }
+    }
+
+    .bottom-part {
+        margin: 0 2em;
+
+        .accepted {
+            color: lightseagreen;
+        }
+        .rejected {
+            color: indianred;
         }
     }
 }
