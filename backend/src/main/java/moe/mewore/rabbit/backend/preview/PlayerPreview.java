@@ -26,11 +26,11 @@ class PlayerPreview {
 
     private final String bottomText;
 
-    public boolean hasTargetMotionLine() {
-        return (targetMotionX != x || targetMotionY != y) && (targetMotionX != motionX || targetMotionY != motionY);
-    }
-
     public boolean hasMotionLine() {
         return motionX != x || motionY != y;
+    }
+
+    public boolean hasTargetMotionLine() {
+        return (targetMotionX != x || targetMotionY != y) && (targetMotionX != motionX || targetMotionY != motionY);
     }
 }
