@@ -27,7 +27,6 @@ import com.bulletphysics.linearmath.Transform;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.Getter;
-import lombok.Synchronized;
 import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.physics.FixedDiscreteDynamicWorld;
@@ -35,11 +34,9 @@ import moe.mewore.rabbit.backend.physics.ForestWalls;
 import moe.mewore.rabbit.backend.physics.PhysicsDummyBox;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
-import moe.mewore.rabbit.data.BinaryEntity;
-import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.world.MazeMap;
 
-public class WorldState extends BinaryEntity {
+public class WorldState {
 
     public static final float GRAVITY = 250f;
 
@@ -328,18 +325,6 @@ public class WorldState extends BinaryEntity {
             sphere.store(intData, sphereIntIndex, floatData, sphereFloatIndex);
             sphereIntIndex += PhysicsDummySphere.INT_DATA_PER_SPHERE;
             sphereFloatIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE;
-        }
-    }
-
-    @Synchronized
-    @Override
-    public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeInt(frameId);
-        output.writeInt(players.size());
-        players.forEachEntry(Long.MAX_VALUE, entry -> entry.getValue().appendToBinaryOutput(output));
-        output.writeInt(spheres.length);
-        for (final var sphere : spheres) {
-            sphere.appendToBinaryOutput(output);
         }
     }
 }

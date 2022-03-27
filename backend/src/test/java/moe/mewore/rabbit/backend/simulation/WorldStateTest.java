@@ -1,7 +1,6 @@
 package moe.mewore.rabbit.backend.simulation;
 
 import javax.vecmath.Vector3f;
-import java.io.ByteArrayOutputStream;
 import java.util.Collections;
 import java.util.List;
 
@@ -15,8 +14,6 @@ import org.junit.jupiter.api.Test;
 import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
-import moe.mewore.rabbit.data.ByteArrayDataOutput;
-import moe.mewore.rabbit.data.SafeDataOutput;
 import moe.mewore.rabbit.world.MazeMap;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -160,17 +157,5 @@ class WorldStateTest {
     void testStore() {
         final var worldState = new WorldState(1, map);
         worldState.store(worldState.createEmptySnapshot());
-    }
-
-    @Test
-    void testAppendToBinaryOutput() {
-        final var byteStream = new ByteArrayOutputStream();
-        final SafeDataOutput dataOutput = new ByteArrayDataOutput(byteStream);
-
-        final var worldState = new WorldState(1, map);
-        assertNotNull(worldState.createPlayer(true));
-
-        worldState.appendToBinaryOutput(dataOutput);
-        assertEquals(161, byteStream.toByteArray().length);
     }
 }

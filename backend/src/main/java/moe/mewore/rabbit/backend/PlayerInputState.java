@@ -6,12 +6,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
-import moe.mewore.rabbit.data.BinaryEntity;
-import moe.mewore.rabbit.data.SafeDataOutput;
 
 @Getter
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
-public class PlayerInputState extends BinaryEntity {
+public class PlayerInputState {
 
     private static final float MAX_SPEED = 100f;
 
@@ -50,12 +48,5 @@ public class PlayerInputState extends BinaryEntity {
         }
 
         jumping = (inputKeys & PlayerInputMutation.INPUT_JUMP_BIT) > 0;
-    }
-
-    @Override
-    public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeInt(inputId);
-        output.writeByte(inputKeys);
-        output.writeFloat(inputAngle);
     }
 }
