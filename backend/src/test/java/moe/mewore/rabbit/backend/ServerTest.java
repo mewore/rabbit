@@ -105,6 +105,31 @@ class ServerTest {
     }
 
     @Test
+    void testHandleBinaryMessage_heartbeat() throws IOException {
+        final FakeWsSession session = new FakeWsSession("session");
+        simulateConnect(session);
+        simulateJoin(session);
+
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        byteArrayOutputStream.write(MutationType.HEARTBEAT_RESPONSE.getIndex());
+        byteArrayOutputStream.writeBytes(new byte[4]);
+        simulateBinaryData(session, byteArrayOutputStream.toByteArray());
+
+        assertEquals(100, server.getWorldState().getPlayers().get(0).getLatency());
+    }
+
+    @Test
+    void testHandleBinaryMessage_heartbeat_noPlayer() throws IOException {
+        final FakeWsSession session = new FakeWsSession("session");
+        simulateConnect(session);
+
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        byteArrayOutputStream.write(MutationType.HEARTBEAT_RESPONSE.getIndex());
+        byteArrayOutputStream.writeBytes(new byte[4]);
+        simulateBinaryData(session, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
     void testHandleBinaryMessage_invalidMutationType() {
         final FakeWsSession session = new FakeWsSession("session");
         simulateConnect(session);

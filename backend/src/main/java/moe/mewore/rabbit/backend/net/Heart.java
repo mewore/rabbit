@@ -21,13 +21,13 @@ public class Heart {
 
     private static final int DELAY_TO_LATENCY_DIVISOR = BEAT_HISTORY_SIZE * 2;
 
-    private final int[] delays = makeDefaultDelayArray();
+    private final int[] delays = makeArray(DEFAULT_DELAY);
 
     private final long[] sentAt = new long[BEAT_HISTORY_SIZE];
 
     private final Consumer<Integer> latencyConsumer;
 
-    private final int[] expectedHeartbeatId = new int[BEAT_HISTORY_SIZE];
+    private final int[] expectedHeartbeatId = makeArray(-1);
 
     private int delaySum = DEFAULT_DELAY * BEAT_HISTORY_SIZE;
 
@@ -35,9 +35,9 @@ public class Heart {
 
     private int currentHeartbeatIndex = BEAT_HISTORY_SIZE - 1;
 
-    static int[] makeDefaultDelayArray() {
+    static int[] makeArray(final int initialValue) {
         final int[] result = new int[BEAT_HISTORY_SIZE];
-        Arrays.fill(result, DEFAULT_DELAY);
+        Arrays.fill(result, initialValue);
         return result;
     }
 
@@ -56,6 +56,9 @@ public class Heart {
     }
 
     public void receive(final int heartbeatId) {
+        if (heartbeatId < 0) {
+            return;
+        }
         for (int i = 0; i < BEAT_HISTORY_SIZE; i++) {
             if (expectedHeartbeatId[i] == heartbeatId) {
                 delaySum -= delays[i];
