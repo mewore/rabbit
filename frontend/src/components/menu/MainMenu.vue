@@ -142,7 +142,7 @@ type MenuId =
     },
     emits: ['close', 'settingsChange', 'menuChange'],
 })
-export default class Menu extends Vue {
+export default class MainMenu extends Vue {
     title = getTitle();
     currentMenu: MenuId = 'MAIN_MENU';
     menuName = 'Main Menu';
@@ -238,7 +238,7 @@ export default class Menu extends Vue {
         }
         this.$emit('menuChange');
         this.currentMenu = menu;
-        this.menuName = Menu.getMenuName(menu);
+        this.menuName = MainMenu.getMenuName(menu);
         (this.$refs.menu as { $el: HTMLElement }).$el.focus();
     }
 

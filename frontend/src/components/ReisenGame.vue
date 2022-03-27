@@ -49,7 +49,7 @@
             @keyup="onDialogKeyUp($event)"
             transition-hide="fade"
         >
-            <Menu
+            <MainMenu
                 ref="menu"
                 :loadingAmmo="loadingAmmo"
                 :ammoFailedToLoad="ammoFailedToLoad"
@@ -69,7 +69,7 @@ import { createToast } from 'mosha-vue-toastify';
 import { QDialog, QSpinnerGrid } from 'quasar';
 import { Options, Vue } from 'vue-class-component';
 
-import Menu from '@/components/menu/Menu.vue';
+import MainMenu from '@/components/menu/MainMenu.vue';
 import PerformanceDisplay from '@/components/PerformanceDisplay.vue';
 import { FrameAnalysis } from '@/game/debug/frame-analysis';
 import { FrameInfo } from '@/game/debug/frame-info';
@@ -99,7 +99,7 @@ const INACTIVE_FRAME_DELTA = 1 / INACTIVE_FPS;
 
 @Options({
     components: {
-        Menu,
+        MainMenu,
         PerformanceDisplay,
         QDialog,
         QSpinnerGrid,
@@ -337,7 +337,7 @@ export default class ReisenGame extends Vue {
         );
         if (
             this.menuIsVisible &&
-            !(this.$refs.menu as Menu).isEditingGraphics()
+            !(this.$refs.menu as MainMenu).isEditingGraphics()
         ) {
             if (this.inactivity < 1.0) {
                 this.inactivity =
@@ -421,7 +421,7 @@ export default class ReisenGame extends Vue {
                 this.toggleAnalysis();
                 return;
             }
-            (this.$refs.menu as Menu).onKeyUp(event);
+            (this.$refs.menu as MainMenu).onKeyUp(event);
         }
     }
 
