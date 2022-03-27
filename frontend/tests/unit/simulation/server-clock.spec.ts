@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, expect, it } from '@jest/globals';
 
 import { ServerClock } from '@/game/simulation/server-clock';
 
@@ -9,10 +9,7 @@ describe('ServerClock', () => {
     describe('when given a single data point', () => {
         it('should make a correct prediction', () => {
             const clock = new ServerClock();
-            expect(clock.guessServerTime(10, SERVER_TIME, LATENCY)).to.approximately(
-                SERVER_TIME + LATENCY * 2.5,
-                0.00001
-            );
+            expect(clock.guessServerTime(10, SERVER_TIME, LATENCY)).toBeCloseTo(SERVER_TIME + LATENCY * 2.5);
         });
     });
 
@@ -21,7 +18,7 @@ describe('ServerClock', () => {
             const clock = new ServerClock();
             clock.guessServerTime(10, 2, LATENCY);
             clock.guessServerTime(20, 14, LATENCY);
-            expect(clock.localTimeToServerTime(20)).to.approximately(13 + LATENCY * 2.5, 0.00001);
+            expect(clock.localTimeToServerTime(20)).toBeCloseTo(13 + LATENCY * 2.5);
         });
     });
 
@@ -32,7 +29,7 @@ describe('ServerClock', () => {
                 clock.guessServerTime(i, i + SERVER_TIME, LATENCY);
             }
             clock.guessServerTime(-5, -5, LATENCY);
-            expect(clock.localTimeToServerTime(10)).to.approximately(10 + SERVER_TIME + LATENCY * 2.5, 0.1);
+            expect(clock.localTimeToServerTime(10)).toBeCloseTo(10 + SERVER_TIME + LATENCY * 2.5, 0.1);
         });
     });
 });

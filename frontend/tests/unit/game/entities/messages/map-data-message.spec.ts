@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, expect, it } from '@jest/globals';
 
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { ConvexPolygonEntity } from '@/game/entities/geometry/convex-polygon-entity';
@@ -41,7 +41,7 @@ describe('MapDataMessage', () => {
             );
             const encoded = original.encodeToBinary();
             const decoded = MapDataMessage.decodeFromBinary(new SignedBinaryReader(encoded));
-            expect(decoded).to.deep.equals(original);
+            expect(decoded).toEqual(original);
         });
     });
 });

@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { ArrayDeque, Deque } from '@/util/deque';
 
@@ -18,22 +18,22 @@ describe('ArrayDeque', () => {
 
     describe('back', () => {
         it('should be the most recently added element', () => {
-            expect(deque.back).to.equal('third');
+            expect(deque.back).toBe('third');
         });
     });
 
     describe('pushFront', () => {
         it('should add it before the front element', () => {
             deque.pushFront('zeroth');
-            expect(Array.from(deque)).to.deep.equal(['zeroth', 'first', 'second', 'third']);
+            expect(Array.from(deque)).toEqual(['zeroth', 'first', 'second', 'third']);
         });
     });
 
     describe('popBack', () => {
         it('should remove and return the element at the back', () => {
             const result = deque.popBack();
-            expect(result).to.equal('third');
-            expect(Array.from(deque)).to.deep.equal(['first', 'second']);
+            expect(result).toBe('third');
+            expect(Array.from(deque)).toEqual(['first', 'second']);
         });
     });
 });

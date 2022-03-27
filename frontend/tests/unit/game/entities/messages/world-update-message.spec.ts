@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, expect, it } from '@jest/globals';
 
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
@@ -38,7 +38,7 @@ describe('WorldUpdateMessage', () => {
             );
             const encoded = original.encodeToBinary();
             const decoded = WorldUpdateMessage.decodeFromBinary(new SignedBinaryReader(encoded));
-            expect(decoded).to.deep.equals(original);
+            expect(decoded).toEqual(original);
         });
     });
 });

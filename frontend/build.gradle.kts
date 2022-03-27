@@ -33,7 +33,7 @@ tasks.create<SourceTask>("frontendCheckDisabledLintRules") {
     include(listOf("js", "ts", "jsx", "tsx", "vue").map { "**/*.$it" })
 
     outputs.upToDateWhen { true }
-    val rulesThatShouldNotBeDisabled = listOf("no-debugger", "no-console")
+    val rulesThatShouldNotBeDisabled = setOf("no-debugger", "no-console", "jest/no-focused-tests")
     description =
         "Ensures that the following ESLint rules have not been disabled: " + rulesThatShouldNotBeDisabled.joinToString(
             ", "

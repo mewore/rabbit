@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, expect, it } from '@jest/globals';
 
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
@@ -10,7 +10,7 @@ describe('DummySphereUpdate', () => {
             const original = new DummySphereUpdate(1, new Vector3Entity(0, 0, 0), new Vector3Entity(0, 0, 0));
             const encoded = original.encodeToBinary();
             const decoded = DummySphereUpdate.decodeFromBinary(new SignedBinaryReader(encoded));
-            expect(decoded).to.deep.equals(original);
+            expect(decoded).toEqual(original);
         });
 
         it('should roughly retain its floating point values', () => {
@@ -18,8 +18,8 @@ describe('DummySphereUpdate', () => {
             const encoded = original.encodeToBinary();
             const decoded = DummySphereUpdate.decodeFromBinary(new SignedBinaryReader(encoded));
 
-            expect(decoded.position.x).to.approximately(original.position.x, 0.000001);
-            expect(decoded.motion.x).to.approximately(original.motion.x, 0.000001);
+            expect(decoded.position.x).toBeCloseTo(original.position.x);
+            expect(decoded.motion.x).toBeCloseTo(original.motion.x);
         });
     });
 });

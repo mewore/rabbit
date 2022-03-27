@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { FrameAnalysis } from '@/game/debug/frame-analysis';
 import { FrameInfo, FrameMessage, FrameMessageAttachment, WorldUpdateState } from '@/game/debug/frame-info';
@@ -18,7 +18,7 @@ describe('FrameAnalysis', () => {
 
     describe('initially', () => {
         it('should not be analyzing', () => {
-            expect(frameAnalysis.analyzing).to.equal(false);
+            expect(frameAnalysis.analyzing).toBe(false);
         });
     });
 
@@ -28,12 +28,12 @@ describe('FrameAnalysis', () => {
         });
 
         it('should mark it as analyzing', () => {
-            expect(frameAnalysis.analyzing).to.equal(true);
+            expect(frameAnalysis.analyzing).toBe(true);
         });
 
         describe('when already analyzing', () => {
             it('should throw an error', () => {
-                expect(() => frameAnalysis.start()).to.throw('Cannot start an analysis while analyzing!');
+                expect(() => frameAnalysis.start()).toThrow('Cannot start an analysis while analyzing!');
             });
         });
     });
@@ -53,7 +53,7 @@ describe('FrameAnalysis', () => {
                 frameAnalysis.captureFrame(createFakeCanvas());
 
                 const result = frameAnalysis.complete();
-                expect(result.map((frame) => frame.messages)).to.deep.equal([
+                expect(result.map((frame) => frame.messages)).toEqual([
                     [{ text: 'first' }, { text: 'second' }],
                     [],
                     [{ text: 'third' }],
@@ -70,16 +70,16 @@ describe('FrameAnalysis', () => {
                     frameAnalysis.captureFrame(createFakeCanvas());
 
                     const result = frameAnalysis.complete();
-                    expect(result.length).to.equal(1);
-                    expect(result[0].messages.length).to.equal(1);
-                    expect(result[0].messages[0].attachments).to.equal(attachments);
+                    expect(result).toHaveLength(1);
+                    expect(result[0].messages).toHaveLength(1);
+                    expect(result[0].messages[0].attachments).toBe(attachments);
                 });
             });
         });
 
         describe('when not analyzing', () => {
             it('should throw an error', () => {
-                expect(() => frameAnalysis.addMessage('a')).to.throw('Cannot add a message while not analyzing!');
+                expect(() => frameAnalysis.addMessage('a')).toThrow('Cannot add a message while not analyzing!');
             });
         });
     });
@@ -93,7 +93,7 @@ describe('FrameAnalysis', () => {
             it('should add a frame for each call', () => {
                 frameAnalysis.captureFrame(createFakeCanvas());
                 frameAnalysis.captureFrame(createFakeCanvas());
-                expect(frameAnalysis.complete().length).to.equal(2);
+                expect(frameAnalysis.complete()).toHaveLength(2);
             });
 
             describe('when a pending world update state has been set', () => {
@@ -102,20 +102,20 @@ describe('FrameAnalysis', () => {
                 });
                 it('should save the world update state in the resulting frame', () => {
                     frameAnalysis.captureFrame(createFakeCanvas('frame'));
-                    expect(frameAnalysis.complete()[0].worldUpdateState).to.equal(WorldUpdateState.ACCEPTED);
+                    expect(frameAnalysis.complete()[0].worldUpdateState).toBe(WorldUpdateState.ACCEPTED);
                 });
 
                 it('should NOT save the world update state in later frames', () => {
                     frameAnalysis.captureFrame(createFakeCanvas('frame'));
                     frameAnalysis.captureFrame(createFakeCanvas('frame'));
-                    expect(frameAnalysis.complete()[1].worldUpdateState).not.to.equal(WorldUpdateState.ACCEPTED);
+                    expect(frameAnalysis.complete()[1].worldUpdateState).not.toBe(WorldUpdateState.ACCEPTED);
                 });
             });
 
             describe('when with a quality of 1', () => {
                 it('should create a default-encoded frame image', () => {
                     frameAnalysis.captureFrame(createFakeCanvas('frame'));
-                    expect(frameAnalysis.complete()[0].imageData).to.equal('frame');
+                    expect(frameAnalysis.complete()[0].imageData).toBe('frame');
                 });
             });
 
@@ -126,14 +126,14 @@ describe('FrameAnalysis', () => {
 
                 it('should create a JPEG-encoded frame image with the specified quality', () => {
                     frameAnalysis.captureFrame(createFakeCanvas('frame'));
-                    expect(frameAnalysis.complete()[0].imageData).to.equal('image/jpeg(0.5):frame');
+                    expect(frameAnalysis.complete()[0].imageData).toBe('image/jpeg(0.5):frame');
                 });
             });
         });
 
         describe('when not analyzing', () => {
             it('should throw an error', () => {
-                expect(() => frameAnalysis.captureFrame(createFakeCanvas())).to.throw(
+                expect(() => frameAnalysis.captureFrame(createFakeCanvas())).toThrow(
                     'Cannot capture a frame while not analyzing!'
                 );
             });
@@ -149,7 +149,7 @@ describe('FrameAnalysis', () => {
             it('should return an array of the frames', () => {
                 frameAnalysis.captureFrame(createFakeCanvas());
                 frameAnalysis.captureFrame(createFakeCanvas());
-                expect(frameAnalysis.complete()).to.deep.equal([
+                expect(frameAnalysis.complete()).toEqual([
                     { frameId: 1, imageData: '', messages: [], worldUpdateState: undefined },
                     { frameId: 2, imageData: '', messages: [], worldUpdateState: undefined },
                 ] as FrameInfo[]);
@@ -157,7 +157,7 @@ describe('FrameAnalysis', () => {
 
             it('should stop the analysis', () => {
                 frameAnalysis.complete();
-                expect(frameAnalysis.analyzing).to.equal(false);
+                expect(frameAnalysis.analyzing).toBe(false);
             });
         });
 
@@ -171,7 +171,7 @@ describe('FrameAnalysis', () => {
 
             it('should include only the new frames', () => {
                 frameAnalysis.captureFrame(createFakeCanvas('second'));
-                expect(frameAnalysis.complete()).to.deep.equal([
+                expect(frameAnalysis.complete()).toEqual([
                     { frameId: 1, imageData: 'second', messages: [], worldUpdateState: undefined },
                 ] as FrameInfo[]);
             });
@@ -179,7 +179,7 @@ describe('FrameAnalysis', () => {
 
         describe('when not analyzing', () => {
             it('should throw an error', () => {
-                expect(() => frameAnalysis.complete()).to.throw('Cannot complete an analysis while not analyzing!');
+                expect(() => frameAnalysis.complete()).toThrow('Cannot complete an analysis while not analyzing!');
             });
         });
     });

@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { SignedBinaryWriter } from '@/game/entities/data/signed-binary-writer';
@@ -20,8 +20,8 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
             writer.writeInt(4);
             const reader = new SignedBinaryReader(writer.toArrayBuffer());
             reader.readInt();
-            expect(reader.withOffset(2 * 4).readInt()).to.equal(4);
-            expect(reader.readInt()).to.equal(2);
+            expect(reader.withOffset(2 * 4).readInt()).toBe(4);
+            expect(reader.readInt()).toBe(2);
         });
     });
 
@@ -29,13 +29,13 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
         describe('when the boolean is true', () => {
             it('should retain its value', () => {
                 writer.writeBoolean(true);
-                expect(new SignedBinaryReader(writer.toArrayBuffer()).readBoolean()).to.be.true;
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readBoolean()).toBe(true);
             });
         });
         describe('when the boolean is false', () => {
             it('should retain its value', () => {
                 writer.writeBoolean(false);
-                expect(new SignedBinaryReader(writer.toArrayBuffer()).readBoolean()).to.be.false;
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readBoolean()).toBe(false);
             });
         });
     });
@@ -44,19 +44,19 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
         describe('when the boolean is true', () => {
             it('should retain its value', () => {
                 writer.writeNullableBoolean(true);
-                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).to.be.true;
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).toBe(true);
             });
         });
         describe('when the boolean is false', () => {
             it('should retain its value', () => {
                 writer.writeNullableBoolean(false);
-                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).to.be.false;
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).toBe(false);
             });
         });
         describe('when the boolean is undefined', () => {
             it('should be undefined', () => {
                 writer.writeNullableBoolean(undefined);
-                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).to.be.undefined;
+                expect(new SignedBinaryReader(writer.toArrayBuffer()).readNullableBoolean()).toBeUndefined();
             });
         });
     });
@@ -64,40 +64,40 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
     describe('when encoding and decoding a byte', () => {
         it('should retain only the byte part and make it signed', () => {
             writer.writeByte((1 << 10) + 200);
-            expect(new SignedBinaryReader(writer.toArrayBuffer()).readByte()).to.equal(200 - 256);
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readByte()).toBe(200 - 256);
         });
     });
 
     describe('when encoding and decoding an integer', () => {
         it('should retain only the integer part', () => {
             writer.writeInt(1024 * 1024 * 1024 * 1024 + 420);
-            expect(new SignedBinaryReader(writer.toArrayBuffer()).readInt()).to.equal(420);
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readInt()).toBe(420);
         });
     });
 
     describe('when encoding and decoding a float', () => {
         it('should retain only the float part', () => {
             writer.writeFloat(0.123);
-            expect(new SignedBinaryReader(writer.toArrayBuffer()).readFloat()).to.closeTo(0.123, 0.00001);
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readFloat()).toBeCloseTo(0.123);
         });
     });
 
     describe('when encoding and decoding a double', () => {
         it('should retain only the double part', () => {
             writer.writeDouble(0.123);
-            expect(new SignedBinaryReader(writer.toArrayBuffer()).readDouble()).to.equal(0.123);
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readDouble()).toBe(0.123);
         });
     });
 
     describe('when encoding and decoding an ASCII string', () => {
         it('should retain its value', () => {
             writer.writeAsciiString('Test');
-            expect(new SignedBinaryReader(writer.toArrayBuffer()).readAsciiString()).to.equal('Test');
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readAsciiString()).toBe('Test');
         });
 
         describe('when the string is with non-ASCII characters', () => {
             it('should throw an error', () => {
-                expect(() => writer.writeAsciiString('Non-ASCII character: ⚠')).to.throw(
+                expect(() => writer.writeAsciiString('Non-ASCII character: ⚠')).toThrow(
                     '"Non-ASCII character: ⚠" is not an ASCII string! ' +
                         'It contains a non-ASCII character "⚠" at index 21'
                 );
@@ -108,7 +108,7 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
     describe('when encoding and decoding a UTF-16 string', () => {
         it('should retain its value', () => {
             writer.writeUtf16String('Warning: ⚠');
-            expect(new SignedBinaryReader(writer.toArrayBuffer()).readUtf16String()).to.equal('Warning: ⚠');
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readUtf16String()).toBe('Warning: ⚠');
         });
     });
 
@@ -120,7 +120,7 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
                     .readEntityArray(TestEntity)
                     .map((entity: TestEntity) => entity.data)
                     .join(', ')
-            ).to.equal('1, 2');
+            ).toBe('1, 2');
         });
     });
 });

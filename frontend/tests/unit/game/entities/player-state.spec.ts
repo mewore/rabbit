@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, expect, it } from '@jest/globals';
 
 import { SignedBinaryReader } from '@/game/entities/data/signed-binary-reader';
 import { Vector3Entity } from '@/game/entities/geometry/vector3-entity';
@@ -19,7 +19,7 @@ describe('PlayerState', () => {
             );
             const encoded = original.encodeToBinary();
             const decoded = PlayerState.decodeFromBinary(new SignedBinaryReader(encoded));
-            expect(decoded).to.deep.equals(original);
+            expect(decoded).toEqual(original);
         });
 
         it('should roughly retain its floating point values', () => {
@@ -30,16 +30,16 @@ describe('PlayerState', () => {
                 new Vector3Entity(0.1, 0.2, 0.3),
                 new Vector3Entity(0.4, 0.5, 0.6),
                 25.25,
-                25.25
+                12.34
             );
             const encoded = original.encodeToBinary();
             const decoded = PlayerState.decodeFromBinary(new SignedBinaryReader(encoded));
 
-            expect(decoded.input.angle).to.approximately(original.input.angle, 0.000001);
-            expect(decoded.groundTimeLeft).to.approximately(original.groundTimeLeft, 0.000001);
-            expect(decoded.jumpControlTimeLeft).to.approximately(original.jumpControlTimeLeft, 0.000001);
-            expect(decoded.position.x).to.approximately(original.position.x, 0.000001);
-            expect(decoded.motion.x).to.approximately(original.motion.x, 0.000001);
+            expect(decoded.input.angle).toBeCloseTo(original.input.angle);
+            expect(decoded.groundTimeLeft).toBeCloseTo(original.groundTimeLeft);
+            expect(decoded.jumpControlTimeLeft).toBeCloseTo(original.jumpControlTimeLeft);
+            expect(decoded.position.x).toBeCloseTo(original.position.x);
+            expect(decoded.motion.x).toBeCloseTo(original.motion.x);
         });
     });
 });
