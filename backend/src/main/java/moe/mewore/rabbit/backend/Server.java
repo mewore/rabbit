@@ -148,29 +148,13 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         worldUpdateListeners.add(handler);
     }
 
-    public Server start() {
-        setServerState(ServerState.STOPPED, ServerState.STARTING);
-
-        simulationThread.scheduleAtFixedRate(() -> {
-            try {
-                updateWorld();
-            } catch (final RuntimeException e) {
-                System.err.println(e.getMessage());
-                e.printStackTrace();
-            }
-        }, 0, 1000L / UPDATES_PER_SECOND, TimeUnit.MILLISECONDS);
-        heartbeatThread.scheduleAtFixedRate(() -> {
-            try {
-                heart.doStep();
-            } catch (final RuntimeException e) {
-                System.err.println(e.getMessage());
-                e.printStackTrace();
-            }
-        }, 0, heart.getStepTimeInterval(), TimeUnit.MILLISECONDS);
-        javalin.start(serverSettings.getPort());
-
-        setServerState(ServerState.STARTING, ServerState.RUNNING);
-        return this;
+    private static void runSafely(final Runnable toRun) {
+        try {
+            toRun.run();
+        } catch (final RuntimeException e) {
+            System.err.println("Unexpected exception encountered: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void updateWorld() {
@@ -245,14 +229,22 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         }
     }
 
+    public Server start() {
+        setServerState(ServerState.STOPPED, ServerState.STARTING);
+
+        simulationThread.scheduleAtFixedRate(() -> runSafely(this::updateWorld), 0, 1000L / UPDATES_PER_SECOND,
+            TimeUnit.MILLISECONDS);
+        heartbeatThread.scheduleAtFixedRate(() -> runSafely(heart::doStep), 0, heart.getStepTimeInterval(),
+            TimeUnit.MILLISECONDS);
+        javalin.start(serverSettings.getPort());
+
+        setServerState(ServerState.STARTING, ServerState.RUNNING);
+        return this;
+    }
+
     @Override
     public void handleConnect(final @NonNull WsConnectContext sender) {
-        try {
-            sender.send(ByteBuffer.wrap(new MapDataMessage(map, worldState.getBoxes()).encodeToBinary()));
-        } catch (final RuntimeException e) {
-            System.err.printf("Failed to send map data to session %s%n", sender.getSessionId());
-            e.printStackTrace();
-        }
+        sender.send(ByteBuffer.wrap(new MapDataMessage(map, worldState.getBoxes()).encodeToBinary()));
         for (final Player player : playerBySessionId.values()) {
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player, false).encodeToBinary()));
         }
