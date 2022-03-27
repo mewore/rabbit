@@ -31,6 +31,13 @@ class ServerPhysicsDebugTest {
     }
 
     @Test
+    void testDrawLine_sameCoordinates() {
+        debugDraw.drawLine(new Vector3f(), new Vector3f(), new Vector3f(.5f, .8f, .1f));
+        assertEquals(1, debugDraw.getHash());
+        assertEquals(0, debugDraw.getLineCount());
+    }
+
+    @Test
     void testDraw() {
         debugDraw.drawLine(new Vector3f(), new Vector3f(1f, 1f, 1f), new Vector3f(.5f, 255f, .1f));
         final var drawer = mock(LineDrawer.class);
