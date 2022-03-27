@@ -34,6 +34,7 @@ import io.javalin.websocket.WsConnectContext;
 import io.javalin.websocket.WsConnectHandler;
 import io.javalin.websocket.WsContext;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.backend.editor.EditorVersionHandler;
 import moe.mewore.rabbit.backend.messages.HeartbeatRequest;
 import moe.mewore.rabbit.backend.messages.MapDataMessage;
@@ -56,6 +57,7 @@ import moe.mewore.rabbit.world.WorldProperties;
 
 // This is the server, so of course it's "overly coupled".
 @SuppressWarnings("OverlyCoupledClass")
+@RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
 
     private final ScheduledExecutorService simulationThread = Executors.newSingleThreadScheduledExecutor();
@@ -90,14 +92,6 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final List<Consumer<WorldState>> worldUpdateListeners = new ArrayList<>();
 
-    public Server(final ServerSettings serverSettings, final Javalin javalin, final MazeMap map) {
-        this.serverSettings = serverSettings;
-        this.javalin = javalin;
-        this.map = map;
-        worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS, map);
-        worldSimulation = new WorldSimulation(worldState);
-    }
-
     public static Server create(final ServerSettings settings) throws IOException {
         final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
         final Javalin javalin = Javalin.create(config -> {
@@ -121,7 +115,8 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             externalStaticLocation != null ? new EditorVersionHandler(externalStaticLocation, File::listFiles,
                 Context::json) : ctx -> ctx.json(Collections.emptySet()));
 
-        final Server server = new Server(settings, javalin, map);
+        final var worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS, map);
+        final Server server = new Server(settings, javalin, map, worldState, new WorldSimulation(worldState));
         javalin.ws("/multiplayer", ws -> {
             ws.onConnect(server);
             ws.onBinaryMessage(server);
@@ -280,7 +275,12 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     }
 
     private void handleInput(final Player player, final PlayerInputMutation updateMutation) {
-        worldSimulation.acceptInput(player, updateMutation);
+        try {
+            worldSimulation.acceptInput(player, updateMutation);
+        } catch (final InterruptedException e) {
+            System.out.println("Interrupted while handling an input from player " + player.getInputState());
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Override

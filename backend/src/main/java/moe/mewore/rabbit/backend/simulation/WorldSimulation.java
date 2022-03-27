@@ -1,5 +1,12 @@
 package moe.mewore.rabbit.backend.simulation;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.Synchronized;
 import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
@@ -27,6 +34,8 @@ public class WorldSimulation {
 
     private int frameToReplayFrom = -1;
 
+    private final BlockingQueue<PendingInput> pendingInputs = new LinkedBlockingDeque<>();
+
     public WorldSimulation(final WorldState state) {
         this.state = state;
         for (int i = 0; i < FRAME_BUFFER_SIZE; i++) {
@@ -36,13 +45,19 @@ public class WorldSimulation {
             "Memory used for the frames: " + FRAME_BUFFER_SIZE * WorldState.BYTES_PER_STORED_STATE / 1024 + " KB");
     }
 
-    // TODO: Make it less synchronized
-    @Synchronized
-    public void acceptInput(final Player player, final PlayerInputMutation input) {
+    public void acceptInput(final Player player, final PlayerInputMutation input) throws InterruptedException {
         final int inputTimestamp = (int) (System.currentTimeMillis() - createdAt) -
             Math.min(player.getLatency(), MAXIMUM_ROLLBACK_MILLISECONDS);
         final int expectedInputFrame = Math.round(inputTimestamp * FPS * .001f);
-        int inputFrame = expectedInputFrame;
+        pendingInputs.put(new PendingInput(player, input, inputTimestamp, expectedInputFrame));
+    }
+
+    @Synchronized
+    private void applyInput(final PendingInput pendingInput) {
+        final Player player = pendingInput.getPlayer();
+        final PlayerInputMutation input = pendingInput.getInput();
+
+        int inputFrame = pendingInput.getTargetFrame();
         inputFrame = Math.abs(input.getFrameId() - inputFrame) <= MAX_INPUT_FRAME_SHIFT
             ? input.getFrameId()
             : inputFrame + (inputFrame > input.getFrameId() ? -MAX_INPUT_FRAME_SHIFT : MAX_INPUT_FRAME_SHIFT);
@@ -55,7 +70,7 @@ public class WorldSimulation {
                 "[#%d] Input #%d cannot be applied to its desired frame #%d; instead, it will be applied to #%d%n",
                 currentFrame, input.getId(), input.getFrameId(), inputFrame);
             System.out.printf("\t- Input timestamp: %d   |   Expected input frame: %d   |   Latency: %d%n",
-                inputTimestamp, expectedInputFrame, player.getLatency());
+                pendingInput.getSupposedTimestamp(), pendingInput.getTargetFrame(), player.getLatency());
         }
 
         final int frameDifference = Math.abs(currentFrame - inputFrame);
@@ -73,15 +88,23 @@ public class WorldSimulation {
         return frames[frameIndex];
     }
 
+    @Synchronized
     public WorldSnapshot getPastSnapshot(final int millisecondsInPast) {
         final int maxFrameDifference = Math.min(state.getFrameId(), FRAME_BUFFER_SIZE);
         final int frameDifference = Math.min(maxFrameDifference, millisecondsInPast * FPS / 1000);
         return frames[(frameDifference <= frameIndex ? frameIndex : frameIndex + FRAME_BUFFER_SIZE) - frameDifference];
     }
 
-    // TODO: Make it less synchronized
     @Synchronized
     public WorldState update(final long now) {
+        if (!pendingInputs.isEmpty()) {
+            final List<PendingInput> inputsToApply = new ArrayList<>(pendingInputs.size());
+            pendingInputs.drainTo(inputsToApply);
+            for (final PendingInput input : inputsToApply) {
+                applyInput(input);
+            }
+        }
+
         if (frameToReplayFrom > -1) {
             final int replayFrameIndex =
                 (frameIndex - (state.getFrameId() - frameToReplayFrom) + FRAME_BUFFER_SIZE) % FRAME_BUFFER_SIZE;
@@ -106,5 +129,18 @@ public class WorldSimulation {
         }
 
         return state;
+    }
+
+    @Getter
+    @RequiredArgsConstructor
+    private static class PendingInput {
+
+        private final Player player;
+
+        private final PlayerInputMutation input;
+
+        private final int supposedTimestamp;
+
+        private final int targetFrame;
     }
 }
