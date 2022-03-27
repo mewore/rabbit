@@ -9,7 +9,6 @@ import java.security.SecureRandom;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,39 +27,34 @@ class ServerIT {
 
         final Server server = Server.create(settings).start();
         try {
-            final HttpURLConnection http = (HttpURLConnection) new URL(
+            final HttpURLConnection testHttp = (HttpURLConnection) new URL(
                 String.format("http://localhost:%d/test.txt", port)).openConnection();
-            assertEquals(200, http.getResponseCode());
-            assertEquals("Test\n", new String(http.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+            assertEquals(200, testHttp.getResponseCode());
+            assertEquals("Test\n", new String(testHttp.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+
+            final HttpURLConnection editorsHttp = (HttpURLConnection) new URL(
+                String.format("http://localhost:%d/editors", port)).openConnection();
+            assertEquals(200, editorsHttp.getResponseCode());
+            assertEquals("[]", new String(editorsHttp.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
         } finally {
             server.stop();
         }
     }
 
     @Test
-    void testStartWhileStarted() throws IOException, InterruptedException {
+    void testInitialize_noExternalStaticLocation() throws IOException, InterruptedException {
         final ServerSettings settings = mock(ServerSettings.class);
         final int port = MIN_PORT + new SecureRandom().nextInt(PORT_RANGE);
         when(settings.getPort()).thenReturn(port);
 
         final Server server = Server.create(settings).start();
         try {
-            final var exception = assertThrows(IllegalStateException.class, server::start);
-            assertEquals("The server expected to transition from state STOPPED to STARTING but its state was RUNNING",
-                exception.getMessage());
+            final HttpURLConnection editorsHttp = (HttpURLConnection) new URL(
+                String.format("http://localhost:%d/editors", port)).openConnection();
+            assertEquals(200, editorsHttp.getResponseCode());
+            assertEquals("[]", new String(editorsHttp.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
         } finally {
             server.stop();
         }
-    }
-
-    @Test
-    void testStopWhileStopped() throws IOException {
-        final ServerSettings settings = mock(ServerSettings.class);
-        when(settings.getPort()).thenReturn(MIN_PORT);
-
-        final Server server = Server.create(settings);
-        final var exception = assertThrows(IllegalStateException.class, server::stop);
-        assertEquals("The server expected to transition from state RUNNING to STOPPING but its state was STOPPED",
-            exception.getMessage());
     }
 }

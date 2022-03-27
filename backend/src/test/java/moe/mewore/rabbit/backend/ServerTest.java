@@ -8,10 +8,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import io.javalin.Javalin;
@@ -39,8 +42,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,14 +64,66 @@ class ServerTest {
 
     private Player secondPlayer;
 
+    private ScheduledExecutorService threadPool;
+
+    private Javalin javalin;
+
     @BeforeEach
     void setUp() {
+        javalin = mock(Javalin.class);
         firstPlayer = mock(Player.class);
         secondPlayer = mock(Player.class);
         worldState = mock(WorldState.class);
         worldSimulation = mock(WorldSimulation.class);
-        server = new Server(new ServerSettings(new String[0], Map.of()), mock(Javalin.class), new FakeMap(), worldState,
-            worldSimulation);
+        threadPool = mock(ScheduledExecutorService.class);
+        server = new Server(new ServerSettings(new String[0], Map.of()), javalin, new FakeMap(), worldState,
+            worldSimulation, threadPool);
+    }
+
+    @Test
+    void testStart() {
+        server.start();
+
+        final ArgumentCaptor<Long> rateCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(threadPool, times(2)).scheduleAtFixedRate(any(), eq(0L), rateCaptor.capture(),
+            same(TimeUnit.MILLISECONDS));
+        assertEquals(List.of(100L, 33L), rateCaptor.getAllValues());
+
+        verify(javalin).start(8100);
+    }
+
+    @Test
+    void testStart_alreadyRunning() {
+        server.start();
+        final var exception = assertThrows(IllegalStateException.class, server::start);
+        assertEquals("The server expected to transition from state STOPPED to STARTING but its state was RUNNING",
+            exception.getMessage());
+    }
+
+    @Test
+    void testStop() throws InterruptedException {
+        server.start();
+        when(threadPool.awaitTermination(1, TimeUnit.MINUTES)).thenReturn(true);
+        server.stop();
+
+        verify(threadPool).shutdown();
+        verify(javalin).stop();
+    }
+
+    @Test
+    void testStop_failureToTerminateThreadPool() throws InterruptedException {
+        server.start();
+        when(threadPool.awaitTermination(anyInt(), any())).thenReturn(false);
+        server.stop();
+
+        verify(javalin).stop();
+    }
+
+    @Test
+    void testStop_notRunning() {
+        final var exception = assertThrows(IllegalStateException.class, server::stop);
+        assertEquals("The server expected to transition from state RUNNING to STOPPING but its state was STOPPED",
+            exception.getMessage());
     }
 
     @Test
@@ -124,6 +182,15 @@ class ServerTest {
         assertEquals("12345", new String(stringBytes, StandardCharsets.US_ASCII));
         assertTrue(otherEventInput.readBoolean()); // isReisen
         assertFalse(otherEventInput.readBoolean()); // isSelf
+    }
+
+    @Test
+    void testHandleBinaryMessage_join_failedToCreatePlayer() {
+        final var session = new FakeWsSession("session");
+        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        simulateConnect(session);
+        simulateJoin(session, true);
+        assertEquals(List.of(MessageType.MAP_DATA), session.getSentMessageTypes());
     }
 
     @Test

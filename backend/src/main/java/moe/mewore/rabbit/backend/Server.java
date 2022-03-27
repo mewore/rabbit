@@ -60,8 +60,6 @@ import moe.mewore.rabbit.world.WorldProperties;
 @RequiredArgsConstructor
 public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsCloseHandler {
 
-    private final ScheduledExecutorService simulationThread = Executors.newSingleThreadScheduledExecutor();
-
     private static final int MAXIMUM_NUMBER_OF_PLAYERS = 10;
 
     private static final int UPDATES_PER_SECOND = 10;
@@ -84,9 +82,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final WorldSimulation worldSimulation;
 
-    private final AtomicReference<@NonNull ServerState> state = new AtomicReference<>(ServerState.STOPPED);
+    private final ScheduledExecutorService threadPool;
 
-    private final ScheduledExecutorService heartbeatThread = Executors.newSingleThreadScheduledExecutor();
+    private final AtomicReference<@NonNull ServerState> state = new AtomicReference<>(ServerState.STOPPED);
 
     private final MultiPlayerHeart heart = new MultiPlayerHeart(MAXIMUM_NUMBER_OF_PLAYERS, this::sendHeartbeat);
 
@@ -116,7 +114,8 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 Context::json) : ctx -> ctx.json(Collections.emptySet()));
 
         final var worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS, map);
-        final Server server = new Server(settings, javalin, map, worldState, new WorldSimulation(worldState));
+        final Server server = new Server(settings, javalin, map, worldState, new WorldSimulation(worldState),
+            Executors.newScheduledThreadPool(2));
         javalin.ws("/multiplayer", ws -> {
             ws.onConnect(server);
             ws.onBinaryMessage(server);
@@ -174,15 +173,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         setServerState(ServerState.RUNNING, ServerState.STOPPING);
 
         try {
-            final var tasksToStop = new ScheduledExecutorService[]{simulationThread, heartbeatThread};
-            for (final ScheduledExecutorService task : tasksToStop) {
-                task.shutdown();
-            }
-            if (!simulationThread.awaitTermination(1, TimeUnit.MINUTES)) {
-                System.err.println("The simulation thread was not terminated even after waiting for 1 minute");
-            }
-            if (!heartbeatThread.awaitTermination(1, TimeUnit.MINUTES)) {
-                System.err.println("The heartbeat thread was not terminated even after waiting for 1 minute");
+            threadPool.shutdown();
+            if (!threadPool.awaitTermination(1, TimeUnit.MINUTES)) {
+                System.err.println("The thread pool was not terminated even after waiting for 1 minute");
             }
         } finally {
             javalin.stop();
@@ -227,9 +220,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     public Server start() {
         setServerState(ServerState.STOPPED, ServerState.STARTING);
 
-        simulationThread.scheduleAtFixedRate(() -> runSafely(this::updateWorld), 0, 1000L / UPDATES_PER_SECOND,
+        threadPool.scheduleAtFixedRate(() -> runSafely(this::updateWorld), 0, 1000L / UPDATES_PER_SECOND,
             TimeUnit.MILLISECONDS);
-        heartbeatThread.scheduleAtFixedRate(() -> runSafely(heart::doStep), 0, heart.getStepTimeInterval(),
+        threadPool.scheduleAtFixedRate(() -> runSafely(heart::doStep), 0, heart.getStepTimeInterval(),
             TimeUnit.MILLISECONDS);
         javalin.start(serverSettings.getPort());
 
