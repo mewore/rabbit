@@ -148,7 +148,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         worldUpdateListeners.add(handler);
     }
 
-    private static void runSafely(final Runnable toRun) {
+    static void runSafely(final Runnable toRun) {
         try {
             toRun.run();
         } catch (final RuntimeException e) {
@@ -157,7 +157,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         }
     }
 
-    private void updateWorld() {
+    void updateWorld() {
         final WorldState newState = worldSimulation.update(System.currentTimeMillis());
         final byte[] presentData = new WorldUpdateMessage(worldState,
             worldSimulation.getCurrentSnapshot()).encodeToBinary();
@@ -258,7 +258,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         RUNNING
     }
 
-    private void sendHeartbeat(final int playerId, final int heartbeatId) {
+    void sendHeartbeat(final int playerId, final int heartbeatId) {
         final @Nullable Session session = sessionByPlayerId.get(playerId);
         if (session != null && session.isOpen()) {
             session.getRemote().sendBytesByFuture(ByteBuffer.wrap(new HeartbeatRequest(heartbeatId).encodeToBinary()));

@@ -24,6 +24,7 @@ class ServerIT {
         final ServerSettings settings = mock(ServerSettings.class);
         final int port = MIN_PORT + new SecureRandom().nextInt(PORT_RANGE);
         when(settings.getPort()).thenReturn(port);
+        when(settings.getExternalStaticLocation()).thenReturn(".");
 
         final Server server = Server.create(settings).start();
         try {

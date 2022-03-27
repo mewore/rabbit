@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,9 +21,12 @@ import moe.mewore.rabbit.backend.messages.MessageType;
 import moe.mewore.rabbit.backend.mock.FakeMap;
 import moe.mewore.rabbit.backend.mock.ws.FakeWsSession;
 import moe.mewore.rabbit.backend.mutations.MutationType;
+import moe.mewore.rabbit.backend.simulation.WorldState;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -38,28 +42,28 @@ class ServerTest {
 
     @Test
     void testHandleConnect() {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
         assertEquals(List.of(MessageType.MAP_DATA), session.getSentMessageTypes());
     }
 
     @Test
     void testHandleConnect_afterJoin() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
         simulateJoin(session);
 
-        final FakeWsSession otherSession = new FakeWsSession("other");
+        final var otherSession = new FakeWsSession("other");
         simulateConnect(otherSession);
         assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());
     }
 
     @Test
     void testHandleBinaryMessage_join() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
 
-        final FakeWsSession otherSession = new FakeWsSession("other");
+        final var otherSession = new FakeWsSession("other");
         simulateConnect(otherSession);
         simulateJoin(session, false);
 
@@ -88,11 +92,11 @@ class ServerTest {
 
     @Test
     void testHandleBinaryMessage_playerInput() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
         simulateJoin(session);
 
-        final FakeWsSession otherSession = new FakeWsSession("other");
+        final var otherSession = new FakeWsSession("other");
         simulateConnect(otherSession);
 
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -106,7 +110,7 @@ class ServerTest {
 
     @Test
     void testHandleBinaryMessage_heartbeat() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
         simulateJoin(session);
 
@@ -120,7 +124,7 @@ class ServerTest {
 
     @Test
     void testHandleBinaryMessage_heartbeat_noPlayer() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
 
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -131,7 +135,7 @@ class ServerTest {
 
     @Test
     void testHandleBinaryMessage_invalidMutationType() {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
         final Exception exception = assertThrows(IllegalArgumentException.class,
             () -> simulateBinaryData(session, new byte[]{25}));
@@ -140,7 +144,7 @@ class ServerTest {
 
     @Test
     void testHandleBinaryMessage_join_alreadyConnected() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateJoin(session);
         final Exception exception = assertThrows(IllegalArgumentException.class,
             () -> simulateBinaryData(session, new byte[]{MutationType.PLAYER_JOIN.getIndex()}));
@@ -149,7 +153,7 @@ class ServerTest {
 
     @Test
     void testHandleBinaryMessage_update_notConnected() {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         final Exception exception = assertThrows(IllegalArgumentException.class,
             () -> simulateBinaryData(session, new byte[]{MutationType.PLAYER_INPUT.getIndex()}));
         assertEquals("There is no player for session session", exception.getMessage());
@@ -157,7 +161,7 @@ class ServerTest {
 
     @Test
     void testHandleClose() {
-        final FakeWsSession firstSession = new FakeWsSession("session");
+        final var firstSession = new FakeWsSession("session");
         simulateConnect(firstSession);
         simulateClose(firstSession);
         assertEquals(List.of(MessageType.MAP_DATA), firstSession.getSentMessageTypes());
@@ -165,11 +169,11 @@ class ServerTest {
 
     @Test
     void testHandleClose_two() throws IOException {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
         simulateJoin(session);
 
-        final FakeWsSession otherSession = new FakeWsSession("other");
+        final var otherSession = new FakeWsSession("other");
         simulateConnect(otherSession);
         simulateClose(session);
 
@@ -182,10 +186,53 @@ class ServerTest {
 
     @Test
     void testHandleClose_notConnected() {
-        final FakeWsSession session = new FakeWsSession("session");
+        final var session = new FakeWsSession("session");
         simulateConnect(session);
         simulateClose(session);
         simulateClose(session);
+    }
+
+    @Test
+    void testUpdateWorld() throws IOException {
+        final var session = new FakeWsSession("session");
+        simulateConnect(session);
+        simulateJoin(session, false);
+
+        final var otherSession = new FakeWsSession("other");
+        simulateConnect(otherSession);
+        simulateJoin(otherSession, true);
+
+        final var sessionWithNoPlayer = new FakeWsSession("no-player");
+        simulateConnect(sessionWithNoPlayer);
+
+        final AtomicReference<WorldState> worldState = new AtomicReference<>();
+        server.onWorldUpdate(worldState::set);
+
+        server.updateWorld();
+        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN, MessageType.JOIN, MessageType.UPDATE),
+            session.getSentMessageTypes());
+        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN, MessageType.JOIN, MessageType.UPDATE),
+            otherSession.getSentMessageTypes());
+
+        assertNotNull(worldState.get());
+    }
+
+    @Test
+    void testSendHeartbeat() throws IOException {
+        final var session = new FakeWsSession("session");
+        simulateConnect(session);
+        simulateJoin(session, false);
+
+        server.sendHeartbeat(0, 1);
+        assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN, MessageType.HEARTBEAT_REQUEST),
+            session.getSentMessageTypes());
+    }
+
+    @Test
+    void testRunSafely() {
+        assertDoesNotThrow(() -> Server.runSafely(() -> {
+            throw new RuntimeException("intended runtime exception");
+        }));
     }
 
     private void simulateConnect(final FakeWsSession session) {
