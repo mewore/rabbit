@@ -42,34 +42,46 @@ pipeline {
                 }
             }
         }
-        stage('JaCoCo Report') {
-            steps {
-                jacoco([
-                    classPattern: '**/build/classes',
-                    execPattern: '**/**.exec',
-                    sourcePattern: '**/src/main/java',
-                    exclusionPattern: [
-                        '**/test/**/*.class',
-                        '**/WorldEditor.class',
-                        '**/ServerWithPreview.class',
-                        '**/PlayerPreview.class',
-                    ].join(','),
+        stage('Post-build') {
+        parallel {
+            stage('JaCoCo Report') {
+                steps {
+                    jacoco([
+                        classPattern: '**/build/classes',
+                        execPattern: '**/**.exec',
+                        sourcePattern: '**/src/main/java',
+                        exclusionPattern: [
+                            '**/test/**/*.class',
+                            '**/WorldEditor.class',
+                            '**/ServerWithPreview.class',
+                            '**/PlayerPreview.class',
+                        ].join(','),
 
-                    // 100% health at:
-                    maximumBranchCoverage: '90',
-                    maximumClassCoverage: '95',
-                    maximumComplexityCoverage: '90',
-                    maximumLineCoverage: '95',
-                    maximumMethodCoverage: '95',
-                    // 0% health at:
-                    minimumBranchCoverage: '70',
-                    minimumClassCoverage: '80',
-                    minimumComplexityCoverage: '70',
-                    minimumLineCoverage: '80',
-                    minimumMethodCoverage: '80',
+                        // 100% health at:
+                        maximumBranchCoverage: '90',
+                        maximumClassCoverage: '95',
+                        maximumComplexityCoverage: '90',
+                        maximumLineCoverage: '95',
+                        maximumMethodCoverage: '95',
+                        // 0% health at:
+                        minimumBranchCoverage: '70',
+                        minimumClassCoverage: '80',
+                        minimumComplexityCoverage: '70',
+                        minimumLineCoverage: '80',
+                        minimumMethodCoverage: '80',
+                    ])
+                }
+            }
+            stage('Cobertura Report') {
+                cobertura([
+                    coberturaReportFile: '**/frontend/tests/coverage/cobertura-coverage.xml',
+                    conditionalCoverageTargets: '90, 50, 0',
+                    lineCoverageTargets: '95, 60, 0',
+                    methodCoverageTargets: '95, 60, 0',
                 ])
             }
-        }
+        } // parallel { ... }
+        } // Post-build { ... }
     }
 
     post {

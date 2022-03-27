@@ -32,6 +32,7 @@ module.exports = {
         '<rootDir>/src/**/*.tsx',
     ],
     coveragePathIgnorePatterns: ['/node_modules/', '.d.ts$'],
+    coverageReporters: ['text', 'html', 'cobertura'],
     coverageThreshold: {
         global: {
             //  branches: 50,

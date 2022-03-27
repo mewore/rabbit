@@ -134,8 +134,8 @@ pipeline {
         }
     }
     } // parallel { ... }
-    } // stages { ... }
     } // All
+    } // stages { ... }
 
     post {
         always {
