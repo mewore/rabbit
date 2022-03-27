@@ -73,12 +73,14 @@ pipeline {
                 }
             }
             stage('Cobertura Report') {
-                cobertura([
-                    coberturaReportFile: '**/frontend/tests/coverage/cobertura-coverage.xml',
-                    conditionalCoverageTargets: '90, 50, 0',
-                    lineCoverageTargets: '95, 60, 0',
-                    methodCoverageTargets: '95, 60, 0',
-                ])
+                steps {
+                    cobertura([
+                        coberturaReportFile: '**/frontend/tests/coverage/cobertura-coverage.xml',
+                        conditionalCoverageTargets: '90, 50, 0',
+                        lineCoverageTargets: '95, 60, 0',
+                        methodCoverageTargets: '95, 60, 0',
+                    ])
+                }
             }
         } // parallel { ... }
         } // Post-build { ... }
