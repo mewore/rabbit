@@ -12,7 +12,9 @@ import com.bulletphysics.dynamics.RigidBody;
 import com.bulletphysics.linearmath.IDebugDraw;
 import com.bulletphysics.linearmath.Transform;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 @RequiredArgsConstructor
 public class RigidBodyController extends ActionInterface {
@@ -35,7 +37,9 @@ public class RigidBodyController extends ActionInterface {
 
     public float jumpControlLeniency = 0.1f;
 
-    public Vector2f targetHorizontalMotion = new Vector2f();
+    @Getter
+    @Setter
+    private Vector2f targetHorizontalMotion = new Vector2f();
 
     public float groundTimeLeft = -1f;
 

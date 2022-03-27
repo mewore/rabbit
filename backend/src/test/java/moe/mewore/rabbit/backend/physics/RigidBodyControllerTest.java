@@ -76,7 +76,7 @@ class RigidBodyControllerTest {
     void testUpdateAction_moving() {
         final var world = mock(CollisionWorld.class);
 
-        controller.targetHorizontalMotion.x = 10000f;
+        controller.getTargetHorizontalMotion().x = 10000f;
         when(body.getLinearVelocity(any())).thenReturn(new Vector3f());
         controller.updateAction(world, .1f);
         verify(body).activate();

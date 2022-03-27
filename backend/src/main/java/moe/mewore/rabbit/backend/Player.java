@@ -46,7 +46,7 @@ public class Player {
     private int latency = Heart.DEFAULT_LATENCY;
 
     public void beforePhysics(final float dt) {
-        characterController.targetHorizontalMotion = inputState.getTargetHorizontalMotion();
+        characterController.setTargetHorizontalMotion(inputState.getTargetHorizontalMotion());
         if (inputState.isJumping()) {
             characterController.jump();
         }
@@ -60,7 +60,7 @@ public class Player {
         position.z = (float) map.wrapZ(position.z);
         if (position.y < MIN_Y || position.y > MAX_Y) {
             position.y = (MIN_Y + MAX_Y) * .5f;
-            characterController.setPosition(position);
         }
+        characterController.setPosition(position);
     }
 }
