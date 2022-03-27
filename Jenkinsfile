@@ -79,6 +79,9 @@ pipeline {
                         conditionalCoverageTargets: '90, 50, 0',
                         lineCoverageTargets: '95, 60, 0',
                         methodCoverageTargets: '95, 60, 0',
+                        failUnhealthy: false,
+                        failUnstable: false,
+                        zoomCoverageChart: false,
                     ])
                 }
             }
