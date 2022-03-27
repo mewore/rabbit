@@ -71,18 +71,15 @@ class MazeMapCanvas extends Canvas {
         }
     }
 
-    public MazeMapCanvas() {
-        super();
+    public void setUp(final MazeMap map, final Collection<Integer> flippedCells, final Noise noise) {
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         addMouseMotionListener(new CanvasMouseMotionListener());
         addMouseListener(new CanvasMouseListener());
-    }
 
-    public void setUp(final MazeMap map, final Collection<Integer> flippedCells, final Noise noise) {
         int imageWidth = PIXELS_PER_CELL * map.getColumnCount();
         int imageHeight = PIXELS_PER_CELL * map.getRowCount();
-        if (imageWidth * imageHeight > MAX_IMAGE_PIXELS) {
-            final double overhead = (double) (imageWidth * imageHeight) / MAX_IMAGE_PIXELS;
+        if ((long) (imageWidth) * imageHeight > MAX_IMAGE_PIXELS) {
+            final double overhead = (double) (imageWidth) * imageHeight / MAX_IMAGE_PIXELS;
             imageWidth = (int) (imageWidth / Math.sqrt(overhead));
             imageHeight = (int) (imageHeight / Math.sqrt(overhead));
         }
@@ -106,8 +103,10 @@ class MazeMapCanvas extends Canvas {
         }
 
         imageData.updateUiIndicators(paintedCells, currentPaint, hoveredCell);
-        final int minX = offsetX - (offsetX / imageData.getImageWidth() + 1) * imageData.getImageWidth();
-        final int minY = offsetY - (offsetY / imageData.getImageHeight() + 1) * imageData.getImageHeight();
+        final int imageWidth = imageData.getImageWidth();
+        final int imageHeight = imageData.getImageHeight();
+        final int minX = (offsetX - (offsetX / imageWidth + 1) * imageWidth) % imageWidth;
+        final int minY = (offsetY - (offsetY / imageHeight + 1) * imageHeight) % imageHeight;
         for (int y = minY; y < getHeight(); y += imageData.getImageHeight()) {
             for (int x = minX; x < getWidth(); x += imageData.getImageWidth()) {
                 graphics.drawImage(imageData.getImageWithUiIndicators(), x, y, this);
@@ -124,7 +123,6 @@ class MazeMapCanvas extends Canvas {
         @Override
         public void mouseDragged(final MouseEvent e) {
             if (imageData == null) {
-                lastMouseDrag = null;
                 return;
             }
             if (lastMouseDrag != null) {
@@ -159,7 +157,6 @@ class MazeMapCanvas extends Canvas {
         @Override
         public void mouseMoved(final MouseEvent e) {
             if (imageData == null || lastMouseDrag != null) {
-                hoveredCell = null;
                 return;
             }
 
@@ -183,6 +180,10 @@ class MazeMapCanvas extends Canvas {
 
         @Override
         public void mousePressed(final MouseEvent e) {
+            if (currentPaint != null && e.getButton() != LEFT_MOUSE_BUTTON ||
+                lastMouseDrag != null && e.getButton() != RIGHT_MOUSE_BUTTON) {
+                return;
+            }
             currentPaint = null;
             lastMouseDrag = null;
             if (e.getButton() == LEFT_MOUSE_BUTTON && imageData != null) {
@@ -198,6 +199,10 @@ class MazeMapCanvas extends Canvas {
 
         @Override
         public void mouseReleased(final MouseEvent e) {
+            if (currentPaint != null && e.getButton() != LEFT_MOUSE_BUTTON ||
+                lastMouseDrag != null && e.getButton() != RIGHT_MOUSE_BUTTON) {
+                return;
+            }
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             if (imageData != null && currentPaint != null && !paintedCells.isEmpty()) {
                 final MazeMap map = imageData.getMap();
