@@ -50,8 +50,10 @@ public class RigidBodyController extends ActionInterface {
     }
 
     public void setPosition(final Vector3f position) {
-        tmpTransform.setIdentity();
-        tmpTransform.origin.set(position);
+        if (position != tmpTransform.origin) {
+            tmpTransform.setIdentity();
+            tmpTransform.origin.set(position);
+        }
         body.setWorldTransform(tmpTransform);
     }
 
