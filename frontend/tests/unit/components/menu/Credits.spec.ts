@@ -1,11 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 import { shallowMount } from '@vue/test-utils';
 
-import Credits from '@/components/menu/Credits.vue';
+import CreditMenu from '@/components/menu/CreditMenu.vue';
 
-describe('Credits.vue', () => {
+describe('CreditMenu.vue', () => {
     it('should be rendered properly', () => {
-        const wrapper = shallowMount(Credits);
+        const wrapper = shallowMount(CreditMenu);
         expect(wrapper.text()).toContain('Reisen');
         expect(wrapper.text()).toContain('ZUN');
 

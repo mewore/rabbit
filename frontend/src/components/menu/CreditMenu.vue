@@ -30,7 +30,7 @@ import { Options, Vue } from 'vue-class-component';
 import { getCredits } from '@/temp-util';
 
 @Options({})
-export default class Credits extends Vue {
+export default class CreditMenu extends Vue {
     credits = getCredits();
 }
 </script>

@@ -74,7 +74,7 @@
 
         <template v-if="currentMenu === 'CREDITS'">
             <q-card-section>
-                <Credits ref="creditsMenu" />
+                <CreditMenu ref="creditsMenu" />
             </q-card-section>
         </template>
         <template v-if="currentMenu === 'SETTINGS'">
@@ -108,7 +108,7 @@ import { FrameInfo } from '@/game/debug/frame-info';
 import { Settings } from '@/settings';
 import { getTitle } from '@/temp-util';
 
-import Credits from './Credits.vue';
+import CreditMenu from './CreditMenu.vue';
 import EditorDownloadMenu from './EditorDownloadMenu.vue';
 import FrameAnalysisMenu from './FrameAnalysisMenu.vue';
 import SettingsMenu from './SettingsMenu.vue';
@@ -122,7 +122,7 @@ type MenuId =
 
 @Options({
     components: {
-        Credits,
+        CreditMenu,
         EditorDownloadMenu,
         FrameAnalysisMenu,
         SettingsMenu,
