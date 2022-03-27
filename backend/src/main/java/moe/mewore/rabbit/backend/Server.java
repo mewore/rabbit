@@ -3,6 +3,7 @@ package moe.mewore.rabbit.backend;
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.jetty.websocket.api.Session;
 
 import io.javalin.Javalin;
+import io.javalin.http.Context;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsBinaryMessageContext;
 import io.javalin.websocket.WsBinaryMessageHandler;
@@ -115,9 +117,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
         final MazeMap map = MazeMap.createSeamless(worldProperties, new Random(seed), opennessNoise);
 
-        javalin.get("editors", externalStaticLocation != null
-            ? new EditorVersionHandler(externalStaticLocation)
-            : ctx -> ctx.json(Collections.emptySet()));
+        javalin.get("editors",
+            externalStaticLocation != null ? new EditorVersionHandler(externalStaticLocation, File::listFiles,
+                Context::json) : ctx -> ctx.json(Collections.emptySet()));
 
         final Server server = new Server(settings, javalin, map);
         javalin.ws("/multiplayer", ws -> {

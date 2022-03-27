@@ -2,12 +2,13 @@ package moe.mewore.rabbit.backend.editor;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @Getter
-@RequiredArgsConstructor
-class EditorVersion {
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+public class EditorVersion {
 
     public static final EditorVersion INVALID_EDITOR_VERSION = new EditorVersion(-1, -1, null, null, null);
 

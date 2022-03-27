@@ -4,8 +4,11 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -18,9 +21,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EditorVersionHandler implements Handler {
 
-    private static final String EDITOR_DIR_PATH = "editors";
-
     private final String externalStaticLocation;
+
+    private final Function<File, File @Nullable []> fileChildGetter;
+
+    private final BiConsumer<Context, Collection<EditorVersion>> resultSender;
+
+    private static final String EDITOR_DIR_PATH = "editors";
 
     private static @Nullable File getContainedFileMatching(final File directory, final FilenameFilter filter) {
         final File[] children = directory.listFiles(filter);
@@ -33,17 +40,17 @@ public class EditorVersionHandler implements Handler {
 
     @Override
     public void handle(final @NonNull Context ctx) {
-        final File @Nullable [] subdirectories = Path.of(externalStaticLocation, EDITOR_DIR_PATH).toFile().listFiles();
+        final File @Nullable [] subdirectories = fileChildGetter.apply(
+                Path.of(externalStaticLocation, EDITOR_DIR_PATH).toFile());
         if (subdirectories == null) {
-            ctx.status(200).json(Collections.emptySet());
+            resultSender.accept(ctx, Collections.emptySet());
             return;
         }
 
-        final List<EditorVersion> versionSet = Arrays.stream(subdirectories)
-            .map(directory -> {
-                if (!directory.isDirectory()) {
-                    return EditorVersion.INVALID_EDITOR_VERSION;
-                }
+        final List<EditorVersion> versionSet = Arrays.stream(subdirectories).map(directory -> {
+                    if (!directory.isDirectory()) {
+                        return EditorVersion.INVALID_EDITOR_VERSION;
+                    }
 
                 final int version;
                 try {
@@ -70,6 +77,6 @@ public class EditorVersionHandler implements Handler {
             .sorted((v1, v2) -> v2.getId() - v1.getId())
             .collect(Collectors.toUnmodifiableList());
 
-        ctx.json(versionSet);
+        resultSender.accept(ctx, versionSet);
     }
 }
