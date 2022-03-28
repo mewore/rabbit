@@ -5,6 +5,7 @@
     </envs>
     <option name="MAIN_CLASS_NAME" value="moe.mewore.rabbit.backend.Server" />
     <module name="rabbit.backend.main" />
+    <option name="VM_PARAMETERS" value="-enableassertions" />
     <extension name="coverage">
       <pattern>
         <option name="PATTERN" value="moe.mewore.rabbit.backend.*" />

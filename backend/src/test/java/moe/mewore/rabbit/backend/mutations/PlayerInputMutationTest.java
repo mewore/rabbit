@@ -13,9 +13,9 @@ class PlayerInputMutationTest {
 
     @Test
     void testDecodeEncode() throws IOException {
-        final byte[] initialData = new byte[3 * 4 + 1];
+        final byte[] initialData = new byte[8 + 2 * 4 + 1];
         Arrays.fill(initialData, (byte) 1);
-        Arrays.fill(initialData, 0, 3 * 4, (byte) 25);
+        Arrays.fill(initialData, 0, 8 + 2 * 4, (byte) 25);
         final PlayerInputMutation decoded = PlayerInputMutation.decodeFromBinary(
             new DataInputStream(new ByteArrayInputStream(initialData)));
 

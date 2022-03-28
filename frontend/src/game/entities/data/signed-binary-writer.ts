@@ -3,6 +3,7 @@ import { BinaryEntity } from '../binary-entity';
 enum NumberBinaryType {
     BYTE,
     INTEGER,
+    LONG,
     FLOAT,
     DOUBLE,
 }
@@ -31,6 +32,10 @@ export class SignedBinaryWriter {
 
     writeInt(value: number): void {
         this.data.push([value, NumberBinaryType.INTEGER]);
+    }
+
+    writeLong(value: number): void {
+        this.data.push([value, NumberBinaryType.LONG]);
     }
 
     writeFloat(value: number): void {
@@ -96,6 +101,9 @@ export class SignedBinaryWriter {
             case NumberBinaryType.INTEGER:
                 dataView.setInt32(index, value);
                 return index + 4;
+            case NumberBinaryType.LONG:
+                dataView.setBigInt64(index, BigInt(value));
+                return index + 8;
             case NumberBinaryType.FLOAT:
                 dataView.setFloat32(index, value);
                 return index + 4;
@@ -126,6 +134,7 @@ export class SignedBinaryWriter {
             case NumberBinaryType.INTEGER:
             case NumberBinaryType.FLOAT:
                 return 4;
+            case NumberBinaryType.LONG:
             case NumberBinaryType.DOUBLE:
                 return 8;
         }

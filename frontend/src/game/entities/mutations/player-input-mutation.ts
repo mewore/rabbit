@@ -78,7 +78,7 @@ export class PlayerInputMutation extends BinaryEntity {
     appendToBinaryOutput(writer: SignedBinaryWriter): void {
         writer.writeByte(MutationType.UPDATE);
         writer.writeInt(this.id);
-        writer.writeInt(this.frameId);
+        writer.writeLong(this.frameId);
         writer.writeFloat(this.angle);
         writer.writeByte(
             (this.up ? INPUT_UP_BIT : 0) |

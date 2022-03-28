@@ -31,6 +31,18 @@ export class SignedBinaryReader {
         return result;
     }
 
+    /**
+     * Reads a long and casts it to {@link Number}. This means that there is an assumption that the number
+     * is less than 2^53 rather than less than 2^63.
+     *
+     * @returns The next long for this reader.
+     */
+    readLong(): number {
+        const result = this.dataView.getBigInt64(this.index);
+        this.index += 8;
+        return Number(result);
+    }
+
     readFloat(): number {
         const result = this.dataView.getFloat32(this.index);
         this.index += 4;

@@ -207,7 +207,7 @@ class ServerTest {
 
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byteArrayOutputStream.write(MutationType.PLAYER_INPUT.getIndex());
-        byteArrayOutputStream.writeBytes(new byte[3 * 4 + 4]);
+        byteArrayOutputStream.writeBytes(new byte[3 * 4 + 8]);
         simulateBinaryData(session, byteArrayOutputStream.toByteArray());
 
         assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN), otherSession.getSentMessageTypes());
@@ -228,7 +228,7 @@ class ServerTest {
         Mockito.doThrow(new InterruptedException("oof")).when(worldSimulation).acceptInput(any(), any());
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byteArrayOutputStream.write(MutationType.PLAYER_INPUT.getIndex());
-        byteArrayOutputStream.writeBytes(new byte[3 * 4 + 4]);
+        byteArrayOutputStream.writeBytes(new byte[3 * 4 + 8]);
 
         final var thread = spy(new Thread(() -> simulateBinaryData(session, byteArrayOutputStream.toByteArray())));
         thread.start();

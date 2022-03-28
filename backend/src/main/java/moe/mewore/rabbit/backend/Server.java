@@ -153,13 +153,13 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     void updateWorld() {
         final WorldState newState = worldSimulation.update(System.currentTimeMillis());
-        final byte[] presentData = new WorldUpdateMessage(worldState,
+        final byte[] presentData = new WorldUpdateMessage(newState,
             worldSimulation.getCurrentSnapshot()).encodeToBinary();
         sessionById.entrySet().parallelStream().forEach(entry -> {
             final Player player = playerBySessionId.get(entry.getKey());
             if (player != null) {
                 send(entry.getValue(),
-                    new WorldUpdateMessage(worldState, worldSimulation.getPastSnapshot(player.getLatency() * 3 / 2)));
+                    new WorldUpdateMessage(newState, worldSimulation.getPastSnapshot(player.getLatency() * 3 / 2)));
             } else {
                 send(entry.getValue(), presentData);
             }

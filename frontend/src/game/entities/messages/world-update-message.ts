@@ -30,7 +30,8 @@ export class WorldUpdateMessage extends BinaryEntity {
         writer.writeInt(this.spheres.length);
         writer.writeInt(this.intArraySize);
 
-        writer.writeInt(this.frameId);
+        writer.writeInt(Math.floor(this.frameId / (1 << 30)));
+        writer.writeInt(this.frameId % (1 << 30));
         const floatArray = [];
         for (let i = 0; i < this.maxPlayerCount; i++) {
             writer.writeInt(0);
@@ -89,7 +90,7 @@ export class WorldUpdateMessage extends BinaryEntity {
         const float = () => floatReader.readFloat();
         const vector3 = () => Vector3Entity.decodeFromBinary(floatReader);
 
-        const frameId = int();
+        const frameId = int() * (1 << 30) + int();
         const playerStates: PlayerState[] = [];
         for (let i = 0; i < maxPlayerCount; i++) {
             const latency = playerLatencyById.get(i);

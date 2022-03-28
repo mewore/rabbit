@@ -43,6 +43,7 @@ application {
 tasks.test {
     useJUnitPlatform()
     setFinalizedBy(listOf(tasks.jacocoTestReport))
+    enableAssertions = true
 }
 
 jacoco {

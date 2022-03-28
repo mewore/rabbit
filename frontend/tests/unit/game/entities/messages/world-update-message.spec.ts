@@ -11,7 +11,7 @@ describe('WorldUpdateMessage', () => {
     describe('when encoded and decoded', () => {
         it('should retain its value', () => {
             const original = new WorldUpdateMessage(
-                123,
+                1892160020551,
                 [
                     new PlayerState(
                         2,

@@ -38,6 +38,10 @@ import moe.mewore.rabbit.world.MazeMap;
 
 public class WorldState {
 
+    private static final long FRAME_ID_SPLIT_BIT_COUNT = 30L;
+
+    private static final long FRAME_ID_SPLIT_BIT_MASK = (1L << FRAME_ID_SPLIT_BIT_COUNT) - 1L;
+
     public static final float GRAVITY = 250f;
 
     // int(uid), int(input ID) + [5 x boolean](input directions, wants to jump)
@@ -94,7 +98,7 @@ public class WorldState {
     private final PhysicsDummySphere[] spheres;
 
     @Getter
-    private int frameId = 0;
+    private long frameId = 0;
 
     private int playerUid = 0;
 
@@ -227,7 +231,7 @@ public class WorldState {
     }
 
     private static int getPlayerIntIndex(final int playerId) {
-        return 1 + playerId * INT_DATA_PER_PLAYER;
+        return 2 + playerId * INT_DATA_PER_PLAYER;
     }
 
     private static int getPlayerFloatIndex(final Player player) {
@@ -240,7 +244,7 @@ public class WorldState {
 
     WorldSnapshot createEmptySnapshot() {
         return new WorldSnapshot(
-            1 + maxPlayerCount * INT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.INT_DATA_PER_SPHERE,
+            2 + maxPlayerCount * INT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.INT_DATA_PER_SPHERE,
             maxPlayerCount * FLOAT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.FLOAT_DATA_PER_SPHERE);
     }
 
@@ -248,7 +252,7 @@ public class WorldState {
         final int[] intData = snapshot.getIntData();
         final float[] floatData = snapshot.getFloatData();
 
-        frameId = intData[0];
+        frameId = ((long) (intData[0]) << FRAME_ID_SPLIT_BIT_COUNT) | (long) intData[1];
 
         players.forEachValue(PARALLELISM_THRESHOLD, player -> {
             final int intIndex = getPlayerIntIndex(player);
@@ -299,7 +303,8 @@ public class WorldState {
         final int[] intData = snapshot.getIntData();
         final float[] floatData = snapshot.getFloatData();
 
-        intData[0] = frameId;
+        intData[0] = (int) (frameId >> FRAME_ID_SPLIT_BIT_COUNT);
+        intData[1] = (int) (frameId & FRAME_ID_SPLIT_BIT_MASK);
 
         players.forEachValue(PARALLELISM_THRESHOLD, player -> {
             final int intIndex = getPlayerIntIndex(player);

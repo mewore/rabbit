@@ -31,7 +31,7 @@ public class PlayerInputMutation extends BinaryEntity {
     private final int id;
 
     @Getter
-    private final int frameId;
+    private final long frameId;
 
     @Getter
     private final float angle;
@@ -48,7 +48,7 @@ public class PlayerInputMutation extends BinaryEntity {
     }
 
     public static PlayerInputMutation decodeFromBinary(final DataInput input) throws IOException {
-        return new PlayerInputMutation(input.readInt(), input.readInt(), input.readFloat(), input.readByte());
+        return new PlayerInputMutation(input.readInt(), input.readLong(), input.readFloat(), input.readByte());
     }
 
     public static double getTargetAngle(final double angle, final boolean up, final boolean down, final boolean left,
@@ -60,7 +60,7 @@ public class PlayerInputMutation extends BinaryEntity {
     public void appendToBinaryOutput(final SafeDataOutput output) {
         output.writeByte(MutationType.PLAYER_INPUT.getIndex());
         output.writeInt(id);
-        output.writeInt(frameId);
+        output.writeLong(frameId);
         output.writeFloat(angle);
         output.writeByte(keys);
     }

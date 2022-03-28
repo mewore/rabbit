@@ -1,7 +1,7 @@
-<component name="ProjectRunConfigurationManager">file:///home/mewore/projects/rabbit/.git/hooks/pre-push
-
-    <configuration default="false" name="Run server .jar" type="JarApplication">
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run server .jar" type="JarApplication">
     <option name="JAR_PATH" value="$PROJECT_DIR$/build/libs/rabbit-0.0.1-SNAPSHOT.jar" />
+    <option name="VM_PARAMETERS" value="-enableassertions" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <option name="ALTERNATIVE_JRE_PATH" />
     <module name="rabbit.backend.main" />

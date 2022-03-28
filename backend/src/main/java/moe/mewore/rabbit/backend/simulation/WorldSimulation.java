@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Synchronized;
@@ -32,7 +34,7 @@ public class WorldSimulation {
 
     private int frameIndex = 0;
 
-    private int frameToReplayFrom = -1;
+    private @Nullable Integer rollbackOffset = null;
 
     private final BlockingQueue<PendingInput> pendingInputs = new LinkedBlockingDeque<>();
 
@@ -46,9 +48,9 @@ public class WorldSimulation {
     }
 
     public void acceptInput(final Player player, final PlayerInputMutation input) throws InterruptedException {
-        final int inputTimestamp = (int) (System.currentTimeMillis() - createdAt) -
-            Math.min(player.getLatency(), MAXIMUM_ROLLBACK_MILLISECONDS);
-        final int expectedInputFrame = Math.round(inputTimestamp * FPS * .001f);
+        final long inputTimestamp =
+            System.currentTimeMillis() - createdAt - Math.min(player.getLatency(), MAXIMUM_ROLLBACK_MILLISECONDS);
+        final long expectedInputFrame = Math.round(inputTimestamp * FPS * .001);
         pendingInputs.put(new PendingInput(player, input, inputTimestamp, expectedInputFrame));
     }
 
@@ -57,12 +59,12 @@ public class WorldSimulation {
         final Player player = pendingInput.getPlayer();
         final PlayerInputMutation input = pendingInput.getInput();
 
-        int inputFrame = pendingInput.getTargetFrame();
+        long inputFrame = pendingInput.getTargetFrame();
         inputFrame = Math.abs(input.getFrameId() - inputFrame) <= MAX_INPUT_FRAME_SHIFT
             ? input.getFrameId()
             : inputFrame + (inputFrame > input.getFrameId() ? -MAX_INPUT_FRAME_SHIFT : MAX_INPUT_FRAME_SHIFT);
 
-        final int currentFrame = state.getFrameId();
+        final long currentFrame = state.getFrameId();
         inputFrame = Math.min(currentFrame + FUTURE_FRAME_BUFFER,
             Math.max(currentFrame - FRAME_BUFFER_SIZE + FUTURE_FRAME_BUFFER + 2, Math.max(1, inputFrame)));
         if (inputFrame != input.getFrameId()) {
@@ -73,13 +75,15 @@ public class WorldSimulation {
                 pendingInput.getSupposedTimestamp(), pendingInput.getTargetFrame(), player.getLatency());
         }
 
-        final int frameDifference = Math.abs(currentFrame - inputFrame);
-        final int inputFrameIndex = inputFrame <= currentFrame ? frameDifference <= frameIndex
-            ? (frameIndex - frameDifference)
-            : (frameIndex + FRAME_BUFFER_SIZE - frameDifference) : (frameIndex + frameDifference) % FRAME_BUFFER_SIZE;
+        final int frameOffset = (int) (inputFrame - currentFrame);
+        assert frameOffset >= -FRAME_BUFFER_SIZE + FUTURE_FRAME_BUFFER + 2 && frameOffset <= FUTURE_FRAME_BUFFER :
+            " frameOffset(" + frameOffset + ") is supposed to be in the range [" +
+                (-FRAME_BUFFER_SIZE + FUTURE_FRAME_BUFFER + 2) + ", " + FUTURE_FRAME_BUFFER + "]";
 
-        if (inputFrame < currentFrame && (frameToReplayFrom == -1 || inputFrame < frameToReplayFrom)) {
-            frameToReplayFrom = inputFrame;
+        final int inputFrameIndex = (frameIndex + frameOffset + FRAME_BUFFER_SIZE) % FRAME_BUFFER_SIZE;
+
+        if (frameOffset < 0 && (rollbackOffset == null || frameOffset < rollbackOffset)) {
+            rollbackOffset = frameOffset;
         }
         WorldState.registerInput(frames[inputFrameIndex], player, input);
     }
@@ -90,7 +94,7 @@ public class WorldSimulation {
 
     @Synchronized
     public WorldSnapshot getPastSnapshot(final int millisecondsInPast) {
-        final int maxFrameDifference = Math.min(state.getFrameId(), FRAME_BUFFER_SIZE);
+        final int maxFrameDifference = (int) Math.min(state.getFrameId(), FRAME_BUFFER_SIZE);
         final int frameDifference = Math.min(maxFrameDifference, millisecondsInPast * FPS / 1000);
         return frames[(frameDifference <= frameIndex ? frameIndex : frameIndex + FRAME_BUFFER_SIZE) - frameDifference];
     }
@@ -105,9 +109,8 @@ public class WorldSimulation {
             }
         }
 
-        if (frameToReplayFrom > -1) {
-            final int replayFrameIndex =
-                (frameIndex - (state.getFrameId() - frameToReplayFrom) + FRAME_BUFFER_SIZE) % FRAME_BUFFER_SIZE;
+        if (rollbackOffset != null) {
+            final int replayFrameIndex = (frameIndex + rollbackOffset + FRAME_BUFFER_SIZE) % FRAME_BUFFER_SIZE;
             final int frameToStopAt = (frameIndex + 1) % FRAME_BUFFER_SIZE;
             state.load(frames[replayFrameIndex]);
             for (int i = (replayFrameIndex + 1) % FRAME_BUFFER_SIZE;
@@ -116,16 +119,14 @@ public class WorldSimulation {
                 state.loadInput(frames[i]);
                 state.store(frames[i]);
             }
-            frameToReplayFrom = -1;
+            rollbackOffset = null;
         }
-        final int targetFrame = Math.round((now - createdAt) * FPS * .001f);
-        while (state.getFrameId() < targetFrame) {
-            int steps = targetFrame - state.getFrameId();
-            while (--steps >= 0) {
-                state.loadInput(frames[frameIndex]);
-                state.doStep();
-                state.store(frames[frameIndex = (frameIndex + 1) % FRAME_BUFFER_SIZE]);
-            }
+        final long targetFrame = Math.round((now - createdAt) * FPS * .001);
+        long steps = targetFrame - state.getFrameId();
+        while (--steps >= 0) {
+            state.loadInput(frames[frameIndex]);
+            state.doStep();
+            state.store(frames[frameIndex = (frameIndex + 1) % FRAME_BUFFER_SIZE]);
         }
 
         return state;
@@ -139,8 +140,8 @@ public class WorldSimulation {
 
         private final PlayerInputMutation input;
 
-        private final int supposedTimestamp;
+        private final long supposedTimestamp;
 
-        private final int targetFrame;
+        private final long targetFrame;
     }
 }

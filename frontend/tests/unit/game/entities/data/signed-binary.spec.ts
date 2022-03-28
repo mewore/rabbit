@@ -75,17 +75,25 @@ describe('SignedBinaryReader and SignedBinaryWriter', () => {
         });
     });
 
+    describe('when encoding and decoding a long', () => {
+        it('should retain its value', () => {
+            const hugeValue = 1024 * 1024 * 1024 * 1024 * 1024 + 69;
+            writer.writeLong(hugeValue);
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readLong()).toBe(hugeValue);
+        });
+    });
+
     describe('when encoding and decoding a float', () => {
-        it('should retain only the float part', () => {
+        it('should retain its value approximately', () => {
             writer.writeFloat(0.123);
             expect(new SignedBinaryReader(writer.toArrayBuffer()).readFloat()).toBeCloseTo(0.123);
         });
     });
 
     describe('when encoding and decoding a double', () => {
-        it('should retain only the double part', () => {
+        it('should retain its value approximately', () => {
             writer.writeDouble(0.123);
-            expect(new SignedBinaryReader(writer.toArrayBuffer()).readDouble()).toBe(0.123);
+            expect(new SignedBinaryReader(writer.toArrayBuffer()).readDouble()).toBeCloseTo(0.123);
         });
     });
 
