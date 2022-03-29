@@ -13,15 +13,18 @@ import com.bulletphysics.linearmath.Transform;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import moe.mewore.rabbit.data.BinaryEntity;
-import moe.mewore.rabbit.data.SafeDataOutput;
+import moe.mewore.rabbit.backend.simulation.data.FrameCompiler;
+import moe.mewore.rabbit.backend.simulation.data.FrameDataType;
+import moe.mewore.rabbit.backend.simulation.data.FrameSection;
+import moe.mewore.rabbit.backend.simulation.data.FrameSerializableEntity;
+
+import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.BYTE;
+import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.VECTOR3F;
 
 @RequiredArgsConstructor
-public class PhysicsDummySphere extends BinaryEntity {
+public class PhysicsDummySphere implements FrameSerializableEntity {
 
-    public static final int INT_DATA_PER_SPHERE = 1;
-
-    public static final int FLOAT_DATA_PER_SPHERE = 6;
+    private static final FrameDataType[] FRAME_DATA_TYPES = new FrameDataType[]{BYTE, VECTOR3F, VECTOR3F};
 
     private static final Vector3f OFFSET = new Vector3f(0f, 20f, 0f);
 
@@ -34,7 +37,9 @@ public class PhysicsDummySphere extends BinaryEntity {
     @Getter
     private final RigidBody body;
 
-    public static PhysicsDummySphere[] makeSpheres(final PhysicsDummyBox[] boxes) {
+    private final FrameSection frameView;
+
+    public static PhysicsDummySphere[] makeSpheres(final PhysicsDummyBox[] boxes, final FrameCompiler frameCompiler) {
         final List<PhysicsDummySphere> result = new ArrayList<>();
 
         final AtomicInteger counter = new AtomicInteger(0);
@@ -51,17 +56,11 @@ public class PhysicsDummySphere extends BinaryEntity {
                 sphere.setFriction(.5f);
                 sphere.setRestitution(1f);
 
-                result.add(new PhysicsDummySphere(sphere));
+                result.add(new PhysicsDummySphere(sphere, frameCompiler.reserve(FRAME_DATA_TYPES)));
             }
         }
 
         return result.toArray(new PhysicsDummySphere[0]);
-    }
-
-    private static void appendVector3fToBinaryOutput(final Vector3f vector3f, final SafeDataOutput output) {
-        output.writeFloat(vector3f.x);
-        output.writeFloat(vector3f.y);
-        output.writeFloat(vector3f.z);
     }
 
     private Vector3f getPosition() {
@@ -72,34 +71,21 @@ public class PhysicsDummySphere extends BinaryEntity {
         return body.getLinearVelocity(tmpVector);
     }
 
-    public void load(final int[] intData, final int intIndex, final float[] floatData, int floatIndex) {
-        body.setActivationState(intData[intIndex]);
+    public void load(final byte[] frame) {
+        frameView.setFrame(frame);
+        body.setActivationState(frameView.readByte());
 
-        tmpTransform.origin.set(floatData[floatIndex], floatData[++floatIndex], floatData[++floatIndex]);
+        frameView.readIntoVector3f(tmpTransform.origin);
         body.setWorldTransform(tmpTransform);
 
-        tmpVector.set(floatData[++floatIndex], floatData[++floatIndex], floatData[++floatIndex]);
-        getBody().setLinearVelocity(tmpVector);
-    }
-
-    public void store(final int[] intData, final int intIndex, final float[] floatData, int floatIndex) {
-        intData[intIndex] = body.getActivationState();
-
-        final Vector3f position = getPosition();
-        floatData[floatIndex] = position.x;
-        floatData[++floatIndex] = position.y;
-        floatData[++floatIndex] = position.z;
-
-        final Vector3f motion = getMotion();
-        floatData[++floatIndex] = motion.x;
-        floatData[++floatIndex] = motion.y;
-        floatData[++floatIndex] = motion.z;
+        getBody().setLinearVelocity(frameView.readIntoVector3f(tmpVector));
     }
 
     @Override
-    public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeByte(body.getActivationState());
-        appendVector3fToBinaryOutput(getPosition(), output);
-        appendVector3fToBinaryOutput(getMotion(), output);
+    public void store(final byte[] frame) {
+        frameView.setFrame(frame);
+        frameView.writeByte(body.getActivationState());
+        frameView.writeVector3f(getPosition());
+        frameView.writeVector3f(getMotion());
     }
 }

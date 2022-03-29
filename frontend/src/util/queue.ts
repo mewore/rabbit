@@ -26,6 +26,12 @@ export interface Queue<T> extends Iterable<T> {
     push(value: T): void;
 
     /**
+     * Add many items into the queue at once.
+     * @param values The items to add.
+     */
+    pushAll(values: Iterable<T>): this;
+
+    /**
      * Get the first element of the queue. vRemove it.
      */
     pop(): T | undefined;
@@ -91,6 +97,13 @@ export class ArrayQueue<T> implements Queue<T> {
         // The buffer length is a power of two so [&] is the same as the much more expensive [%] operation
         this.buffer[(this.frontIndex + this.currentLength) & (this.buffer.length - 1)] = value;
         ++this.currentLength;
+    }
+
+    pushAll(values: Iterable<T>): this {
+        for (const value of values) {
+            this.push(value);
+        }
+        return this;
     }
 
     pop(): T | undefined {

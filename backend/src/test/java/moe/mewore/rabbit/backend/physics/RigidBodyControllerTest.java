@@ -6,12 +6,21 @@ import com.bulletphysics.collision.broadphase.Dispatcher;
 import com.bulletphysics.collision.dispatch.CollisionWorld;
 import com.bulletphysics.collision.narrowphase.ManifoldPoint;
 import com.bulletphysics.collision.narrowphase.PersistentManifold;
+import com.bulletphysics.collision.shapes.CollisionShape;
 import com.bulletphysics.dynamics.RigidBody;
+import com.bulletphysics.linearmath.DefaultMotionState;
 import com.bulletphysics.linearmath.Transform;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import moe.mewore.rabbit.backend.simulation.data.FrameCompiler;
+import moe.mewore.rabbit.backend.simulation.data.FrameDataType;
+import moe.mewore.rabbit.backend.simulation.data.FrameSection;
+import moe.mewore.rabbit.backend.simulation.data.FrameSerializationTestUtil;
+
+import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.FLOAT;
+import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.VECTOR3F;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +33,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RigidBodyControllerTest {
+
+    private static final FrameDataType[] FRAME_DATA_TYPES = new FrameDataType[]{VECTOR3F, VECTOR3F, FLOAT, FLOAT};
 
     private static final RigidBody OTHER_BODY = mock(RigidBody.class);
 
@@ -55,10 +66,15 @@ class RigidBodyControllerTest {
         return collisionPair;
     }
 
-    @BeforeEach
-    void setUp() {
-        body = mock(RigidBody.class);
-        controller = new RigidBodyController(body);
+    private static RigidBody makeBody(final float x, final float y, final float z, final float vx, final float vy,
+        final float vz) {
+        final var transform = new Transform();
+        transform.origin.set(x, y, z);
+
+        final var result = new RigidBody(1f, new DefaultMotionState(transform), mock(CollisionShape.class));
+
+        result.setLinearVelocity(new Vector3f(vx, vy, vz));
+        return result;
     }
 
     @Test
@@ -125,22 +141,15 @@ class RigidBodyControllerTest {
         controller.afterPhysics(world);
     }
 
-    @Test
-    void testGetPosition() {
-        final Transform transform = new Transform();
-        when(body.getWorldTransform(any())).thenReturn(transform);
-        assertSame(transform.origin, controller.getPosition());
+    @BeforeEach
+    void setUp() {
+        body = mock(RigidBody.class);
+        controller = new RigidBodyController(body, mock(FrameSection.class));
     }
 
     @Test
     void testSetPosition() {
         controller.setPosition(new Vector3f(1f, 1f, 1f));
-        verify(body).setWorldTransform(any());
-    }
-
-    @Test
-    void testLoadPosition() {
-        controller.loadPosition(new float[]{0f, 1f, 2f, 3f, 4f}, 1);
         verify(body).setWorldTransform(any());
     }
 
@@ -153,10 +162,10 @@ class RigidBodyControllerTest {
     }
 
     @Test
-    void testGetMotion_noTarget() {
-        final Vector3f result = new Vector3f();
-        when(body.getLinearVelocity(any())).thenReturn(result);
-        assertSame(result, controller.getMotion());
+    void testGetPosition() {
+        final Transform transform = new Transform();
+        when(body.getWorldTransform(any())).thenReturn(transform);
+        assertSame(transform.origin, controller.getPosition(new Transform()));
     }
 
     @Test
@@ -167,8 +176,20 @@ class RigidBodyControllerTest {
     }
 
     @Test
-    void testLoadMotion() {
-        controller.loadPosition(new float[]{0f, 1f, 2f, 3f, 4f}, 1);
-        verify(body).setWorldTransform(any());
+    void testGetMotion_noTarget() {
+        final Vector3f result = new Vector3f();
+        when(body.getLinearVelocity(any())).thenReturn(result);
+        assertSame(result, controller.getMotion(new Vector3f()));
+    }
+
+    @Test
+    void testSerialization() {
+        final var frameCompiler = new FrameCompiler();
+        final FrameSection frameSection = frameCompiler.reserve(RigidBodyController.FRAME_DATA_TYPES);
+
+        final var firstController = new RigidBodyController(makeBody(1, 2, 3, 4, 5, 6), frameSection);
+        final var otherController = new RigidBodyController(makeBody(7, 8, 9, 0, 1, 2), frameSection);
+
+        FrameSerializationTestUtil.testSerialization(frameCompiler, frameSection, firstController, otherController);
     }
 }

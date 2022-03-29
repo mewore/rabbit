@@ -1,6 +1,5 @@
 package moe.mewore.rabbit.backend.simulation;
 
-import javax.vecmath.Tuple3f;
 import javax.vecmath.Vector3f;
 import java.util.Collections;
 import java.util.Map;
@@ -26,32 +25,26 @@ import com.bulletphysics.linearmath.Transform;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import moe.mewore.rabbit.backend.Player;
-import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.physics.FixedDiscreteDynamicWorld;
 import moe.mewore.rabbit.backend.physics.ForestWalls;
 import moe.mewore.rabbit.backend.physics.PhysicsDummyBox;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
+import moe.mewore.rabbit.backend.simulation.data.FrameCompiler;
+import moe.mewore.rabbit.backend.simulation.data.FrameDataType;
+import moe.mewore.rabbit.backend.simulation.data.FrameSection;
+import moe.mewore.rabbit.backend.simulation.data.FrameSerializableEntity;
+import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 import moe.mewore.rabbit.world.MazeMap;
 
-public class WorldState {
+import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.LONG;
 
-    private static final long FRAME_ID_SPLIT_BIT_COUNT = 30L;
-
-    private static final long FRAME_ID_SPLIT_BIT_MASK = (1L << FRAME_ID_SPLIT_BIT_COUNT) - 1L;
+public class WorldState implements FrameSerializableEntity {
 
     public static final float GRAVITY = 250f;
-
-    // int(uid), int(input ID) + [5 x boolean](input directions, wants to jump)
-    private static int INT_DATA_PER_PLAYER = 0;
-
-    private static final int PLAYER_UID_OFFSET = INT_DATA_PER_PLAYER++;
-
-    private static final int PLAYER_INPUT_ID_OFFSET = INT_DATA_PER_PLAYER++;
-
-    private static final int PLAYER_INPUT_KEYS_OFFSET = INT_DATA_PER_PLAYER++;
 
     private static final float SECONDS_PER_FRAME = 1f / WorldSimulation.FPS;
 
@@ -64,24 +57,9 @@ public class WorldState {
 
     private static final float GROUND_HALF_THICKNESS = 100f;
 
-    // Vector3f + Vector3f + [input angle]
-    private static int FLOAT_DATA_PER_PLAYER = 0;
-
-    private static final int PLAYER_INPUT_ANGLE_OFFSET = FLOAT_DATA_PER_PLAYER++;
-
-    private static final int PLAYER_POSITION_OFFSET = makePlayerFloatField(3);
-
-    private static final int PLAYER_MOTION_OFFSET = makePlayerFloatField(3);
-
-    private static final int PLAYER_GROUND_TIME_LEFT_OFFSET = FLOAT_DATA_PER_PLAYER++;
-
-    private static final int PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET = FLOAT_DATA_PER_PLAYER++;
-
     private static final long PARALLELISM_THRESHOLD = 5L;
 
     private final ConcurrentHashMap<Integer, Player> players = new ConcurrentHashMap<>();
-
-    public static final int BYTES_PER_STORED_STATE = (INT_DATA_PER_PLAYER + FLOAT_DATA_PER_PLAYER) * 4 + 2 * 8 + 8 + 1;
 
     @Getter
     private final DynamicsWorld world;
@@ -102,9 +80,22 @@ public class WorldState {
 
     private int playerUid = 0;
 
+    @Getter
+    private final int frameSize;
+
+    @Getter(AccessLevel.PACKAGE)
+    private final FrameSection headerFrameSection;
+
+    private final FrameSection[] playerControllerFrameSections;
+
     public WorldState(final int maxPlayerCount, final MazeMap map) {
         this.maxPlayerCount = maxPlayerCount;
         this.map = map;
+
+        final FrameCompiler frameCompiler = new FrameCompiler();
+        headerFrameSection = frameCompiler.reserve(LONG);
+        playerControllerFrameSections = frameCompiler.reserveMultiple(maxPlayerCount,
+            RigidBodyController.FRAME_DATA_TYPES.toArray(new FrameDataType[0]));
 
         final CollisionConfiguration configuration = new DefaultCollisionConfiguration();
         world = new FixedDiscreteDynamicWorld(new CollisionDispatcher(configuration), new DbvtBroadphase(),
@@ -125,7 +116,7 @@ public class WorldState {
             world.addRigidBody(box.getBody());
         }
 
-        spheres = PhysicsDummySphere.makeSpheres(boxes);
+        spheres = PhysicsDummySphere.makeSpheres(boxes, frameCompiler);
         for (final PhysicsDummySphere sphere : spheres) {
             world.addRigidBody(sphere.getBody());
         }
@@ -133,31 +124,8 @@ public class WorldState {
         for (final var wall : ForestWalls.generate(map).getBodies()) {
             world.addRigidBody(wall);
         }
-    }
 
-    public static void registerInput(final WorldSnapshot snapshot, final Player player,
-        final PlayerInputMutation input) {
-        final int[] intData = snapshot.getIntData();
-        final float[] floatData = snapshot.getFloatData();
-
-        final int intIndex = getPlayerIntIndex(player);
-        final int oldPlayerUid = intData[intIndex + PLAYER_UID_OFFSET];
-        if (player.getUid() > oldPlayerUid || input.getId() >= intData[intIndex + PLAYER_INPUT_ID_OFFSET]) {
-            intData[intIndex + PLAYER_INPUT_ID_OFFSET] = input.getId();
-            intData[intIndex + PLAYER_INPUT_KEYS_OFFSET] = input.getKeys();
-            floatData[getPlayerFloatIndex(player) + PLAYER_INPUT_ANGLE_OFFSET] = input.getAngle();
-        } else {
-            System.out.printf(
-                "Not storing input #%d for player with UID %d; the old player UID is %d and the old input ID is #%d%n",
-                input.getId(), player.getUid(), oldPlayerUid, intData[intIndex + PLAYER_INPUT_ID_OFFSET]);
-        }
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private static int makePlayerFloatField(final int size) {
-        final int result = FLOAT_DATA_PER_PLAYER;
-        FLOAT_DATA_PER_PLAYER += size;
-        return result;
+        frameSize = frameCompiler.getSize();
     }
 
     public boolean hasPlayers() {
@@ -166,12 +134,6 @@ public class WorldState {
 
     public Map<Integer, Player> getPlayers() {
         return Collections.unmodifiableMap(players);
-    }
-
-    private static void storeTuple3f(final Tuple3f tuple, final float[] floatData, final int index) {
-        floatData[index] = tuple.x;
-        floatData[index + 1] = tuple.y;
-        floatData[index + 2] = tuple.z;
     }
 
     public @Nullable Player createPlayer(final boolean isReisen) {
@@ -198,7 +160,7 @@ public class WorldState {
             new RigidBodyConstructionInfo(1f, new DefaultMotionState(startTransform), PLAYER_SHAPE));
         body.setFriction(0);
         body.setRestitution(0);
-        final var characterController = new RigidBodyController(body);
+        final var characterController = new RigidBodyController(body, playerControllerFrameSections[id]);
         world.addRigidBody(body);
 
         return new Player(++playerUid, id, "Player " + (id + 1), isReisen, world, body, characterController);
@@ -214,10 +176,6 @@ public class WorldState {
         return players.remove(player.getId(), player);
     }
 
-    private static int getPlayerIntIndex(final Player player) {
-        return getPlayerIntIndex(player.getId());
-    }
-
     void doStep() {
         players.forEachValue(PARALLELISM_THRESHOLD, player -> player.beforePhysics(SECONDS_PER_FRAME));
         try {
@@ -230,106 +188,49 @@ public class WorldState {
         ++frameId;
     }
 
-    private static int getPlayerIntIndex(final int playerId) {
-        return 2 + playerId * INT_DATA_PER_PLAYER;
-    }
+    @Override
+    public void load(final byte[] frame) {
+        headerFrameSection.setFrame(frame);
+        frameId = headerFrameSection.readLong();
 
-    private static int getPlayerFloatIndex(final Player player) {
-        return getPlayerFloatIndex(player.getId());
-    }
-
-    private static int getPlayerFloatIndex(final int playerId) {
-        return playerId * FLOAT_DATA_PER_PLAYER;
-    }
-
-    WorldSnapshot createEmptySnapshot() {
-        return new WorldSnapshot(
-            2 + maxPlayerCount * INT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.INT_DATA_PER_SPHERE,
-            maxPlayerCount * FLOAT_DATA_PER_PLAYER + spheres.length * PhysicsDummySphere.FLOAT_DATA_PER_SPHERE);
-    }
-
-    void load(final WorldSnapshot snapshot) {
-        final int[] intData = snapshot.getIntData();
-        final float[] floatData = snapshot.getFloatData();
-
-        frameId = ((long) (intData[0]) << FRAME_ID_SPLIT_BIT_COUNT) | (long) intData[1];
-
-        players.forEachValue(PARALLELISM_THRESHOLD, player -> {
-            final int intIndex = getPlayerIntIndex(player);
-            final int uid = intData[intIndex + PLAYER_UID_OFFSET];
-            if (player.getUid() != uid) {
-                return;
-            }
-
-            final int floatIndex = getPlayerFloatIndex(player);
-            player.getInputState()
-                .applyInput(intData[intIndex + PLAYER_INPUT_ID_OFFSET],
-                    floatData[floatIndex + PLAYER_INPUT_ANGLE_OFFSET], intData[intIndex + PLAYER_INPUT_KEYS_OFFSET]);
-
-            final var controller = player.getCharacterController();
-            controller.loadPosition(floatData, floatIndex + PLAYER_POSITION_OFFSET);
-            controller.loadMotion(floatData, floatIndex + PLAYER_MOTION_OFFSET);
-            controller.groundTimeLeft = floatData[floatIndex + PLAYER_GROUND_TIME_LEFT_OFFSET];
-            controller.jumpControlTimeLeft = floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET];
-        });
-
-        int sphereIntIndex = getPlayerIntIndex(maxPlayerCount);
-        int sphereFloatIndex = getPlayerFloatIndex(maxPlayerCount);
+        players.forEachValue(PARALLELISM_THRESHOLD, player -> player.load(frame));
         for (final PhysicsDummySphere sphere : spheres) {
-            sphere.load(intData, sphereIntIndex, floatData, sphereFloatIndex);
-            sphereIntIndex += PhysicsDummySphere.INT_DATA_PER_SPHERE;
-            sphereFloatIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE;
+            sphere.load(frame);
         }
     }
 
-    void loadInput(final WorldSnapshot snapshot) {
-        final int[] intData = snapshot.getIntData();
-        final float[] floatData = snapshot.getFloatData();
+    @Override
+    public void store(final byte[] frame) {
+        headerFrameSection.setFrame(frame);
+        headerFrameSection.writeLong(frameId);
 
+        players.forEachValue(PARALLELISM_THRESHOLD, player -> player.store(frame));
+        for (final PhysicsDummySphere sphere : spheres) {
+            sphere.store(frame);
+        }
+    }
+
+    void loadInput(final @Nullable PlayerInputEvent[] frameInputs, final boolean force) {
         players.forEachValue(PARALLELISM_THRESHOLD, player -> {
-            final int intIndex = getPlayerIntIndex(player);
-            if (player.getUid() != intData[intIndex + PLAYER_UID_OFFSET]) {
-                return;
+            final @Nullable PlayerInputEvent inputEvent = frameInputs[player.getId()];
+            if (inputEvent == null || inputEvent.getPlayerUid() != player.getUid()) {
+                if (force) {
+                    player.clearInput();
+                }
+            } else if (force || inputEvent.canReplace(player.getLastInputEvent())) {
+                player.applyInput(inputEvent);
             }
-
-            final int floatIndex = getPlayerFloatIndex(player);
-            player.getInputState()
-                .applyInput(intData[intIndex + PLAYER_INPUT_ID_OFFSET],
-                    floatData[floatIndex + PLAYER_INPUT_ANGLE_OFFSET], intData[intIndex + PLAYER_INPUT_KEYS_OFFSET]);
         });
     }
 
-    void store(final WorldSnapshot snapshot) {
-        final int[] intData = snapshot.getIntData();
-        final float[] floatData = snapshot.getFloatData();
-
-        intData[0] = (int) (frameId >> FRAME_ID_SPLIT_BIT_COUNT);
-        intData[1] = (int) (frameId & FRAME_ID_SPLIT_BIT_MASK);
-
+    void storeInput(final @Nullable PlayerInputEvent[] frameInputs) {
         players.forEachValue(PARALLELISM_THRESHOLD, player -> {
-            final int intIndex = getPlayerIntIndex(player);
-            final int floatIndex = getPlayerFloatIndex(player);
-            final boolean playerIsNew = player.getUid() > intData[intIndex + PLAYER_UID_OFFSET];
-            intData[intIndex + PLAYER_UID_OFFSET] = player.getUid();
-            if (playerIsNew || player.getInputState().getInputId() >= intData[intIndex + PLAYER_INPUT_ID_OFFSET]) {
-                intData[intIndex + PLAYER_INPUT_ID_OFFSET] = player.getInputState().getInputId();
-                intData[intIndex + PLAYER_INPUT_KEYS_OFFSET] = player.getInputState().getInputKeys();
-                floatData[floatIndex + PLAYER_INPUT_ANGLE_OFFSET] = player.getInputState().getInputAngle();
+            final int playerId = player.getId();
+            final PlayerInputEvent oldInput = frameInputs[playerId];
+            final PlayerInputEvent newInput = player.getLastInputEvent();
+            if (newInput != null && newInput.canReplace(oldInput)) {
+                frameInputs[playerId] = newInput;
             }
-
-            final var controller = player.getCharacterController();
-            storeTuple3f(controller.getPosition(), floatData, floatIndex + PLAYER_POSITION_OFFSET);
-            storeTuple3f(controller.getMotion(), floatData, floatIndex + PLAYER_MOTION_OFFSET);
-            floatData[floatIndex + PLAYER_GROUND_TIME_LEFT_OFFSET] = controller.groundTimeLeft;
-            floatData[floatIndex + PLAYER_JUMP_CONTROL_TIME_LEFT_OFFSET] = controller.jumpControlTimeLeft;
         });
-
-        int sphereIntIndex = getPlayerIntIndex(maxPlayerCount);
-        int sphereFloatIndex = getPlayerFloatIndex(maxPlayerCount);
-        for (final PhysicsDummySphere sphere : spheres) {
-            sphere.store(intData, sphereIntIndex, floatData, sphereFloatIndex);
-            sphereIntIndex += PhysicsDummySphere.INT_DATA_PER_SPHERE;
-            sphereFloatIndex += PhysicsDummySphere.FLOAT_DATA_PER_SPHERE;
-        }
     }
 }

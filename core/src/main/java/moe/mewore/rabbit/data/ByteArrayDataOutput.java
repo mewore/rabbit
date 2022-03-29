@@ -2,6 +2,9 @@ package moe.mewore.rabbit.data;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.Consumer;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -46,7 +49,7 @@ public class ByteArrayDataOutput implements SafeDataOutput {
     @Override
     public void writeShort(final int v) {
         outputStream.write((v >>> 8) & 0xFF);
-        outputStream.write((v) & 0xFF);
+        outputStream.write(v & 0xFF);
     }
 
     @Override
@@ -99,10 +102,29 @@ public class ByteArrayDataOutput implements SafeDataOutput {
     }
 
     @Override
+    public <@NonNull T extends BinaryEntity> void writeCollection(final @NonNull Collection<T> entities) {
+        writeInt(entities.size());
+        for (final T entity : entities) {
+            entity.appendToBinaryOutput(this);
+        }
+    }
+
+    @Override
     public <T extends BinaryEntity> void writeArray(final @NonNull T @NonNull [] entities) {
         writeInt(entities.length);
         for (final T entity : entities) {
             entity.appendToBinaryOutput(this);
+        }
+    }
+
+    @Override
+    public <K, V> void writeMap(final @NonNull Map<K, V> entityMap, final @NonNull Consumer<K> keyWriter,
+        final @NonNull Consumer<V> valueWriter) {
+
+        writeInt(entityMap.size());
+        for (final Map.Entry<K, V> entry : entityMap.entrySet()) {
+            keyWriter.accept(entry.getKey());
+            valueWriter.accept(entry.getValue());
         }
     }
 

@@ -2,6 +2,9 @@ package moe.mewore.rabbit.data;
 
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.Consumer;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -58,4 +61,9 @@ public interface SafeDataOutput extends DataOutput {
     void writeAsciiWithLength(@NonNull String s);
 
     <T extends BinaryEntity> void writeArray(@NonNull T @NonNull [] entities);
+
+    <@NonNull T extends BinaryEntity> void writeCollection(@NonNull Collection<T> entities);
+
+    <@NonNull K, @NonNull V> void writeMap(@NonNull Map<K, V> entityMap, @NonNull Consumer<K> keyWriter,
+        @NonNull Consumer<V> valueWriter);
 }

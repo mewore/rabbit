@@ -44,9 +44,20 @@ describe('ArrayQueue', () => {
     });
 
     describe('push', () => {
-        it('should add it before the element at the back', () => {
+        it('should add it behind the element at the back', () => {
             queue.push('fourth');
             expect(Array.from(queue)).toEqual(['first', 'second', 'third', 'fourth']);
+        });
+    });
+
+    describe('pushAll', () => {
+        it('should add all of the elements behind the element at the back', () => {
+            queue.pushAll(['fourth', 'fifth']);
+            expect(Array.from(queue)).toEqual(['first', 'second', 'third', 'fourth', 'fifth']);
+        });
+
+        it('should modify/return the queue itself (as opposed to creating a new one like Array#concat)', () => {
+            expect(queue.pushAll(['fourth', 'fifth'])).toBe(queue);
         });
     });
 

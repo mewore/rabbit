@@ -14,9 +14,8 @@ import { lerp } from 'three/src/math/MathUtils';
 
 import { addCredit } from '@/temp-util';
 
-import { PlayerInputMutation } from './entities/mutations/player-input-mutation';
+import { PlayerInput } from './entities/player/player-input';
 import { PlayerState } from './entities/player-state';
-import { MazeMap } from './entities/world/maze-map';
 import { JUMP_SPEED, MAX_Y_SPEED, RigidBodyController } from './physics/rigid-body-controller';
 import { loadGltfWithCaching } from './util/gltf-util';
 import { PhysicsAware } from './util/physics-aware';
@@ -64,8 +63,6 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
     private animationInfo?: AnimationInfo;
     private currentMesh?: Object3D;
 
-    private hasMovedTowardsState = false;
-
     lastAppliedInputId = -1;
 
     playerId = -1;
@@ -80,10 +77,8 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
 
     public inputId = -1;
 
-    private currentState?: PlayerState;
-
     readonly body: Ammo.btRigidBody;
-    private readonly controller: RigidBodyController;
+    readonly controller: RigidBodyController;
 
     constructor(
         private readonly world: Ammo.btDiscreteDynamicsWorld,
@@ -123,25 +118,8 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
     }
 
     applyNewState(newState: PlayerState): void {
-        newState.position.paste(this.position);
-        this.setBodyPosition(newState.position);
-        this.setBodyMotion(newState.motion);
-        this.controller.groundTimeLeft = newState.groundTimeLeft;
-        this.controller.jumpControlTimeLeft = newState.jumpControlTimeLeft;
-    }
-
-    setBodyPosition(position: { readonly x: number; readonly y: number; readonly z: number }): void {
-        const transform = this.body.getWorldTransform();
-        const origin = transform.getOrigin();
-        origin.setValue(position.x, position.y, position.z);
-        transform.setOrigin(origin);
-        this.body.setWorldTransform(transform);
-    }
-
-    private setBodyMotion(motion: { readonly x: number; readonly y: number; readonly z: number }): void {
-        const velocity = this.body.getLinearVelocity();
-        velocity.setValue(motion.x, motion.y, motion.z);
-        this.body.setLinearVelocity(velocity);
+        this.controller.applyNewState(newState.controllerState);
+        newState.controllerState.position.paste(this.position);
     }
 
     setUpMesh(isReisen: boolean): void {
@@ -215,47 +193,11 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         newMesh.rotation.set(0, 0, 0);
     }
 
-    registerState(newState: PlayerState): void {
-        if (!this.isSelf || newState.input.id >= this.inputId) {
-            this.currentState = newState;
-            if (!this.isSelf) {
-                newState.applyToTargetMotion(this.targetHorizontalMotion);
-                this.targetHorizontalMotion.multiplyScalar(MAX_SPEED);
-                this.wantsToJump = newState.wantsToJump;
-                this.inputId = newState.input.id;
-            }
-        }
-    }
-
-    wrapStateToCurrentPosition(map: MazeMap): void {
-        if (this.currentState) {
-            map.wrapTowards(this.currentState.position, this.position);
-        }
-    }
-
-    private moveTowardsState(state: PlayerState, delta: number): void {
-        const multiplier = this.hasMovedTowardsState ? Math.min(delta * 3, 1) : 1;
-        const toAddToPos = tmpVector3
-            .set(state.position.x, state.position.y, state.position.z)
-            .sub(this.position)
-            .multiplyScalar(multiplier);
-        this.position.add(toAddToPos);
-        this.setBodyPosition(this.position);
-
-        const motion = this.body.getLinearVelocity();
-        motion.setValue(
-            motion.x() * (1 - multiplier) - state.motion.x * multiplier,
-            motion.y() * (1 - multiplier) - state.motion.y * multiplier,
-            motion.z() * (1 - multiplier) - state.motion.z * multiplier
-        );
-        this.body.setLinearVelocity(motion);
-        this.hasMovedTowardsState = true;
+    setBodyPosition(position: { readonly x: number; readonly y: number; readonly z: number }): void {
+        this.controller.setPosition(position);
     }
 
     beforePhysics(delta: number): void {
-        if (!this.isSelf && this.currentState) {
-            this.moveTowardsState(this.currentState, delta);
-        }
         if (this.wantsToJump) {
             this.controller.jump();
         }
@@ -306,11 +248,16 @@ export class Character extends Object3D implements PhysicsAware, RenderAware {
         return this.localToWorld(tmpVector3.set(0, 20, 0));
     }
 
-    applyInput(input: PlayerInputMutation): void {
+    applyInput(input: PlayerInput): void {
         this.lastAppliedInputId = input.id;
         input.applyToTargetMotion(this.targetHorizontalMotion);
         this.targetHorizontalMotion.multiplyScalar(MAX_SPEED);
         this.wantsToJump = input.wantsToJump;
+        this.inputId = input.id;
+    }
+
+    clearInput(): void {
+        this.applyInput(PlayerInput.EMPTY);
     }
 
     /**

@@ -6,11 +6,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import moe.mewore.rabbit.backend.Player;
-import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
+import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.noise.DiamondSquareNoise;
 import moe.mewore.rabbit.world.MazeMap;
 import moe.mewore.rabbit.world.WorldProperties;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorldSimulationIT {
@@ -32,16 +37,24 @@ class WorldSimulationIT {
 
     @Test
     void testAcceptInput() throws InterruptedException {
-        final var input = new PlayerInputMutation(1, 0, 0f, (byte) 0xaa);
-        new WorldSimulation(worldState).acceptInput(player, input);
+        final var input = new PlayerInput(1, 0, 0xaa, 0f);
+        final var simulation = new WorldSimulation(worldState);
+
+        simulation.acceptInput(player, input);
+        assertNull(simulation.getLastAppliedInputs());
     }
 
     @Test
     void testAcceptInput_unreasonableFrame() throws InterruptedException {
-        final var input = new PlayerInputMutation(-1000, 0, 0f, (byte) 0xaa);
+        final var input = new PlayerInput(-1000, -1000L, 0xaa, 0f);
         final var simulation = new WorldSimulation(worldState);
         simulation.acceptInput(player, input);
+
         simulation.update(-1);
+        assertNotNull(simulation.getLastAppliedInputs());
+        assertEquals(1, simulation.getLastAppliedInputs().size());
+        assertEquals(1L, simulation.getLastAppliedInputs().get(0).getFrameId());
+        assertNotSame(input, simulation.getLastAppliedInputs().get(0).getInput());
     }
 
     @Test
@@ -49,6 +62,7 @@ class WorldSimulationIT {
         final WorldSimulation simulation = new WorldSimulation(worldState);
         simulation.update(System.currentTimeMillis() + 100);
         assertTrue(worldState.getFrameId() > 0);
+        assertNull(simulation.getLastAppliedInputs());
     }
 
     @Test
@@ -57,8 +71,12 @@ class WorldSimulationIT {
         final long createdAt = System.currentTimeMillis();
         simulation.update(createdAt + 100);
 
-        final var input = new PlayerInputMutation(0, 0, 0f, (byte) 0xaa);
+        final var input = new PlayerInput(0, 1, 0xaa, 0f);
         simulation.acceptInput(player, input);
+
         simulation.update(createdAt + 200);
+        assertNotNull(simulation.getLastAppliedInputs());
+        assertEquals(1, simulation.getLastAppliedInputs().size());
+        assertSame(input, simulation.getLastAppliedInputs().get(0).getInput());
     }
 }

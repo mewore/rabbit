@@ -1,9 +1,12 @@
 package moe.mewore.rabbit.backend.preview;
 
+import javax.vecmath.Vector3f;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.bulletphysics.linearmath.Transform;
 
 import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.simulation.WorldState;
@@ -42,6 +45,10 @@ public class ServerPreviewCanvas extends Canvas {
     private static final Color MOTION_COLOR = new Color(50, 150, 20, 200);
 
     private static final Color TARGET_MOTION_COLOR = new Color(255, 100, 20, 150);
+
+    private final Transform tmpTransform = new Transform();
+
+    private final Vector3f tmpVector3f = new Vector3f();
 
     private final MazeMap map;
 
@@ -204,17 +211,15 @@ public class ServerPreviewCanvas extends Canvas {
     }
 
     private PlayerPreview makePlayerPreview(final Player player) {
-        final var position = player.getCharacterController().getPosition();
+        final var position = player.getPosition(tmpTransform);
         final int x = (int) (wrapNormalized(position.x / map.getWidth() + 0.5) * image.getWidth());
         final int y = (int) (wrapNormalized(position.z / map.getDepth() + 0.5) * image.getHeight());
 
-        final var motion = player.getCharacterController().getMotion();
+        final var motion = player.getMotion(tmpVector3f);
         final int motionX = x + (int) (motion.x * image.getWidth() / map.getWidth());
         final int motionY = y + (int) (motion.z * image.getHeight() / map.getDepth());
-        final int targetMotionX =
-            x + (int) (player.getInputState().getTargetHorizontalMotion().x * image.getWidth() / map.getWidth());
-        final int targetMotionY =
-            y + (int) (player.getInputState().getTargetHorizontalMotion().y * image.getHeight() / map.getDepth());
+        final int targetMotionX = x + (int) (player.getTargetHorizontalMotion().x * image.getWidth() / map.getWidth());
+        final int targetMotionY = y + (int) (player.getTargetHorizontalMotion().y * image.getHeight() / map.getDepth());
 
         final int latency = player.getLatency();
         // In order to avoid too frequent updating of the label (and thus redrawing of the preview),

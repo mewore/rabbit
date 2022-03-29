@@ -35,6 +35,7 @@ import { WorldUpdateMessage } from './entities/messages/world-update-message';
 import { HeartbeatResponse } from './entities/mutations/heartbeat-response';
 import { PlayerInputMutation } from './entities/mutations/player-input-mutation';
 import { PlayerJoinMutation } from './entities/mutations/player-join-mutation';
+import { PlayerInput } from './entities/player/player-input';
 import { MazeMap } from './entities/world/maze-map';
 import { ForestObject } from './forest/forest-object';
 import { ForestWall } from './forest/forest-wall';
@@ -367,6 +368,7 @@ export class GameScene {
 
     private onWorldUpdate(reader: SignedBinaryReader): void {
         this.worldUpdateToApply = WorldUpdateMessage.decodeFromBinary(reader);
+        this.simulation.applyUpdateInputs(this.worldUpdateToApply);
     }
 
     private onPlayerDisconnected(reader: SignedBinaryReader): void {
@@ -441,26 +443,21 @@ export class GameScene {
             this.simulation.hasServerUpdate &&
             this.webSocket.readyState === WebSocket.OPEN
         ) {
-            const inputEvent = new PlayerInputMutation(
+            const input = new PlayerInput(
                 this.input.id,
                 this.simulation.currentFrame,
-                this.camera.rotation.y,
-                this.input.isUpPressed,
-                this.input.isDownPressed,
-                this.input.isLeftPressed,
-                this.input.isRightPressed,
-                this.input.wantsToJump
+                PlayerInput.compressInput(this.input),
+                this.camera.rotation.y
             );
-            this.sendData(inputEvent);
+            if (this.frameAnalysis.analyzing) {
+                this.frameAnalysis.addMessage(`Sending input #${input.id} for frame #${input.frameId}: ${input}`);
+            }
+            this.sendData(new PlayerInputMutation(input));
             this.simulation.shouldResendInput = false;
             this.lastSentInputId = this.input.id;
-            this.simulation.acceptInput(inputEvent);
+            this.simulation.acceptInput(input);
         }
         if (this.worldUpdateToApply) {
-            for (const state of this.worldUpdateToApply.playerStates) {
-                const character = this.getOrCreatePlayerCharacter(state.playerId, 'Unknown', undefined);
-                character.registerState(state);
-            }
             this.simulation.applyUpdate(this.worldUpdateToApply, this.time);
             this.worldUpdateToApply = undefined;
         }

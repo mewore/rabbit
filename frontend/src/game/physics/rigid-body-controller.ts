@@ -1,6 +1,8 @@
 import Ammo from 'ammo.js';
 import { btCollisionWorld } from 'ammo.js';
 
+import { PlayerControllerState } from '../entities/player/player-controller-state';
+
 const ACCELERATION = 400;
 
 export const JUMP_SPEED = 110;
@@ -42,6 +44,27 @@ export class RigidBodyController {
 
     private wantsToJump(): boolean {
         return this.jumpControlTimeLeft >= 0;
+    }
+
+    applyNewState(newState: PlayerControllerState): void {
+        this.setPosition(newState.position);
+        this.setMotion(newState.motion);
+        this.groundTimeLeft = newState.groundTimeLeft;
+        this.jumpControlTimeLeft = newState.jumpControlTimeLeft;
+    }
+
+    setPosition(position: { readonly x: number; readonly y: number; readonly z: number }): void {
+        const transform = this.body.getWorldTransform();
+        const origin = transform.getOrigin();
+        origin.setValue(position.x, position.y, position.z);
+        transform.setOrigin(origin);
+        this.body.setWorldTransform(transform);
+    }
+
+    private setMotion(motion: { readonly x: number; readonly y: number; readonly z: number }): void {
+        const velocity = this.body.getLinearVelocity();
+        velocity.setValue(motion.x, motion.y, motion.z);
+        this.body.setLinearVelocity(velocity);
     }
 
     updateAction(_world: Ammo.btCollisionWorld, deltaTimeStep: number): void {

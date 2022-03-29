@@ -48,6 +48,7 @@ import moe.mewore.rabbit.backend.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.backend.net.MultiPlayerHeart;
 import moe.mewore.rabbit.backend.simulation.WorldSimulation;
 import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.noise.CompositeNoise;
 import moe.mewore.rabbit.noise.DiamondSquareNoise;
@@ -153,13 +154,14 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     void updateWorld() {
         final WorldState newState = worldSimulation.update(System.currentTimeMillis());
-        final byte[] presentData = new WorldUpdateMessage(newState,
+        final List<PlayerInputEvent> newInputs = worldSimulation.getLastAppliedInputs();
+        final byte[] presentData = new WorldUpdateMessage(newState, newInputs,
             worldSimulation.getCurrentSnapshot()).encodeToBinary();
         sessionById.entrySet().parallelStream().forEach(entry -> {
             final Player player = playerBySessionId.get(entry.getKey());
             if (player != null) {
-                send(entry.getValue(),
-                    new WorldUpdateMessage(newState, worldSimulation.getPastSnapshot(player.getLatency() * 3 / 2)));
+                send(entry.getValue(), new WorldUpdateMessage(newState, newInputs,
+                    worldSimulation.getPastSnapshot(player.getLatency() * 3 / 2)));
             } else {
                 send(entry.getValue(), presentData);
             }
@@ -269,9 +271,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private void handleInput(final Player player, final PlayerInputMutation updateMutation) {
         try {
-            worldSimulation.acceptInput(player, updateMutation);
+            worldSimulation.acceptInput(player, updateMutation.getInput());
         } catch (final InterruptedException e) {
-            System.out.println("Interrupted while handling an input from player " + player.getInputState());
+            System.out.println("Interrupted while handling an input from player " + player.getId());
             Thread.currentThread().interrupt();
         }
     }

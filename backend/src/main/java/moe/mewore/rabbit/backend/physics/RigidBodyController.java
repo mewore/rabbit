@@ -2,6 +2,7 @@ package moe.mewore.rabbit.backend.physics;
 
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
+import java.util.List;
 import java.util.function.Consumer;
 
 import com.bulletphysics.collision.broadphase.Dispatcher;
@@ -15,9 +16,17 @@ import com.bulletphysics.linearmath.Transform;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import moe.mewore.rabbit.backend.simulation.data.FrameDataType;
+import moe.mewore.rabbit.backend.simulation.data.FrameSection;
+import moe.mewore.rabbit.backend.simulation.data.FrameSerializableEntity;
+
+import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.FLOAT;
+import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.VECTOR3F;
 
 @RequiredArgsConstructor
-public class RigidBodyController extends ActionInterface {
+public class RigidBodyController extends ActionInterface implements FrameSerializableEntity {
+
+    public static final List<FrameDataType> FRAME_DATA_TYPES = List.of(VECTOR3F, VECTOR3F, FLOAT, FLOAT);
 
     private static final float JUMP_SPEED = 110f;
 
@@ -27,8 +36,6 @@ public class RigidBodyController extends ActionInterface {
 
     private static final float GROUND_CHECK_REQUIRED_NORMAL_Y = .3f;
 
-    private final RigidBody body;
-
     private final Transform tmpTransform = new Transform();
 
     private final Vector3f tmpVector3 = new Vector3f();
@@ -36,6 +43,10 @@ public class RigidBodyController extends ActionInterface {
     public float groundLeniency = 0.1f;
 
     public float jumpControlLeniency = 0.1f;
+
+    private final RigidBody body;
+
+    private final FrameSection frameSection;
 
     @Getter
     @Setter
@@ -45,8 +56,12 @@ public class RigidBodyController extends ActionInterface {
 
     public float jumpControlTimeLeft = -1f;
 
-    public Vector3f getPosition() {
-        return body.getWorldTransform(tmpTransform).origin;
+    private Vector3f getPosition() {
+        return getPosition(tmpTransform);
+    }
+
+    public Vector3f getPosition(final Transform target) {
+        return body.getWorldTransform(target).origin;
     }
 
     public void setPosition(final Vector3f position) {
@@ -57,27 +72,16 @@ public class RigidBodyController extends ActionInterface {
         body.setWorldTransform(tmpTransform);
     }
 
-    public void loadPosition(final float[] data, int index) {
-        tmpTransform.setIdentity();
-        tmpTransform.origin.set(data[index], data[++index], data[++index]);
-        body.setWorldTransform(tmpTransform);
-    }
-
     public Vector3f getMotion(final Vector3f target) {
         return body.getLinearVelocity(target);
     }
 
-    public Vector3f getMotion() {
+    private Vector3f getMotion() {
         return getMotion(tmpVector3);
     }
 
     public void setMotion(final Vector3f motion) {
         body.setLinearVelocity(motion);
-    }
-
-    public void loadMotion(final float[] data, int index) {
-        tmpVector3.set(data[index], data[++index], data[++index]);
-        body.setLinearVelocity(tmpVector3);
     }
 
     public void jump() {
@@ -152,5 +156,30 @@ public class RigidBodyController extends ActionInterface {
                 }
             }
         }
+    }
+
+    @Override
+    public void load(final byte[] frame) {
+        frameSection.setFrame(frame);
+
+        tmpTransform.setIdentity();
+        frameSection.readIntoVector3f(tmpTransform.origin);
+        body.setWorldTransform(tmpTransform);
+
+        body.setLinearVelocity(frameSection.readIntoVector3f(tmpVector3));
+
+        groundTimeLeft = frameSection.readFloat();
+        jumpControlTimeLeft = frameSection.readFloat();
+    }
+
+    @Override
+    public void store(final byte[] frame) {
+        frameSection.setFrame(frame);
+
+        frameSection.writeVector3f(getPosition());
+        frameSection.writeVector3f(getMotion());
+
+        frameSection.writeFloat(groundTimeLeft);
+        frameSection.writeFloat(jumpControlTimeLeft);
     }
 }

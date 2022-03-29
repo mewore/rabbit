@@ -3,7 +3,7 @@ import { SignedBinaryReader } from '../data/signed-binary-reader';
 import { SignedBinaryWriter } from '../data/signed-binary-writer';
 import { Vector3Entity } from '../geometry/vector3-entity';
 
-export class DummySphereUpdate extends BinaryEntity {
+export class DummySphereState extends BinaryEntity {
     constructor(readonly activationState: number, readonly position: Vector3Entity, readonly motion: Vector3Entity) {
         super();
     }
@@ -14,8 +14,8 @@ export class DummySphereUpdate extends BinaryEntity {
         this.motion.appendToBinaryOutput(writer);
     }
 
-    static decodeFromBinary(reader: SignedBinaryReader): DummySphereUpdate {
-        return new DummySphereUpdate(
+    static decodeFromBinary(reader: SignedBinaryReader): DummySphereState {
+        return new DummySphereState(
             reader.readByte(),
             Vector3Entity.decodeFromBinary(reader),
             Vector3Entity.decodeFromBinary(reader)

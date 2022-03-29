@@ -1,5 +1,5 @@
 export class Input {
-    id = 0;
+    id = -1;
     active = true;
 
     mouseSensitivity = Math.PI / 1000.0;

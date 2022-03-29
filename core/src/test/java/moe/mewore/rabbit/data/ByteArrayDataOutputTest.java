@@ -2,9 +2,13 @@ package moe.mewore.rabbit.data;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import lombok.RequiredArgsConstructor;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
@@ -134,5 +138,34 @@ class ByteArrayDataOutputTest {
     void testWriteAsciiWithLength() {
         dataOutput.writeAsciiWithLength(new String(new byte[]{0x1, 0x2, 0x3, 0x4}, StandardCharsets.US_ASCII));
         assertArrayEquals(new byte[]{0, 0, 0, 4, 0x1, 0x2, 0x3, 0x4}, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
+    void testWriteEntityArray() {
+        dataOutput.writeArray(new BinaryEntity[]{new DumbEntity(0x12), new DumbEntity(0x34)});
+        assertArrayEquals(new byte[]{0, 0, 0, 2, 0x12, 0x34}, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
+    void testWriteCollection() {
+        dataOutput.writeCollection(List.of(new DumbEntity(0x12), new DumbEntity(0x34)));
+        assertArrayEquals(new byte[]{0, 0, 0, 2, 0x12, 0x34}, byteArrayOutputStream.toByteArray());
+    }
+
+    @Test
+    void testWriteMap() {
+        dataOutput.writeMap(Map.of(1, 0x12), dataOutput::writeInt, dataOutput::writeByte);
+        assertArrayEquals(new byte[]{0, 0, 0, 1, 0, 0, 0, 1, 0x12}, byteArrayOutputStream.toByteArray());
+    }
+
+    @RequiredArgsConstructor
+    private static class DumbEntity extends BinaryEntity {
+
+        private final int value;
+
+        @Override
+        public void appendToBinaryOutput(final SafeDataOutput output) {
+            output.writeByte(value);
+        }
     }
 }

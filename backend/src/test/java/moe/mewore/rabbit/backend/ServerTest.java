@@ -29,7 +29,6 @@ import moe.mewore.rabbit.backend.mutations.MutationType;
 import moe.mewore.rabbit.backend.physics.PhysicsDummyBox;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
 import moe.mewore.rabbit.backend.simulation.WorldSimulation;
-import moe.mewore.rabbit.backend.simulation.WorldSnapshot;
 import moe.mewore.rabbit.backend.simulation.WorldState;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -355,8 +354,8 @@ class ServerTest {
         server.onWorldUpdate(worldStateFromUpdate::set);
 
         when(worldSimulation.update(anyLong())).thenReturn(worldState);
-        when(worldSimulation.getCurrentSnapshot()).thenReturn(mock(WorldSnapshot.class));
-        when(worldSimulation.getPastSnapshot(anyInt())).thenReturn(mock(WorldSnapshot.class));
+        when(worldSimulation.getCurrentSnapshot()).thenReturn(new byte[0]);
+        when(worldSimulation.getPastSnapshot(anyInt())).thenReturn(new byte[0]);
         when(worldState.getSpheres()).thenReturn(new PhysicsDummySphere[0]);
         server.updateWorld();
         assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN, MessageType.JOIN, MessageType.UPDATE),

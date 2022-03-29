@@ -67,6 +67,8 @@ class ServerPhysicsDebugTest {
     void testGetDebugMode() {
         assertEquals(DebugDrawModes.DRAW_WIREFRAME | DebugDrawModes.DRAW_AABB | DebugDrawModes.DRAW_CONTACT_POINTS,
             debugDraw.getDebugMode());
+        debugDraw.setDebugMode(-1);
+        assertEquals(-1, debugDraw.getDebugMode());
     }
 
     @Test

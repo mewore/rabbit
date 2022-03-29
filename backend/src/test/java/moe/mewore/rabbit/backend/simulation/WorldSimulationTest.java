@@ -16,14 +16,15 @@ class WorldSimulationTest {
 
     private static WorldState makeWorldState(final AtomicLong frameId) {
         final WorldState state = mock(WorldState.class);
+        when(state.getMaxPlayerCount()).thenReturn(0);
         Mockito.doAnswer(invocation -> frameId.incrementAndGet()).when(state).doStep();
         Mockito.doAnswer(invocation -> {
-            final int[] intData = ((WorldSnapshot) invocation.getArgument(0)).getIntData();
-            intData[0] = (int) ((frameId.get() >> 30L) & ((1L << 30L) - 1L));
-            intData[1] = (int) (frameId.get() & ((1L << 30L) - 1L));
+            final byte[] frame = invocation.getArgument(0);
+            assert frameId.get() < 100;
+            frame[0] = (byte) frameId.get();
             return null;
         }).when(state).store(any());
-        when(state.createEmptySnapshot()).thenAnswer(invocation -> new WorldSnapshot(2, 0));
+        when(state.getFrameSize()).thenReturn(1);
         when(state.getFrameId()).thenAnswer(invocation -> frameId.get());
         return state;
     }
@@ -34,8 +35,8 @@ class WorldSimulationTest {
         final WorldSimulation simulation = new WorldSimulation(makeWorldState(frameId));
         simulation.update(System.currentTimeMillis() + 1000L);
         assertNotEquals(0L, frameId.get());
-        final int[] intData = simulation.getCurrentSnapshot().getIntData();
-        assertEquals(frameId.get(), ((long) intData[0] << 30L) + intData[1]);
+        final byte[] frame = simulation.getCurrentSnapshot();
+        assertEquals(frameId.get(), frame[0]);
     }
 
     @Test
@@ -44,8 +45,8 @@ class WorldSimulationTest {
         final WorldSimulation simulation = new WorldSimulation(makeWorldState(frameId));
         simulation.update(System.currentTimeMillis() + 1000L);
         assertNotEquals(0L, frameId.get());
-        final int[] intData = simulation.getPastSnapshot(500).getIntData();
-        final long pastSnapshotFrame = ((long) intData[0] << 30L) + intData[1];
+        final byte[] frame = simulation.getPastSnapshot(500);
+        final long pastSnapshotFrame = frame[0];
         assertTrue(pastSnapshotFrame > 0, "The frame ~500ms after the beginning should be with an ID greater than 0");
         assertTrue(pastSnapshotFrame < frameId.get(),
             "The frame ~500ms after the beginning should be with an ID less than the latest Frame");

@@ -2,24 +2,21 @@ package moe.mewore.rabbit.backend.simulation;
 
 import javax.vecmath.Vector3f;
 import java.util.Collections;
-import java.util.List;
 
-import com.bulletphysics.collision.dispatch.CollisionObject;
-import com.bulletphysics.collision.dispatch.CollisionWorld;
 import com.bulletphysics.linearmath.Transform;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import moe.mewore.rabbit.backend.Player;
-import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
-import moe.mewore.rabbit.backend.physics.RigidBodyController;
+import moe.mewore.rabbit.backend.simulation.data.FrameSerializationTestUtil;
+import moe.mewore.rabbit.backend.simulation.player.FakePlayerInputEvent;
+import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
+import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 import moe.mewore.rabbit.world.MazeMap;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,23 +33,6 @@ class WorldStateTest {
         when(map.getWidth()).thenReturn(1f);
         when(map.getDepth()).thenReturn(1f);
         when(map.getWalls()).thenReturn(Collections.emptyList());
-    }
-
-    @Test
-    void testRegisterInput() {
-        final WorldSnapshot snapshot = new WorldSnapshot(10, 10);
-        final var player = new Player(0, 0, "Player", false, mock(CollisionWorld.class), mock(CollisionObject.class),
-            mock(RigidBodyController.class));
-
-        final int[] emptyIntArray = new int[10];
-        final float[] emptyFloatArray = new float[10];
-        assertArrayEquals(emptyIntArray, snapshot.getIntData());
-        assertArrayEquals(emptyFloatArray, snapshot.getFloatData());
-
-        final var input = new PlayerInputMutation(1, 0, 0f, (byte) 0xaa);
-        WorldState.registerInput(snapshot, player, input);
-        assertNotEquals(List.of(emptyIntArray), List.of(snapshot.getIntData()));
-        assertNotEquals(List.of(emptyFloatArray), List.of(snapshot.getFloatData()));
     }
 
     @Test
@@ -94,14 +74,17 @@ class WorldStateTest {
     }
 
     @Test
-    void testCreateEmptySnapshot() {
-        final WorldSnapshot snapshot = new WorldState(3, map).createEmptySnapshot();
-        assertEquals(15, snapshot.getIntData().length);
-        assertEquals(51, snapshot.getFloatData().length);
+    void testGetFrameSize() {
+        assertEquals(204, new WorldState(3, map).getFrameSize());
     }
 
     @Test
     void testDoStep() {
+        new WorldState(1, map).doStep();
+    }
+
+    @Test
+    void testDoStep_brokenWorld() {
         new WorldState(1, map).doStep();
     }
 
@@ -119,44 +102,30 @@ class WorldStateTest {
     @Test
     void testLoad() {
         final var worldState = new WorldState(1, map);
-        assertNotNull(worldState.createPlayer(true));
-        final var snapshot = worldState.createEmptySnapshot();
-        snapshot.getIntData()[0] = 1;
-        snapshot.getIntData()[1] = 18;
-        worldState.load(snapshot);
-        assertEquals((1L << 30L) + 18, worldState.getFrameId());
-    }
-
-    @Test
-    void testLoadInput() {
-        final var worldState = new WorldState(1, map);
         final Player player = worldState.createPlayer(true);
         assertNotNull(player);
-
-        final WorldSnapshot snapshot = worldState.createEmptySnapshot();
-        final var input = new PlayerInputMutation(1, 0, (float) Math.PI, (byte) 0xaa);
-        WorldState.registerInput(snapshot, player, input);
-        worldState.loadInput(snapshot);
-        assertEquals(0, player.getInputState().getInputKeys());
+        final byte[] frame = new byte[worldState.getFrameSize()];
+        frame[7] = 10;
+        worldState.load(frame);
+        assertEquals(10L, worldState.getFrameId());
     }
 
     @Test
-    void testLoadInput_matchingUid() {
+    void testSerialization() {
         final var worldState = new WorldState(1, map);
-        final Player player = worldState.createPlayer(true);
+        worldState.createPlayer(true);
+
+        final var otherWorldState = new WorldState(1, map);
+        final var player = otherWorldState.createPlayer(false);
         assertNotNull(player);
+        final var inputEvent = new FakePlayerInputEvent(player,
+            new PlayerInput(1, 0, (byte) (PlayerInput.INPUT_UP_BIT | PlayerInput.INPUT_JUMP_BIT), 0f));
+        otherWorldState.loadInput(new PlayerInputEvent[]{inputEvent}, true);
+        for (int i = 0; i < 5; i++) {
+            otherWorldState.doStep();
+        }
 
-        final WorldSnapshot snapshot = worldState.createEmptySnapshot();
-        final var input = new PlayerInputMutation(1, 0, (float) Math.PI, (byte) 0xa);
-        WorldState.registerInput(snapshot, player, input);
-        snapshot.getIntData()[2] = player.getUid();
-        worldState.loadInput(snapshot);
-        assertEquals(0xa, player.getInputState().getInputKeys());
-    }
-
-    @Test
-    void testStore() {
-        final var worldState = new WorldState(1, map);
-        worldState.store(worldState.createEmptySnapshot());
+        FrameSerializationTestUtil.testSerialization(() -> new byte[worldState.getFrameSize()],
+            worldState.getHeaderFrameSection(), otherWorldState.getHeaderFrameSection(), worldState, otherWorldState);
     }
 }

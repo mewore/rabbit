@@ -18,6 +18,11 @@ type BinaryData = [number, NumberBinaryType] | Uint8Array;
 export class SignedBinaryWriter {
     private readonly data: BinaryData[] = [];
 
+    /**
+     * A shorthand version of the {@link SignedBinaryWriter#writeInt} method.
+     */
+    readonly int = this.writeInt.bind(this);
+
     writeBoolean(value: boolean): void {
         this.data.push([value ? 1 : 0, NumberBinaryType.BYTE]);
     }
@@ -68,6 +73,14 @@ export class SignedBinaryWriter {
         this.writeInt(entities.length);
         for (const entity of entities) {
             entity.appendToBinaryOutput(this);
+        }
+    }
+
+    writeMap<K, V>(map: Map<K, V>, keyWriter: (key: K) => void, valueWriter: (value: V) => void): void {
+        this.writeInt(map.size);
+        for (const entry of map.entries()) {
+            keyWriter(entry[0]);
+            valueWriter(entry[1]);
         }
     }
 

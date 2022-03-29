@@ -12,9 +12,10 @@ import com.bulletphysics.dynamics.DynamicsWorld;
 import org.junit.jupiter.api.Test;
 
 import moe.mewore.rabbit.backend.Player;
-import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
 import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.player.FakePlayerInputEvent;
+import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.world.MazeMap;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -74,15 +75,15 @@ class ServerPreviewCanvasTest {
         final var world = mock(DynamicsWorld.class);
         final var body = mock(CollisionObject.class);
         final var controller = mock(RigidBodyController.class);
-        when(controller.getPosition()).thenReturn(new Vector3f());
-        when(controller.getMotion()).thenReturn(new Vector3f());
+        when(controller.getPosition(any())).thenReturn(new Vector3f());
+        when(controller.getMotion(any())).thenReturn(new Vector3f());
         final var playerWithTargetMotion = new Player(0, 0, "Player 1", false, world, body, controller);
-        playerWithTargetMotion.getInputState().applyInput(1, 1f, PlayerInputMutation.INPUT_UP_BIT);
-
+        final var input = new PlayerInput(1, 1, PlayerInput.INPUT_UP_BIT, 1f);
+        playerWithTargetMotion.applyInput(new FakePlayerInputEvent(playerWithTargetMotion, input));
 
         final var controller2 = mock(RigidBodyController.class);
-        when(controller2.getPosition()).thenReturn(new Vector3f());
-        when(controller2.getMotion()).thenReturn(new Vector3f(1, 1, 1));
+        when(controller2.getPosition(any())).thenReturn(new Vector3f());
+        when(controller2.getMotion(any())).thenReturn(new Vector3f(1, 1, 1));
         final var playerWithMotion = new Player(1, 1, "Player 2", true, world, body, controller2);
 
         final var worldState = makeWorldState(Map.of(0, playerWithTargetMotion, 1, playerWithMotion));
