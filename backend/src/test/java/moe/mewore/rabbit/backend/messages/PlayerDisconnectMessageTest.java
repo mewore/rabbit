@@ -5,8 +5,8 @@ import com.bulletphysics.collision.dispatch.CollisionWorld;
 
 import org.junit.jupiter.api.Test;
 
-import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -15,7 +15,7 @@ class PlayerDisconnectMessageTest {
 
     @Test
     void testEncode() {
-        final var player = new Player(1, 1, "User", true, mock(CollisionWorld.class), mock(CollisionObject.class),
+        final var player = new RabbitPlayer(1, 1, "User", true, mock(CollisionWorld.class), mock(CollisionObject.class),
             mock(RigidBodyController.class));
         assertEquals(5, new PlayerDisconnectMessage(player).encodeToBinary().length);
     }

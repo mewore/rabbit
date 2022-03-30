@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.backend;
+package moe.mewore.rabbit.backend.simulation.player;
 
 import javax.vecmath.Vector3f;
 
@@ -9,8 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
-import moe.mewore.rabbit.backend.simulation.player.FakePlayerInputEvent;
-import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.world.MazeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,24 +23,24 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class PlayerTest {
+class RabbitPlayerTest {
 
-    private Player player;
+    private RabbitPlayer player;
 
     private CollisionWorld world;
 
     private RigidBodyController controller;
 
+    private static String formatPlayerTargetMotion(final RabbitPlayer player) {
+        return String.format("(%.2f, %.2f)", player.getTargetHorizontalMotion().x,
+            player.getTargetHorizontalMotion().y);
+    }
+
     @BeforeEach
     void setUp() {
         world = mock(CollisionWorld.class);
         controller = mock(RigidBodyController.class);
-        player = new Player(0, 0, "Player", true, world, mock(RigidBody.class), controller);
-    }
-
-    private static String formatPlayerTargetMotion(final Player player) {
-        return String.format("(%.2f, %.2f)", player.getTargetHorizontalMotion().x,
-            player.getTargetHorizontalMotion().y);
+        player = new RabbitPlayer(0, 0, "Player", true, world, mock(RigidBody.class), controller);
     }
 
     @Test

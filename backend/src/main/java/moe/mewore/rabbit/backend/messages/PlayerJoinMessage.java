@@ -1,7 +1,7 @@
 package moe.mewore.rabbit.backend.messages;
 
 import lombok.RequiredArgsConstructor;
-import moe.mewore.rabbit.backend.Player;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.data.SafeDataOutput;
 
@@ -16,7 +16,7 @@ public class PlayerJoinMessage extends BinaryEntity {
 
     private final boolean isSelf;
 
-    public PlayerJoinMessage(final Player player, final boolean isSelf) {
+    public PlayerJoinMessage(final RabbitPlayer player, final boolean isSelf) {
         this(player.getId(), player.getUsername(), player.isReisen(), isSelf);
     }
 

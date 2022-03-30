@@ -11,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import lombok.NonNull;
-import moe.mewore.rabbit.backend.Player;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,9 +38,9 @@ class MultiPlayerHeartTest {
 
     @Test
     void testDoStep_fiveTimes() {
-        final Player firstPlayer = mock(Player.class);
+        final RabbitPlayer firstPlayer = mock(RabbitPlayer.class);
         when(firstPlayer.getId()).thenReturn(0);
-        final Player secondPlayer = mock(Player.class);
+        final RabbitPlayer secondPlayer = mock(RabbitPlayer.class);
         when(secondPlayer.getId()).thenReturn(2);
         heart.addPlayer(firstPlayer);
         heart.addPlayer(secondPlayer);
@@ -58,7 +58,7 @@ class MultiPlayerHeartTest {
 
     @Test
     void testDoStep_50TimesWithOnePlayer() {
-        final Player player = mock(Player.class);
+        final RabbitPlayer player = mock(RabbitPlayer.class);
         when(player.getId()).thenReturn(0);
         heart.addPlayer(player);
 
@@ -80,7 +80,7 @@ class MultiPlayerHeartTest {
 
     @Test
     void testRemovePlayer() {
-        final Player player = mock(Player.class);
+        final RabbitPlayer player = mock(RabbitPlayer.class);
         when(player.getId()).thenReturn(0);
         heart.addPlayer(player);
 
@@ -93,7 +93,7 @@ class MultiPlayerHeartTest {
 
     @Test
     void testReceive() {
-        final Player player = mock(Player.class);
+        final RabbitPlayer player = mock(RabbitPlayer.class);
         when(player.getId()).thenReturn(0);
         heart.addPlayer(player);
         heart.doStep();
@@ -107,7 +107,7 @@ class MultiPlayerHeartTest {
 
     @Test
     void testReceive_noSuchPlayer() {
-        final Player player = mock(Player.class);
+        final RabbitPlayer player = mock(RabbitPlayer.class);
         when(player.getId()).thenReturn(0);
         heart.receive(player, 0);
         verify(player, never()).setLatency(anyInt());

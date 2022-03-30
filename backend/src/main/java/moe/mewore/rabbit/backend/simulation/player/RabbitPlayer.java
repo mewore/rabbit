@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.backend;
+package moe.mewore.rabbit.backend.simulation.player;
 
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
@@ -15,12 +15,10 @@ import lombok.Setter;
 import moe.mewore.rabbit.backend.net.Heart;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
 import moe.mewore.rabbit.backend.simulation.data.FrameSerializableEntity;
-import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
-import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 import moe.mewore.rabbit.world.MazeMap;
 
 @RequiredArgsConstructor
-public class Player implements FrameSerializableEntity {
+public class RabbitPlayer implements FrameSerializableEntity {
 
     private static final float MAX_SPEED = 100f;
 

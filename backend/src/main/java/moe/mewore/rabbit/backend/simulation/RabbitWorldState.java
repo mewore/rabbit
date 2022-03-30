@@ -27,7 +27,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.AccessLevel;
 import lombok.Getter;
-import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.physics.FixedDiscreteDynamicWorld;
 import moe.mewore.rabbit.backend.physics.ForestWalls;
 import moe.mewore.rabbit.backend.physics.PhysicsDummyBox;
@@ -38,6 +37,7 @@ import moe.mewore.rabbit.backend.simulation.data.FrameDataType;
 import moe.mewore.rabbit.backend.simulation.data.FrameSection;
 import moe.mewore.rabbit.backend.simulation.data.FrameSerializableEntity;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.world.MazeMap;
 
 import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.LONG;
@@ -59,7 +59,7 @@ public class RabbitWorldState implements FrameSerializableEntity {
 
     private static final long PARALLELISM_THRESHOLD = 5L;
 
-    private final ConcurrentHashMap<Integer, Player> players = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, RabbitPlayer> players = new ConcurrentHashMap<>();
 
     @Getter
     private final DynamicsWorld world;
@@ -132,13 +132,13 @@ public class RabbitWorldState implements FrameSerializableEntity {
         return !players.isEmpty();
     }
 
-    public Map<Integer, Player> getPlayers() {
+    public Map<Integer, RabbitPlayer> getPlayers() {
         return Collections.unmodifiableMap(players);
     }
 
-    public @Nullable Player createPlayer(final boolean isReisen) {
-        final AtomicReference<Player> result = new AtomicReference<>();
-        final Function<Integer, Player> mappingFunction = (key) -> {
+    public @Nullable RabbitPlayer createPlayer(final boolean isReisen) {
+        final AtomicReference<RabbitPlayer> result = new AtomicReference<>();
+        final Function<Integer, RabbitPlayer> mappingFunction = (key) -> {
             result.set(createPlayer(key, isReisen));
             return result.get();
         };
@@ -151,7 +151,7 @@ public class RabbitWorldState implements FrameSerializableEntity {
         return null;
     }
 
-    private Player createPlayer(final int id, final boolean isReisen) {
+    private RabbitPlayer createPlayer(final int id, final boolean isReisen) {
         final Transform startTransform = new Transform();
         startTransform.setIdentity();
         startTransform.origin.y = PLAYER_HEIGHT / 2f;
@@ -163,14 +163,14 @@ public class RabbitWorldState implements FrameSerializableEntity {
         final var characterController = new RigidBodyController(body, playerControllerFrameSections[id]);
         world.addRigidBody(body);
 
-        return new Player(++playerUid, id, "Player " + (id + 1), isReisen, world, body, characterController);
+        return new RabbitPlayer(++playerUid, id, "Player " + (id + 1), isReisen, world, body, characterController);
     }
 
     /**
      * @param player The player to remove
      * @return Whether the player was in this world in the first place.
      */
-    public boolean removePlayer(final Player player) {
+    public boolean removePlayer(final RabbitPlayer player) {
         world.removeCollisionObject(player.getBody());
         world.removeAction(player.getCharacterController());
         return players.remove(player.getId(), player);

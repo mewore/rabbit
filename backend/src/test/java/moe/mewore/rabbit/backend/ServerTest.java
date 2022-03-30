@@ -30,6 +30,7 @@ import moe.mewore.rabbit.backend.physics.PhysicsDummyBox;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
 import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.RealtimeSimulation;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,9 +60,9 @@ class ServerTest {
 
     private RealtimeSimulation worldSimulation;
 
-    private Player firstPlayer;
+    private RabbitPlayer firstPlayer;
 
-    private Player secondPlayer;
+    private RabbitPlayer secondPlayer;
 
     private ScheduledExecutorService threadPool;
 
@@ -70,8 +71,8 @@ class ServerTest {
     @BeforeEach
     void setUp() {
         javalin = mock(Javalin.class);
-        firstPlayer = mock(Player.class);
-        secondPlayer = mock(Player.class);
+        firstPlayer = mock(RabbitPlayer.class);
+        secondPlayer = mock(RabbitPlayer.class);
         worldState = mock(RabbitWorldState.class);
         worldSimulation = mock(RealtimeSimulation.class);
         threadPool = mock(ScheduledExecutorService.class);

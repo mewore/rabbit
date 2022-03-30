@@ -5,8 +5,8 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.noise.DiamondSquareNoise;
 import moe.mewore.rabbit.world.MazeMap;
 import moe.mewore.rabbit.world.WorldProperties;
@@ -27,7 +27,7 @@ class RealtimeSimulationIT {
 
     private RabbitWorldState worldState;
 
-    private Player player;
+    private RabbitPlayer player;
 
     @BeforeEach
     void setUp() {

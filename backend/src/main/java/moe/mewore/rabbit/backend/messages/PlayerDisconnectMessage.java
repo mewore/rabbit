@@ -1,14 +1,14 @@
 package moe.mewore.rabbit.backend.messages;
 
 import lombok.RequiredArgsConstructor;
-import moe.mewore.rabbit.backend.Player;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.data.SafeDataOutput;
 
 @RequiredArgsConstructor
 public class PlayerDisconnectMessage extends BinaryEntity {
 
-    private final Player player;
+    private final RabbitPlayer player;
 
     @Override
     public void appendToBinaryOutput(final SafeDataOutput output) {

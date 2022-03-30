@@ -11,9 +11,9 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.Getter;
 import lombok.Synchronized;
-import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 public class RealtimeSimulation {
 
@@ -53,7 +53,7 @@ public class RealtimeSimulation {
             FRAME_BUFFER_SIZE * (state.getFrameSize() + state.getMaxPlayerCount() * 8) / 1024 + " KB");
     }
 
-    public void acceptInput(final Player player, final PlayerInput input) throws InterruptedException {
+    public void acceptInput(final RabbitPlayer player, final PlayerInput input) throws InterruptedException {
         final PlayerInputEvent lastInputEvent = player.getLastInputEvent();
         if (lastInputEvent != null && lastInputEvent.getInput().getId() >= input.getId()) {
             return;

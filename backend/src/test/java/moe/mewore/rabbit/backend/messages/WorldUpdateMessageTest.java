@@ -5,11 +5,11 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
 import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -21,7 +21,7 @@ class WorldUpdateMessageTest {
     void testEncode() {
         final var worldState = mock(RabbitWorldState.class);
 
-        final var player = mock(Player.class);
+        final var player = mock(RabbitPlayer.class);
         when(player.getId()).thenReturn(1);
         when(player.getLatency()).thenReturn(100);
         when(worldState.getPlayers()).thenReturn(Map.of(1, player, 2, player));

@@ -8,11 +8,11 @@ import com.bulletphysics.linearmath.Transform;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.simulation.data.FrameSerializationTestUtil;
 import moe.mewore.rabbit.backend.simulation.player.FakePlayerInputEvent;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.world.MazeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,7 +47,7 @@ class RabbitWorldStateTest {
 
     @Test
     void testCreatePlayer() {
-        final Player result = new RabbitWorldState(1, map).createPlayer(true);
+        final RabbitPlayer result = new RabbitWorldState(1, map).createPlayer(true);
         assertNotNull(result);
         assertEquals("Player 1", result.getUsername());
         assertEquals(0, result.getId());
@@ -65,7 +65,7 @@ class RabbitWorldStateTest {
     @Test
     void testRemovePlayer() {
         final var worldState = new RabbitWorldState(1, map);
-        final Player player = worldState.createPlayer(true);
+        final RabbitPlayer player = worldState.createPlayer(true);
         assertNotNull(player);
         assertTrue(worldState.hasPlayers());
 
@@ -91,7 +91,7 @@ class RabbitWorldStateTest {
     @Test
     void testDoStep_withPlayer() {
         final var worldState = new RabbitWorldState(1, map);
-        final Player player = worldState.createPlayer(true);
+        final RabbitPlayer player = worldState.createPlayer(true);
         assertNotNull(player);
 
         assertEquals(0, worldState.getFrameId());
@@ -102,7 +102,7 @@ class RabbitWorldStateTest {
     @Test
     void testLoad() {
         final var worldState = new RabbitWorldState(1, map);
-        final Player player = worldState.createPlayer(true);
+        final RabbitPlayer player = worldState.createPlayer(true);
         assertNotNull(player);
         final byte[] frame = new byte[worldState.getFrameSize()];
         frame[7] = 10;

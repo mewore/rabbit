@@ -6,7 +6,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.Synchronized;
-import moe.mewore.rabbit.backend.Player;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 public class MultiPlayerHeart {
 
@@ -43,16 +43,16 @@ public class MultiPlayerHeart {
         return MILLISECONDS_PER_BEAT / maximumNumberOfPlayers;
     }
 
-    public void addPlayer(final Player player) {
+    public void addPlayer(final RabbitPlayer player) {
         hearts[player.getId()] = new Heart(player::setLatency);
     }
 
-    public void removePlayer(final Player player) {
+    public void removePlayer(final RabbitPlayer player) {
         hearts[player.getId()] = null;
     }
 
     @Synchronized
-    public void receive(final Player player, final int heartbeatId) {
+    public void receive(final RabbitPlayer player, final int heartbeatId) {
         final @Nullable Heart heart = hearts[player.getId()];
         if (heart != null) {
             heart.receive(heartbeatId);

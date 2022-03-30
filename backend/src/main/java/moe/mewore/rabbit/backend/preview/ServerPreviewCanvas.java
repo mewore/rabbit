@@ -8,8 +8,8 @@ import java.util.stream.Collectors;
 
 import com.bulletphysics.linearmath.Transform;
 
-import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.world.MazeMap;
 
 public class ServerPreviewCanvas extends Canvas {
@@ -210,7 +210,7 @@ public class ServerPreviewCanvas extends Canvas {
         return worldState.getPlayers().values().stream().map(this::makePlayerPreview).collect(Collectors.toList());
     }
 
-    private PlayerPreview makePlayerPreview(final Player player) {
+    private PlayerPreview makePlayerPreview(final RabbitPlayer player) {
         final var position = player.getPosition(tmpTransform);
         final int x = (int) (wrapNormalized(position.x / map.getWidth() + 0.5) * image.getWidth());
         final int y = (int) (wrapNormalized(position.z / map.getDepth() + 0.5) * image.getHeight());

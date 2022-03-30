@@ -49,6 +49,7 @@ import moe.mewore.rabbit.backend.net.MultiPlayerHeart;
 import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.RealtimeSimulation;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
+import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.noise.CompositeNoise;
 import moe.mewore.rabbit.noise.DiamondSquareNoise;
@@ -65,7 +66,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private static final int UPDATES_PER_SECOND = 10;
 
-    private final Map<String, Player> playerBySessionId = new ConcurrentHashMap<>();
+    private final Map<String, RabbitPlayer> playerBySessionId = new ConcurrentHashMap<>();
 
     private final Map<Integer, Session> sessionByPlayerId = new ConcurrentHashMap<>();
 
@@ -158,7 +159,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         final byte[] presentData = new WorldUpdateMessage(newState, newInputs,
             worldSimulation.getCurrentSnapshot()).encodeToBinary();
         sessionById.entrySet().parallelStream().forEach(entry -> {
-            final Player player = playerBySessionId.get(entry.getKey());
+            final RabbitPlayer player = playerBySessionId.get(entry.getKey());
             if (player != null) {
                 send(entry.getValue(), new WorldUpdateMessage(newState, newInputs,
                     worldSimulation.getPastSnapshot(player.getLatency() * 3 / 2)));
@@ -189,7 +190,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     @Override
     public void handleBinaryMessage(final WsBinaryMessageContext sender) throws IOException {
-        final @Nullable Player player = playerBySessionId.get(sender.getSessionId());
+        final @Nullable RabbitPlayer player = playerBySessionId.get(sender.getSessionId());
         final DataInput dataInput = new DataInputStream(new ByteArrayInputStream(sender.data()));
         final byte mutationTypeIndex = dataInput.readByte();
         final MutationType mutationType = Arrays.stream(MutationType.values())
@@ -235,7 +236,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     @Override
     public void handleConnect(final @NonNull WsConnectContext sender) {
         sender.send(ByteBuffer.wrap(new MapDataMessage(map, worldState.getBoxes()).encodeToBinary()));
-        for (final Player player : playerBySessionId.values()) {
+        for (final RabbitPlayer player : playerBySessionId.values()) {
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player, false).encodeToBinary()));
         }
         sessionById.put(sender.getSessionId(), sender.session);
@@ -256,7 +257,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     }
 
     private synchronized void handleJoin(final WsContext sender, final PlayerJoinMutation joinMutation) {
-        final @Nullable Player newPlayer = worldState.createPlayer(joinMutation.isReisen());
+        final @Nullable RabbitPlayer newPlayer = worldState.createPlayer(joinMutation.isReisen());
         // TODO: Change the joining to a normal HTTP request so that there can be a [400] response
         if (newPlayer != null) {
             playerBySessionId.put(sender.getSessionId(), newPlayer);
@@ -269,7 +270,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         }
     }
 
-    private void handleInput(final Player player, final PlayerInputMutation updateMutation) {
+    private void handleInput(final RabbitPlayer player, final PlayerInputMutation updateMutation) {
         try {
             worldSimulation.acceptInput(player, updateMutation.getInput());
         } catch (final InterruptedException e) {
@@ -281,7 +282,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     @Override
     public void handleClose(final WsCloseContext sender) {
         sessionById.remove(sender.getSessionId());
-        final @Nullable Player player = playerBySessionId.remove(sender.getSessionId());
+        final @Nullable RabbitPlayer player = playerBySessionId.remove(sender.getSessionId());
         if (player != null) {
             worldState.removePlayer(player);
             broadcast(sender, new PlayerDisconnectMessage(player));
