@@ -8,7 +8,7 @@ import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.RequiredArgsConstructor;
-import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 import moe.mewore.rabbit.data.BinaryEntity;
@@ -17,7 +17,7 @@ import moe.mewore.rabbit.data.SafeDataOutput;
 @RequiredArgsConstructor
 public class WorldUpdateMessage extends BinaryEntity {
 
-    private final WorldState worldState;
+    private final RabbitWorldState worldState;
 
     private final @Nullable List<PlayerInputEvent> appliedInputs;
 

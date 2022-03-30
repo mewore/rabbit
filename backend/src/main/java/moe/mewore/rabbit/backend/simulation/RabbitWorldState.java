@@ -42,11 +42,11 @@ import moe.mewore.rabbit.world.MazeMap;
 
 import static moe.mewore.rabbit.backend.simulation.data.FrameDataType.LONG;
 
-public class WorldState implements FrameSerializableEntity {
+public class RabbitWorldState implements FrameSerializableEntity {
 
     public static final float GRAVITY = 250f;
 
-    private static final float SECONDS_PER_FRAME = 1f / WorldSimulation.FPS;
+    private static final float SECONDS_PER_FRAME = 1f / RealtimeSimulation.FPS;
 
     private static final float PLAYER_RADIUS = 3f;
 
@@ -88,7 +88,7 @@ public class WorldState implements FrameSerializableEntity {
 
     private final FrameSection[] playerControllerFrameSections;
 
-    public WorldState(final int maxPlayerCount, final MazeMap map) {
+    public RabbitWorldState(final int maxPlayerCount, final MazeMap map) {
         this.maxPlayerCount = maxPlayerCount;
         this.map = map;
 

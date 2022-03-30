@@ -15,7 +15,7 @@ import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 
-public class WorldSimulation {
+public class RealtimeSimulation {
 
     private static final int MAX_INPUT_FRAME_SHIFT = 15;
 
@@ -32,7 +32,7 @@ public class WorldSimulation {
 
     private final long createdAt = System.currentTimeMillis();
 
-    private final WorldState state;
+    private final RabbitWorldState state;
 
     private int frameIndex = 0;
 
@@ -45,7 +45,7 @@ public class WorldSimulation {
     @Getter
     private @Nullable List<PlayerInputEvent> lastAppliedInputs;
 
-    public WorldSimulation(final WorldState state) {
+    public RealtimeSimulation(final RabbitWorldState state) {
         this.state = state;
         frames = new byte[FRAME_BUFFER_SIZE][state.getFrameSize()];
         playerInputHistory = new @Nullable PlayerInputEvent[FRAME_BUFFER_SIZE][state.getMaxPlayerCount()];
@@ -111,7 +111,7 @@ public class WorldSimulation {
     }
 
     @Synchronized
-    public WorldState update(final long now) {
+    public RabbitWorldState update(final long now) {
         if (!pendingInputs.isEmpty()) {
             final List<PlayerInputEvent> inputsToApply = new ArrayList<>(pendingInputs.size());
             pendingInputs.drainTo(inputsToApply);

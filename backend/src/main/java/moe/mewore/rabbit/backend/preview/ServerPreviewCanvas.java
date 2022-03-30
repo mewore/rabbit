@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 import com.bulletphysics.linearmath.Transform;
 
 import moe.mewore.rabbit.backend.Player;
-import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.world.MazeMap;
 
 public class ServerPreviewCanvas extends Canvas {
@@ -52,7 +52,7 @@ public class ServerPreviewCanvas extends Canvas {
 
     private final MazeMap map;
 
-    private final WorldState worldState;
+    private final RabbitWorldState worldState;
 
     private final BufferedImage mapImage;
 
@@ -66,7 +66,7 @@ public class ServerPreviewCanvas extends Canvas {
 
     private int lastOverlayHash = -1;
 
-    public ServerPreviewCanvas(final MazeMap map, final WorldState worldState) {
+    public ServerPreviewCanvas(final MazeMap map, final RabbitWorldState worldState) {
         super();
         int imageWidth = PIXELS_PER_CELL * map.getColumnCount();
         int imageHeight = PIXELS_PER_CELL * map.getRowCount();

@@ -18,27 +18,27 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class WorldSimulationIT {
+class RealtimeSimulationIT {
 
     private static final WorldProperties WORLD_PROPERTIES = new WorldProperties("seed", 1, 1, 1, 1, 1, 0, "");
 
     private static final MazeMap MAP = MazeMap.createSeamless(WORLD_PROPERTIES, new Random(),
         DiamondSquareNoise.createSeamless(1, new Random(), null, 0));
 
-    private WorldState worldState;
+    private RabbitWorldState worldState;
 
     private Player player;
 
     @BeforeEach
     void setUp() {
-        worldState = new WorldState(1, MAP);
+        worldState = new RabbitWorldState(1, MAP);
         player = worldState.createPlayer(true);
     }
 
     @Test
     void testAcceptInput() throws InterruptedException {
         final var input = new PlayerInput(1, 0, 0xaa, 0f);
-        final var simulation = new WorldSimulation(worldState);
+        final var simulation = new RealtimeSimulation(worldState);
 
         simulation.acceptInput(player, input);
         assertNull(simulation.getLastAppliedInputs());
@@ -47,7 +47,7 @@ class WorldSimulationIT {
     @Test
     void testAcceptInput_unreasonableFrame() throws InterruptedException {
         final var input = new PlayerInput(-1000, -1000L, 0xaa, 0f);
-        final var simulation = new WorldSimulation(worldState);
+        final var simulation = new RealtimeSimulation(worldState);
         simulation.acceptInput(player, input);
 
         simulation.update(-1);
@@ -59,7 +59,7 @@ class WorldSimulationIT {
 
     @Test
     void testUpdate() {
-        final WorldSimulation simulation = new WorldSimulation(worldState);
+        final RealtimeSimulation simulation = new RealtimeSimulation(worldState);
         simulation.update(System.currentTimeMillis() + 100);
         assertTrue(worldState.getFrameId() > 0);
         assertNull(simulation.getLastAppliedInputs());
@@ -67,7 +67,7 @@ class WorldSimulationIT {
 
     @Test
     void testUpdate_withPastInput() throws InterruptedException {
-        final WorldSimulation simulation = new WorldSimulation(worldState);
+        final RealtimeSimulation simulation = new RealtimeSimulation(worldState);
         final long createdAt = System.currentTimeMillis();
         simulation.update(createdAt + 100);
 

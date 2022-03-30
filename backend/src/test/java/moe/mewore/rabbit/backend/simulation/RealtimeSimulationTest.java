@@ -12,10 +12,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class WorldSimulationTest {
+class RealtimeSimulationTest {
 
-    private static WorldState makeWorldState(final AtomicLong frameId) {
-        final WorldState state = mock(WorldState.class);
+    private static RabbitWorldState makeWorldState(final AtomicLong frameId) {
+        final RabbitWorldState state = mock(RabbitWorldState.class);
         when(state.getMaxPlayerCount()).thenReturn(0);
         Mockito.doAnswer(invocation -> frameId.incrementAndGet()).when(state).doStep();
         Mockito.doAnswer(invocation -> {
@@ -32,7 +32,7 @@ class WorldSimulationTest {
     @Test
     void testGetCurrentSnapshot() {
         final AtomicLong frameId = new AtomicLong(0);
-        final WorldSimulation simulation = new WorldSimulation(makeWorldState(frameId));
+        final RealtimeSimulation simulation = new RealtimeSimulation(makeWorldState(frameId));
         simulation.update(System.currentTimeMillis() + 1000L);
         assertNotEquals(0L, frameId.get());
         final byte[] frame = simulation.getCurrentSnapshot();
@@ -42,7 +42,7 @@ class WorldSimulationTest {
     @Test
     void testGetPastSnapshot() {
         final AtomicLong frameId = new AtomicLong(0);
-        final WorldSimulation simulation = new WorldSimulation(makeWorldState(frameId));
+        final RealtimeSimulation simulation = new RealtimeSimulation(makeWorldState(frameId));
         simulation.update(System.currentTimeMillis() + 1000L);
         assertNotEquals(0L, frameId.get());
         final byte[] frame = simulation.getPastSnapshot(500);

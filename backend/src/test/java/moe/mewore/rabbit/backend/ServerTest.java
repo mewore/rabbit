@@ -28,8 +28,8 @@ import moe.mewore.rabbit.backend.mock.ws.FakeWsSession;
 import moe.mewore.rabbit.backend.mutations.MutationType;
 import moe.mewore.rabbit.backend.physics.PhysicsDummyBox;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
-import moe.mewore.rabbit.backend.simulation.WorldSimulation;
-import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
+import moe.mewore.rabbit.backend.simulation.RealtimeSimulation;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,9 +55,9 @@ class ServerTest {
 
     private Server server;
 
-    private WorldState worldState;
+    private RabbitWorldState worldState;
 
-    private WorldSimulation worldSimulation;
+    private RealtimeSimulation worldSimulation;
 
     private Player firstPlayer;
 
@@ -72,8 +72,8 @@ class ServerTest {
         javalin = mock(Javalin.class);
         firstPlayer = mock(Player.class);
         secondPlayer = mock(Player.class);
-        worldState = mock(WorldState.class);
-        worldSimulation = mock(WorldSimulation.class);
+        worldState = mock(RabbitWorldState.class);
+        worldSimulation = mock(RealtimeSimulation.class);
         threadPool = mock(ScheduledExecutorService.class);
         server = new Server(new ServerSettings(new String[0], Map.of()), javalin, new FakeMap(), worldState,
             worldSimulation, threadPool);
@@ -350,7 +350,7 @@ class ServerTest {
         final var sessionWithNoPlayer = new FakeWsSession("no-player");
         simulateConnect(sessionWithNoPlayer);
 
-        final AtomicReference<WorldState> worldStateFromUpdate = new AtomicReference<>();
+        final AtomicReference<RabbitWorldState> worldStateFromUpdate = new AtomicReference<>();
         server.onWorldUpdate(worldStateFromUpdate::set);
 
         when(worldSimulation.update(anyLong())).thenReturn(worldState);

@@ -46,8 +46,8 @@ import moe.mewore.rabbit.backend.mutations.MutationType;
 import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.backend.net.MultiPlayerHeart;
-import moe.mewore.rabbit.backend.simulation.WorldSimulation;
-import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
+import moe.mewore.rabbit.backend.simulation.RealtimeSimulation;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.noise.CompositeNoise;
@@ -79,9 +79,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     private final MazeMap map;
 
     @Getter
-    private final WorldState worldState;
+    private final RabbitWorldState worldState;
 
-    private final WorldSimulation worldSimulation;
+    private final RealtimeSimulation worldSimulation;
 
     private final ScheduledExecutorService threadPool;
 
@@ -89,7 +89,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final MultiPlayerHeart heart = new MultiPlayerHeart(MAXIMUM_NUMBER_OF_PLAYERS, this::sendHeartbeat);
 
-    private final List<Consumer<WorldState>> worldUpdateListeners = new ArrayList<>();
+    private final List<Consumer<RabbitWorldState>> worldUpdateListeners = new ArrayList<>();
 
     public static Server create(final ServerSettings settings) throws IOException {
         final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
@@ -114,8 +114,8 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             externalStaticLocation != null ? new EditorVersionHandler(externalStaticLocation, File::listFiles,
                 Context::json) : ctx -> ctx.json(Collections.emptySet()));
 
-        final var worldState = new WorldState(MAXIMUM_NUMBER_OF_PLAYERS, map);
-        final Server server = new Server(settings, javalin, map, worldState, new WorldSimulation(worldState),
+        final var worldState = new RabbitWorldState(MAXIMUM_NUMBER_OF_PLAYERS, map);
+        final Server server = new Server(settings, javalin, map, worldState, new RealtimeSimulation(worldState),
             Executors.newScheduledThreadPool(2));
         javalin.ws("/multiplayer", ws -> {
             ws.onConnect(server);
@@ -139,7 +139,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         }
     }
 
-    public void onWorldUpdate(final Consumer<WorldState> handler) {
+    public void onWorldUpdate(final Consumer<RabbitWorldState> handler) {
         worldUpdateListeners.add(handler);
     }
 
@@ -153,7 +153,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     }
 
     void updateWorld() {
-        final WorldState newState = worldSimulation.update(System.currentTimeMillis());
+        final RabbitWorldState newState = worldSimulation.update(System.currentTimeMillis());
         final List<PlayerInputEvent> newInputs = worldSimulation.getLastAppliedInputs();
         final byte[] presentData = new WorldUpdateMessage(newState, newInputs,
             worldSimulation.getCurrentSnapshot()).encodeToBinary();
@@ -166,7 +166,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
                 send(entry.getValue(), presentData);
             }
         });
-        for (final Consumer<WorldState> handler : worldUpdateListeners) {
+        for (final Consumer<RabbitWorldState> handler : worldUpdateListeners) {
             handler.accept(newState);
         }
     }

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
-import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.player.FakePlayerInputEvent;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.world.MazeMap;
@@ -36,12 +36,12 @@ class ServerPreviewCanvasTest {
         return map;
     }
 
-    private static WorldState makeWorldState(final Map<Integer, Player> players) {
+    private static RabbitWorldState makeWorldState(final Map<Integer, Player> players) {
         return makeWorldState(players, mock(DynamicsWorld.class));
     }
 
-    private static WorldState makeWorldState(final Map<Integer, Player> players, final DynamicsWorld world) {
-        final var worldState = mock(WorldState.class);
+    private static RabbitWorldState makeWorldState(final Map<Integer, Player> players, final DynamicsWorld world) {
+        final var worldState = mock(RabbitWorldState.class);
         when(worldState.getWorld()).thenReturn(world);
         when(worldState.getPlayers()).thenReturn(players);
         return worldState;
@@ -106,7 +106,7 @@ class ServerPreviewCanvasTest {
 
     private static class ServerPreviewCanvasWithSize extends ServerPreviewCanvas {
 
-        public ServerPreviewCanvasWithSize(final MazeMap map, final WorldState worldState) {
+        public ServerPreviewCanvasWithSize(final MazeMap map, final RabbitWorldState worldState) {
             super(map, worldState);
         }
 

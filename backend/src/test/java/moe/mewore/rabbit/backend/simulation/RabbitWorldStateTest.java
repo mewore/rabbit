@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class WorldStateTest {
+class RabbitWorldStateTest {
 
     private MazeMap map;
 
@@ -37,17 +37,17 @@ class WorldStateTest {
 
     @Test
     void testHasPlayers() {
-        assertFalse(new WorldState(1, map).hasPlayers());
+        assertFalse(new RabbitWorldState(1, map).hasPlayers());
     }
 
     @Test
     void testGetPlayers() {
-        assertEquals(Collections.emptyMap(), new WorldState(1, map).getPlayers());
+        assertEquals(Collections.emptyMap(), new RabbitWorldState(1, map).getPlayers());
     }
 
     @Test
     void testCreatePlayer() {
-        final Player result = new WorldState(1, map).createPlayer(true);
+        final Player result = new RabbitWorldState(1, map).createPlayer(true);
         assertNotNull(result);
         assertEquals("Player 1", result.getUsername());
         assertEquals(0, result.getId());
@@ -57,14 +57,14 @@ class WorldStateTest {
 
     @Test
     void testCreatePlayer_full() {
-        final var worldState = new WorldState(1, map);
+        final var worldState = new RabbitWorldState(1, map);
         assertNotNull(worldState.createPlayer(true));
         assertNull(worldState.createPlayer(true));
     }
 
     @Test
     void testRemovePlayer() {
-        final var worldState = new WorldState(1, map);
+        final var worldState = new RabbitWorldState(1, map);
         final Player player = worldState.createPlayer(true);
         assertNotNull(player);
         assertTrue(worldState.hasPlayers());
@@ -75,22 +75,22 @@ class WorldStateTest {
 
     @Test
     void testGetFrameSize() {
-        assertEquals(204, new WorldState(3, map).getFrameSize());
+        assertEquals(204, new RabbitWorldState(3, map).getFrameSize());
     }
 
     @Test
     void testDoStep() {
-        new WorldState(1, map).doStep();
+        new RabbitWorldState(1, map).doStep();
     }
 
     @Test
     void testDoStep_brokenWorld() {
-        new WorldState(1, map).doStep();
+        new RabbitWorldState(1, map).doStep();
     }
 
     @Test
     void testDoStep_withPlayer() {
-        final var worldState = new WorldState(1, map);
+        final var worldState = new RabbitWorldState(1, map);
         final Player player = worldState.createPlayer(true);
         assertNotNull(player);
 
@@ -101,7 +101,7 @@ class WorldStateTest {
 
     @Test
     void testLoad() {
-        final var worldState = new WorldState(1, map);
+        final var worldState = new RabbitWorldState(1, map);
         final Player player = worldState.createPlayer(true);
         assertNotNull(player);
         final byte[] frame = new byte[worldState.getFrameSize()];
@@ -112,10 +112,10 @@ class WorldStateTest {
 
     @Test
     void testSerialization() {
-        final var worldState = new WorldState(1, map);
+        final var worldState = new RabbitWorldState(1, map);
         worldState.createPlayer(true);
 
-        final var otherWorldState = new WorldState(1, map);
+        final var otherWorldState = new RabbitWorldState(1, map);
         final var player = otherWorldState.createPlayer(false);
         assertNotNull(player);
         final var inputEvent = new FakePlayerInputEvent(player,

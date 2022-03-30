@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import moe.mewore.rabbit.backend.Player;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
-import moe.mewore.rabbit.backend.simulation.WorldState;
+import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 
@@ -19,7 +19,7 @@ class WorldUpdateMessageTest {
 
     @Test
     void testEncode() {
-        final var worldState = mock(WorldState.class);
+        final var worldState = mock(RabbitWorldState.class);
 
         final var player = mock(Player.class);
         when(player.getId()).thenReturn(1);
