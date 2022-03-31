@@ -5,23 +5,15 @@ import java.io.IOException;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
-import moe.mewore.rabbit.data.BinaryEntity;
-import moe.mewore.rabbit.data.SafeDataOutput;
+import moe.mewore.rabbit.backend.game.RabbitPlayerInput;
 
 @RequiredArgsConstructor
-public class PlayerInputMutation extends BinaryEntity {
+public class PlayerInputMutation {
 
     @Getter
-    private final PlayerInput input;
+    private final RabbitPlayerInput input;
 
     public static PlayerInputMutation decodeFromBinary(final DataInput input) throws IOException {
-        return new PlayerInputMutation(PlayerInput.decodeFromBinary(input));
-    }
-
-    @Override
-    public void appendToBinaryOutput(final SafeDataOutput output) {
-        output.writeByte(MutationType.PLAYER_INPUT.getIndex());
-        input.appendToBinaryOutput(output);
+        return new PlayerInputMutation(RabbitPlayerInput.decodeFromBinary(input));
     }
 }

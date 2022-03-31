@@ -8,8 +8,8 @@ import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import lombok.RequiredArgsConstructor;
-import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
-import moe.mewore.rabbit.backend.simulation.player.PlayerInput;
+import moe.mewore.rabbit.backend.game.RabbitPlayerInput;
+import moe.mewore.rabbit.backend.game.RabbitWorld;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.data.SafeDataOutput;
@@ -17,9 +17,9 @@ import moe.mewore.rabbit.data.SafeDataOutput;
 @RequiredArgsConstructor
 public class WorldUpdateMessage extends BinaryEntity {
 
-    private final RabbitWorldState worldState;
+    private final RabbitWorld world;
 
-    private final @Nullable List<PlayerInputEvent> appliedInputs;
+    private final @Nullable List<PlayerInputEvent<RabbitPlayerInput>> appliedInputs;
 
     private final byte[] frame;
 
@@ -27,15 +27,15 @@ public class WorldUpdateMessage extends BinaryEntity {
     public void appendToBinaryOutput(final SafeDataOutput output) {
         output.writeByte(MessageType.UPDATE.getIndex());
 
-        output.writeInt(worldState.getMaxPlayerCount());
-        output.writeInt(worldState.getSpheres().length);
+        output.writeInt(world.getMaxPlayerCount());
+        output.writeInt(world.getSpheres().length);
 
-        output.writeMap(worldState.getPlayers(), output::writeInt, player -> output.writeInt(player.getLatency()));
+        output.writeMap(world.getPlayersAsMap(), output::writeInt, player -> output.writeInt(player.getLatency()));
 
-        final Map<Integer, List<PlayerInput>> inputsByPlayerId = new HashMap<>();
+        final Map<Integer, List<RabbitPlayerInput>> inputsByPlayerId = new HashMap<>();
         if (appliedInputs != null) {
-            for (final PlayerInputEvent inputEvent : appliedInputs) {
-                final List<PlayerInput> inputList = inputsByPlayerId.getOrDefault(inputEvent.getPlayerId(),
+            for (final PlayerInputEvent<RabbitPlayerInput> inputEvent : appliedInputs) {
+                final List<RabbitPlayerInput> inputList = inputsByPlayerId.getOrDefault(inputEvent.getPlayerId(),
                     new ArrayList<>());
                 inputList.add(inputEvent.getInput());
                 inputsByPlayerId.putIfAbsent(inputEvent.getPlayerId(), inputList);

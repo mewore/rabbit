@@ -5,8 +5,8 @@ import com.bulletphysics.collision.dispatch.CollisionWorld;
 
 import org.junit.jupiter.api.Test;
 
+import moe.mewore.rabbit.backend.game.RabbitPlayer;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
-import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;

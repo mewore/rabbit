@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.backend.simulation.player;
+package moe.mewore.rabbit.backend.game;
 
 import javax.vecmath.Vector3f;
 
@@ -12,8 +12,6 @@ import moe.mewore.rabbit.backend.physics.RigidBodyController;
 import moe.mewore.rabbit.world.MazeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
@@ -40,7 +38,15 @@ class RabbitPlayerTest {
     void setUp() {
         world = mock(CollisionWorld.class);
         controller = mock(RigidBodyController.class);
-        player = new RabbitPlayer(0, 0, "Player", true, world, mock(RigidBody.class), controller);
+        player = new RabbitPlayer(25, 0, "Player", true, world, mock(RigidBody.class), controller);
+    }
+
+    @Test
+    void testSettersAndGetters() {
+        assertEquals(25, player.getUid());
+        assertEquals(100, player.getLatency());
+        player.setLatency(250);
+        assertEquals(250, player.getLatency());
     }
 
     @Test
@@ -53,8 +59,8 @@ class RabbitPlayerTest {
 
     @Test
     void testBeforePhysics_jumping() {
-        final var input = new PlayerInput(1, 0L, PlayerInput.INPUT_JUMP_BIT, 0f);
-        player.applyInput(new FakePlayerInputEvent(player, input));
+        final var input = new RabbitPlayerInput(1, RabbitPlayerInput.INPUT_JUMP_BIT, 0f, 0L);
+        player.applyInput(input);
         player.beforePhysics(1f);
         verify(controller).jump();
     }
@@ -76,20 +82,10 @@ class RabbitPlayerTest {
 
     @Test
     void testApplyInput() {
-        final var input = new PlayerInput(1, 0L, PlayerInput.INPUT_UP_BIT, 0f);
-        final var inputEvent = new FakePlayerInputEvent(player, input);
-        player.applyInput(inputEvent);
+        final var input = new RabbitPlayerInput(1, RabbitPlayerInput.INPUT_UP_BIT, 0f, 0L);
+        player.applyInput(input);
         assertEquals("(-0.00, -100.00)", formatPlayerTargetMotion(player));
-        assertSame(inputEvent, player.getLastInputEvent());
-    }
-
-    @Test
-    void testClearInput() {
-        final var input = new PlayerInput(1, 0L, PlayerInput.INPUT_UP_BIT, 0f);
-        player.applyInput(new FakePlayerInputEvent(player, input));
-        player.clearInput();
-        assertEquals("(0.00, 0.00)", formatPlayerTargetMotion(player));
-        assertNull(player.getLastInputEvent());
+        assertEquals(1, player.getInputId());
     }
 
     @Test

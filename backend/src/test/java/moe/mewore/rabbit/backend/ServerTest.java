@@ -14,23 +14,27 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.javalin.Javalin;
 import io.javalin.websocket.WsBinaryMessageContext;
 import io.javalin.websocket.WsCloseContext;
 import io.javalin.websocket.WsConnectContext;
 import lombok.SneakyThrows;
+import moe.mewore.rabbit.backend.game.RabbitPlayer;
+import moe.mewore.rabbit.backend.game.RabbitPlayerInput;
+import moe.mewore.rabbit.backend.game.RabbitWorld;
 import moe.mewore.rabbit.backend.messages.MessageType;
 import moe.mewore.rabbit.backend.mock.FakeMap;
 import moe.mewore.rabbit.backend.mock.ws.FakeWsSession;
 import moe.mewore.rabbit.backend.mutations.MutationType;
 import moe.mewore.rabbit.backend.physics.PhysicsDummyBox;
 import moe.mewore.rabbit.backend.physics.PhysicsDummySphere;
-import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.RealtimeSimulation;
-import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,15 +54,17 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class ServerTest {
 
     private static final PhysicsDummyBox[] NO_BOXES = new PhysicsDummyBox[0];
 
     private Server server;
 
-    private RabbitWorldState worldState;
+    private RabbitWorld world;
 
-    private RealtimeSimulation worldSimulation;
+    @Mock
+    private RealtimeSimulation<RabbitPlayerInput> worldSimulation;
 
     private RabbitPlayer firstPlayer;
 
@@ -73,11 +79,10 @@ class ServerTest {
         javalin = mock(Javalin.class);
         firstPlayer = mock(RabbitPlayer.class);
         secondPlayer = mock(RabbitPlayer.class);
-        worldState = mock(RabbitWorldState.class);
-        worldSimulation = mock(RealtimeSimulation.class);
+        world = mock(RabbitWorld.class);
         threadPool = mock(ScheduledExecutorService.class);
-        server = new Server(new ServerSettings(new String[0], Map.of()), javalin, new FakeMap(), worldState,
-            worldSimulation, threadPool);
+        server = new Server(new ServerSettings(new String[0], Map.of()), javalin, new FakeMap(), world, worldSimulation,
+            threadPool);
     }
 
     @Test
@@ -103,7 +108,7 @@ class ServerTest {
     @Test
     void testStop() throws InterruptedException {
         server.start();
-        when(threadPool.awaitTermination(1, TimeUnit.MINUTES)).thenReturn(true);
+        when(threadPool.awaitTermination(1L, TimeUnit.MINUTES)).thenReturn(true);
         server.stop();
 
         verify(threadPool).shutdown();
@@ -113,7 +118,7 @@ class ServerTest {
     @Test
     void testStop_failureToTerminateThreadPool() throws InterruptedException {
         server.start();
-        when(threadPool.awaitTermination(anyInt(), any())).thenReturn(false);
+        when(threadPool.awaitTermination(anyLong(), any())).thenReturn(false);
         server.stop();
 
         verify(javalin).stop();
@@ -128,7 +133,7 @@ class ServerTest {
 
     @Test
     void testHandleConnect() {
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         final var session = new FakeWsSession("session");
         simulateConnect(session);
         assertEquals(List.of(MessageType.MAP_DATA), session.getSentMessageTypes());
@@ -137,9 +142,9 @@ class ServerTest {
     @Test
     void testHandleConnect_afterJoin() {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
-        when(worldState.createPlayer(anyBoolean())).thenReturn(firstPlayer);
+        when(world.createPlayer(anyBoolean())).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         simulateJoin(session);
 
@@ -151,12 +156,12 @@ class ServerTest {
     @Test
     void testHandleBinaryMessage_join() throws IOException {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
 
         final var otherSession = new FakeWsSession("other");
         simulateConnect(otherSession);
-        when(worldState.createPlayer(anyBoolean())).thenReturn(firstPlayer);
+        when(world.createPlayer(anyBoolean())).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("12345");
         when(firstPlayer.isReisen()).thenReturn(true);
         simulateJoin(session, true);
@@ -187,7 +192,7 @@ class ServerTest {
     @Test
     void testHandleBinaryMessage_join_failedToCreatePlayer() {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
         simulateJoin(session, true);
         assertEquals(List.of(MessageType.MAP_DATA), session.getSentMessageTypes());
@@ -196,9 +201,9 @@ class ServerTest {
     @Test
     void testHandleBinaryMessage_playerInput() throws InterruptedException {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
-        when(worldState.createPlayer(anyBoolean())).thenReturn(firstPlayer);
+        when(world.createPlayer(anyBoolean())).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         simulateJoin(session);
 
@@ -219,9 +224,9 @@ class ServerTest {
     @Test
     void testHandleBinaryMessage_playerInput_interrupted() throws InterruptedException {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
-        when(worldState.createPlayer(anyBoolean())).thenReturn(firstPlayer);
+        when(world.createPlayer(anyBoolean())).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         simulateJoin(session);
 
@@ -239,9 +244,9 @@ class ServerTest {
     @Test
     void testHandleBinaryMessage_heartbeat() {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
-        when(worldState.createPlayer(anyBoolean())).thenReturn(firstPlayer);
+        when(world.createPlayer(anyBoolean())).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         simulateJoin(session);
 
@@ -254,7 +259,7 @@ class ServerTest {
     @Test
     void testHandleBinaryMessage_heartbeat_noPlayer() {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
 
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -265,7 +270,7 @@ class ServerTest {
 
     @Test
     void testHandleBinaryMessage_invalidMutationType() {
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         final var session = new FakeWsSession("session");
         simulateConnect(session);
         final Exception exception = assertThrows(IllegalArgumentException.class,
@@ -276,7 +281,7 @@ class ServerTest {
     @Test
     void testHandleBinaryMessage_join_alreadyConnected() {
         final var session = new FakeWsSession("session");
-        when(worldState.createPlayer(anyBoolean())).thenReturn(firstPlayer);
+        when(world.createPlayer(anyBoolean())).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         simulateJoin(session);
         final Exception exception = assertThrows(IllegalArgumentException.class,
@@ -294,7 +299,7 @@ class ServerTest {
 
     @Test
     void testHandleClose() {
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         final var firstSession = new FakeWsSession("session");
         simulateConnect(firstSession);
         simulateClose(firstSession);
@@ -304,9 +309,9 @@ class ServerTest {
     @Test
     void testHandleClose_two() throws IOException {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
-        when(worldState.createPlayer(anyBoolean())).thenReturn(firstPlayer);
+        when(world.createPlayer(anyBoolean())).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         simulateJoin(session);
 
@@ -323,7 +328,7 @@ class ServerTest {
 
     @Test
     void testHandleClose_notConnected() {
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         final var session = new FakeWsSession("session");
         simulateConnect(session);
         simulateClose(session);
@@ -333,17 +338,17 @@ class ServerTest {
     @Test
     void testUpdateWorld() {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
-        when(worldState.createPlayer(false)).thenReturn(firstPlayer);
+        when(world.createPlayer(false)).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         when(firstPlayer.getLatency()).thenReturn(200);
         simulateJoin(session, false);
 
         final var otherSession = new FakeWsSession("other");
         simulateConnect(otherSession);
-        when(worldState.createPlayer(true)).thenReturn(secondPlayer);
-        when(secondPlayer.getId()).thenReturn(1);
+        when(world.createPlayer(true)).thenReturn(secondPlayer);
+        when(secondPlayer.getIndex()).thenReturn(1);
         when(secondPlayer.getUsername()).thenReturn("");
         when(secondPlayer.getLatency()).thenReturn(2000);
         simulateJoin(otherSession, true);
@@ -351,20 +356,20 @@ class ServerTest {
         final var sessionWithNoPlayer = new FakeWsSession("no-player");
         simulateConnect(sessionWithNoPlayer);
 
-        final AtomicReference<RabbitWorldState> worldStateFromUpdate = new AtomicReference<>();
-        server.onWorldUpdate(worldStateFromUpdate::set);
+        final AtomicReference<RabbitWorld> worldFromUpdate = new AtomicReference<>();
+        server.onWorldUpdate(worldFromUpdate::set);
 
-        when(worldSimulation.update(anyLong())).thenReturn(worldState);
         when(worldSimulation.getCurrentSnapshot()).thenReturn(new byte[0]);
         when(worldSimulation.getPastSnapshot(anyInt())).thenReturn(new byte[0]);
-        when(worldState.getSpheres()).thenReturn(new PhysicsDummySphere[0]);
+        when(world.getSpheres()).thenReturn(new PhysicsDummySphere[0]);
         server.updateWorld();
         assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN, MessageType.JOIN, MessageType.UPDATE),
             session.getSentMessageTypes());
         assertEquals(List.of(MessageType.MAP_DATA, MessageType.JOIN, MessageType.JOIN, MessageType.UPDATE),
             otherSession.getSentMessageTypes());
 
-        assertSame(worldState, worldStateFromUpdate.get());
+        assertSame(world, worldFromUpdate.get());
+        verify(worldSimulation).update(anyLong());
         verify(worldSimulation).getPastSnapshot(300);
         verify(worldSimulation).getPastSnapshot(3000);
     }
@@ -372,9 +377,9 @@ class ServerTest {
     @Test
     void testSendHeartbeat() {
         final var session = new FakeWsSession("session");
-        when(worldState.getBoxes()).thenReturn(NO_BOXES);
+        when(world.getBoxes()).thenReturn(NO_BOXES);
         simulateConnect(session);
-        when(worldState.createPlayer(false)).thenReturn(firstPlayer);
+        when(world.createPlayer(false)).thenReturn(firstPlayer);
         when(firstPlayer.getUsername()).thenReturn("");
         simulateJoin(session, false);
 

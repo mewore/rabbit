@@ -1,4 +1,4 @@
-package moe.mewore.rabbit.backend.simulation.player;
+package moe.mewore.rabbit.backend.game;
 
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
@@ -7,18 +7,16 @@ import com.bulletphysics.collision.dispatch.CollisionObject;
 import com.bulletphysics.collision.dispatch.CollisionWorld;
 import com.bulletphysics.linearmath.Transform;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import moe.mewore.rabbit.backend.net.Heart;
 import moe.mewore.rabbit.backend.physics.RigidBodyController;
-import moe.mewore.rabbit.backend.simulation.data.FrameSerializableEntity;
+import moe.mewore.rabbit.backend.simulation.player.Player;
 import moe.mewore.rabbit.world.MazeMap;
 
 @RequiredArgsConstructor
-public class RabbitPlayer implements FrameSerializableEntity {
+public class RabbitPlayer implements Player<RabbitPlayerInput> {
 
     private static final float MAX_SPEED = 100f;
 
@@ -35,7 +33,7 @@ public class RabbitPlayer implements FrameSerializableEntity {
     private final int uid;
 
     @Getter
-    private final int id;
+    private final int index;
 
     @Getter
     private final String username;
@@ -58,7 +56,7 @@ public class RabbitPlayer implements FrameSerializableEntity {
     private int latency = Heart.DEFAULT_LATENCY;
 
     @Getter
-    private @Nullable PlayerInputEvent lastInputEvent = null;
+    private int inputId = -1;
 
     public void beforePhysics(final float dt) {
         characterController.setTargetHorizontalMotion(targetHorizontalMotion);
@@ -79,16 +77,11 @@ public class RabbitPlayer implements FrameSerializableEntity {
         characterController.setPosition(position);
     }
 
-    public void applyInput(final PlayerInputEvent inputEvent) {
-        lastInputEvent = inputEvent;
-        inputEvent.getInput().applyToTargetHorizontalMotion(targetHorizontalMotion, MAX_SPEED);
-        jumping = inputEvent.getInput().isJumping();
-    }
-
-    public void clearInput() {
-        lastInputEvent = null;
-        PlayerInput.EMPTY.applyToTargetHorizontalMotion(targetHorizontalMotion, 0f);
-        jumping = false;
+    @Override
+    public void applyInput(final RabbitPlayerInput input) {
+        inputId = input.getId();
+        input.applyToTargetHorizontalMotion(targetHorizontalMotion, MAX_SPEED);
+        jumping = input.isJumping();
     }
 
     @Override

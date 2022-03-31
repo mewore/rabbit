@@ -36,6 +36,9 @@ import io.javalin.websocket.WsContext;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import moe.mewore.rabbit.backend.editor.EditorVersionHandler;
+import moe.mewore.rabbit.backend.game.RabbitPlayer;
+import moe.mewore.rabbit.backend.game.RabbitPlayerInput;
+import moe.mewore.rabbit.backend.game.RabbitWorld;
 import moe.mewore.rabbit.backend.messages.HeartbeatRequest;
 import moe.mewore.rabbit.backend.messages.MapDataMessage;
 import moe.mewore.rabbit.backend.messages.PlayerDisconnectMessage;
@@ -46,10 +49,8 @@ import moe.mewore.rabbit.backend.mutations.MutationType;
 import moe.mewore.rabbit.backend.mutations.PlayerInputMutation;
 import moe.mewore.rabbit.backend.mutations.PlayerJoinMutation;
 import moe.mewore.rabbit.backend.net.MultiPlayerHeart;
-import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
 import moe.mewore.rabbit.backend.simulation.RealtimeSimulation;
 import moe.mewore.rabbit.backend.simulation.player.PlayerInputEvent;
-import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
 import moe.mewore.rabbit.data.BinaryEntity;
 import moe.mewore.rabbit.noise.CompositeNoise;
 import moe.mewore.rabbit.noise.DiamondSquareNoise;
@@ -80,9 +81,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     private final MazeMap map;
 
     @Getter
-    private final RabbitWorldState worldState;
+    private final RabbitWorld world;
 
-    private final RealtimeSimulation worldSimulation;
+    private final RealtimeSimulation<RabbitPlayerInput> worldSimulation;
 
     private final ScheduledExecutorService threadPool;
 
@@ -90,7 +91,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     private final MultiPlayerHeart heart = new MultiPlayerHeart(MAXIMUM_NUMBER_OF_PLAYERS, this::sendHeartbeat);
 
-    private final List<Consumer<RabbitWorldState>> worldUpdateListeners = new ArrayList<>();
+    private final List<Consumer<RabbitWorld>> worldUpdateListeners = new ArrayList<>();
 
     public static Server create(final ServerSettings settings) throws IOException {
         final @Nullable String externalStaticLocation = settings.getExternalStaticLocation();
@@ -115,8 +116,9 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
             externalStaticLocation != null ? new EditorVersionHandler(externalStaticLocation, File::listFiles,
                 Context::json) : ctx -> ctx.json(Collections.emptySet()));
 
-        final var worldState = new RabbitWorldState(MAXIMUM_NUMBER_OF_PLAYERS, map);
-        final Server server = new Server(settings, javalin, map, worldState, new RealtimeSimulation(worldState),
+        final var world = new RabbitWorld(MAXIMUM_NUMBER_OF_PLAYERS, map, RabbitWorld.createPhysicsWorld());
+        world.initialize();
+        final Server server = new Server(settings, javalin, map, world, new RealtimeSimulation<>(world),
             Executors.newScheduledThreadPool(2));
         javalin.ws("/multiplayer", ws -> {
             ws.onConnect(server);
@@ -140,7 +142,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         }
     }
 
-    public void onWorldUpdate(final Consumer<RabbitWorldState> handler) {
+    public void onWorldUpdate(final Consumer<RabbitWorld> handler) {
         worldUpdateListeners.add(handler);
     }
 
@@ -154,21 +156,21 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     }
 
     void updateWorld() {
-        final RabbitWorldState newState = worldSimulation.update(System.currentTimeMillis());
-        final List<PlayerInputEvent> newInputs = worldSimulation.getLastAppliedInputs();
-        final byte[] presentData = new WorldUpdateMessage(newState, newInputs,
+        worldSimulation.update(System.currentTimeMillis());
+        final List<PlayerInputEvent<RabbitPlayerInput>> newInputs = worldSimulation.getLastAppliedInputs();
+        final byte[] presentData = new WorldUpdateMessage(world, newInputs,
             worldSimulation.getCurrentSnapshot()).encodeToBinary();
         sessionById.entrySet().parallelStream().forEach(entry -> {
             final RabbitPlayer player = playerBySessionId.get(entry.getKey());
             if (player != null) {
-                send(entry.getValue(), new WorldUpdateMessage(newState, newInputs,
+                send(entry.getValue(), new WorldUpdateMessage(world, newInputs,
                     worldSimulation.getPastSnapshot(player.getLatency() * 3 / 2)));
             } else {
                 send(entry.getValue(), presentData);
             }
         });
-        for (final Consumer<RabbitWorldState> handler : worldUpdateListeners) {
-            handler.accept(newState);
+        for (final Consumer<RabbitWorld> handler : worldUpdateListeners) {
+            handler.accept(world);
         }
     }
 
@@ -235,7 +237,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
 
     @Override
     public void handleConnect(final @NonNull WsConnectContext sender) {
-        sender.send(ByteBuffer.wrap(new MapDataMessage(map, worldState.getBoxes()).encodeToBinary()));
+        sender.send(ByteBuffer.wrap(new MapDataMessage(map, world.getBoxes()).encodeToBinary()));
         for (final RabbitPlayer player : playerBySessionId.values()) {
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(player, false).encodeToBinary()));
         }
@@ -257,11 +259,11 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
     }
 
     private synchronized void handleJoin(final WsContext sender, final PlayerJoinMutation joinMutation) {
-        final @Nullable RabbitPlayer newPlayer = worldState.createPlayer(joinMutation.isReisen());
+        final @Nullable RabbitPlayer newPlayer = world.createPlayer(joinMutation.isReisen());
         // TODO: Change the joining to a normal HTTP request so that there can be a [400] response
         if (newPlayer != null) {
             playerBySessionId.put(sender.getSessionId(), newPlayer);
-            sessionByPlayerId.put(newPlayer.getId(), sender.session);
+            sessionByPlayerId.put(newPlayer.getIndex(), sender.session);
             broadcast(sender, new PlayerJoinMessage(newPlayer, false));
             sender.send(ByteBuffer.wrap(new PlayerJoinMessage(newPlayer, true).encodeToBinary()));
             heart.addPlayer(newPlayer);
@@ -274,7 +276,7 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         try {
             worldSimulation.acceptInput(player, updateMutation.getInput());
         } catch (final InterruptedException e) {
-            System.out.println("Interrupted while handling an input from player " + player.getId());
+            System.out.println("Interrupted while handling an input from player " + player.getIndex());
             Thread.currentThread().interrupt();
         }
     }
@@ -284,10 +286,10 @@ public class Server implements WsConnectHandler, WsBinaryMessageHandler, WsClose
         sessionById.remove(sender.getSessionId());
         final @Nullable RabbitPlayer player = playerBySessionId.remove(sender.getSessionId());
         if (player != null) {
-            worldState.removePlayer(player);
+            world.removePlayer(player);
             broadcast(sender, new PlayerDisconnectMessage(player));
             heart.removePlayer(player);
-            sessionByPlayerId.remove(player.getId());
+            sessionByPlayerId.remove(player.getIndex());
         }
     }
 

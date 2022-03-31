@@ -28,7 +28,7 @@ public class ServerWithPreview {
         frame.getContentPane().add(BorderLayout.NORTH, mb);
 
         server.getMap().setDarkMode(true);
-        final ServerPreviewCanvas previewCanvas = new ServerPreviewCanvas(server.getMap(), server.getWorldState());
+        final ServerPreviewCanvas previewCanvas = new ServerPreviewCanvas(server.getMap(), server.getWorld());
         server.onWorldUpdate(state -> previewCanvas.updateOverlay());
 
         frame.getContentPane().add(BorderLayout.CENTER, previewCanvas);

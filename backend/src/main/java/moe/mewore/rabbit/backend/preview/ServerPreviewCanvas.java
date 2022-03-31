@@ -8,8 +8,8 @@ import java.util.stream.Collectors;
 
 import com.bulletphysics.linearmath.Transform;
 
-import moe.mewore.rabbit.backend.simulation.RabbitWorldState;
-import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
+import moe.mewore.rabbit.backend.game.RabbitPlayer;
+import moe.mewore.rabbit.backend.game.RabbitWorld;
 import moe.mewore.rabbit.world.MazeMap;
 
 public class ServerPreviewCanvas extends Canvas {
@@ -52,7 +52,7 @@ public class ServerPreviewCanvas extends Canvas {
 
     private final MazeMap map;
 
-    private final RabbitWorldState worldState;
+    private final RabbitWorld world;
 
     private final BufferedImage mapImage;
 
@@ -66,7 +66,7 @@ public class ServerPreviewCanvas extends Canvas {
 
     private int lastOverlayHash = -1;
 
-    public ServerPreviewCanvas(final MazeMap map, final RabbitWorldState worldState) {
+    public ServerPreviewCanvas(final MazeMap map, final RabbitWorld world) {
         super();
         int imageWidth = PIXELS_PER_CELL * map.getColumnCount();
         int imageHeight = PIXELS_PER_CELL * map.getRowCount();
@@ -76,12 +76,12 @@ public class ServerPreviewCanvas extends Canvas {
             imageHeight = (int) (imageHeight / Math.sqrt(overhead));
         }
         this.map = map;
-        this.worldState = worldState;
+        this.world = world;
         mapImage = map.render(imageWidth, imageHeight);
         image = new BufferedImage(mapImage.getWidth(), mapImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
 
         debugDrawer = new ServerPhysicsDebug(map.getWidth(), map.getDepth(), imageWidth, imageHeight);
-        this.worldState.getWorld().setDebugDrawer(debugDrawer);
+        this.world.getPhysicsWorld().setDebugDrawer(debugDrawer);
     }
 
     private static double wrapNormalized(final double coordinate) {
@@ -103,7 +103,7 @@ public class ServerPreviewCanvas extends Canvas {
 
     public void updateOverlay() {
         debugDrawer.clear();
-        worldState.getWorld().debugDrawWorld();
+        world.getPhysicsWorld().debugDrawWorld();
 
         final List<PlayerPreview> playerPreviews = makeCurrentPlayerPreviews();
         final int newPlayerPreviewHash = playerPreviews.hashCode();
@@ -207,7 +207,7 @@ public class ServerPreviewCanvas extends Canvas {
     }
 
     private List<PlayerPreview> makeCurrentPlayerPreviews() {
-        return worldState.getPlayers().values().stream().map(this::makePlayerPreview).collect(Collectors.toList());
+        return world.getPlayersAsMap().values().stream().map(this::makePlayerPreview).collect(Collectors.toList());
     }
 
     private PlayerPreview makePlayerPreview(final RabbitPlayer player) {

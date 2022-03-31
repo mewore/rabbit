@@ -11,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import lombok.NonNull;
-import moe.mewore.rabbit.backend.simulation.player.RabbitPlayer;
+import moe.mewore.rabbit.backend.game.RabbitPlayer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,9 +39,9 @@ class MultiPlayerHeartTest {
     @Test
     void testDoStep_fiveTimes() {
         final RabbitPlayer firstPlayer = mock(RabbitPlayer.class);
-        when(firstPlayer.getId()).thenReturn(0);
+        when(firstPlayer.getIndex()).thenReturn(0);
         final RabbitPlayer secondPlayer = mock(RabbitPlayer.class);
-        when(secondPlayer.getId()).thenReturn(2);
+        when(secondPlayer.getIndex()).thenReturn(2);
         heart.addPlayer(firstPlayer);
         heart.addPlayer(secondPlayer);
 
@@ -59,7 +59,7 @@ class MultiPlayerHeartTest {
     @Test
     void testDoStep_50TimesWithOnePlayer() {
         final RabbitPlayer player = mock(RabbitPlayer.class);
-        when(player.getId()).thenReturn(0);
+        when(player.getIndex()).thenReturn(0);
         heart.addPlayer(player);
 
         for (int i = 0; i < 50; i++) {
@@ -81,7 +81,7 @@ class MultiPlayerHeartTest {
     @Test
     void testRemovePlayer() {
         final RabbitPlayer player = mock(RabbitPlayer.class);
-        when(player.getId()).thenReturn(0);
+        when(player.getIndex()).thenReturn(0);
         heart.addPlayer(player);
 
         heart.removePlayer(player);
@@ -94,7 +94,7 @@ class MultiPlayerHeartTest {
     @Test
     void testReceive() {
         final RabbitPlayer player = mock(RabbitPlayer.class);
-        when(player.getId()).thenReturn(0);
+        when(player.getIndex()).thenReturn(0);
         heart.addPlayer(player);
         heart.doStep();
         final var beatIdCaptor = ArgumentCaptor.forClass(Integer.class);
@@ -108,7 +108,7 @@ class MultiPlayerHeartTest {
     @Test
     void testReceive_noSuchPlayer() {
         final RabbitPlayer player = mock(RabbitPlayer.class);
-        when(player.getId()).thenReturn(0);
+        when(player.getIndex()).thenReturn(0);
         heart.receive(player, 0);
         verify(player, never()).setLatency(anyInt());
     }
